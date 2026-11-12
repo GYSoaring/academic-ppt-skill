@@ -2956,9 +2956,26 @@ class DeckRenderer:
                 slide.notes_slide.notes_text_frame.text = speech
         presentation.save(str(target))
 
+    @staticmethod
+    def contact_columns(count: int) -> int:
+        if count <= 1:
+            return 1
+        best_columns = 3
+        best_score: tuple[int, float] | None = None
+        first_columns = 3 if count >= 5 else 2
+        for columns in range(first_columns, 6):
+            rows = math.ceil(count / columns)
+            blanks = rows * columns - count
+            score = (blanks, abs(columns - 3.6))
+            if best_score is None or score < best_score:
+                best_score = score
+                best_columns = columns
+        return best_columns
+
     def build_contact_sheet(self, rendered_paths: list[Path], target: Path) -> None:
-        columns = 3
-        thumb_width, thumb_height, label_height = 620, 349, 42
+        columns = self.contact_columns(len(rendered_paths))
+        thumb_width = 620 if columns <= 4 else 500
+        thumb_height, label_height = round(thumb_width * 9 / 16), 42
         rows = math.ceil(len(rendered_paths) / columns)
         sheet = Image.new("RGB", (thumb_width * columns, (thumb_height + label_height) * rows), self.color("paper"))
         draw = ImageDraw.Draw(sheet)
