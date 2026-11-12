@@ -1,6 +1,6 @@
 # Design Language
 
-This is the visual grammar for the deterministic renderer. It adapts the fixed institutional layer from the user's accepted deck and the evidence-first rules summarized in `research-basis.md`.
+This is the visual grammar for the deterministic renderer. It adapts the fixed institutional layer from the accepted academic deck images and the evidence-first rules summarized in `research-basis.md`. The detailed extraction and acceptance checklist live in `visual-language.md`.
 
 ## Design Position
 
@@ -15,6 +15,8 @@ The deck should read as a research report, not a startup pitch:
 - every page has a claim and a boundary.
 
 The image-generation look is useful for atmosphere and mechanism intuition. It is not a license to invent data, labels, axes, or citations.
+
+The correct relationship is: generated images provide a style reference; the theme and renderer own the fixed chrome; `deck.json` owns every label, number, formula, and figure role.
 
 ## Fixed Layers
 
@@ -93,6 +95,8 @@ Use a concept visual only when it explains a relationship that prose cannot expl
 
 Every concept visual must be labeled as a concept or mechanism schematic. It must not look like an unlabeled measured plot.
 
+For a concept-led page, prefer the `concept` layout. Its `diagram` must use one of the semantic kinds `sequence`, `branch`, `stack`, `ruler`, `matrix`, or `cycle`; the renderer will not invent labels or values. A `sequence` is only for a real order; a `matrix` is only for a real two-axis tradeoff; a `ruler` needs numeric values.
+
 If there is no real figure and the content is mainly prose, do not invent a chart. Use a content-derived `footer` strip instead:
 
 - `判断` for the question the evidence must answer;
@@ -114,6 +118,8 @@ Formulas should read like a paper, not like monospaced code:
 - never ask an image model to draw the formula.
 
 The deterministic renderer uses LaTeX-style math typesetting for the visible formula and falls back to readable text if the optional math stack is unavailable.
+
+For a formula-led page, use the `formula` layout rather than a large grid block. Include the equation, symbol rows, a condition strip, and panels for reading, boundary, and verification. Use real subscript characters or LaTeX math in symbol rows; do not show code identifiers such as `t_e` in the final slide.
 
 ## Color
 

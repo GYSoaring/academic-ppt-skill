@@ -27,11 +27,11 @@ Produce a self-contained output directory containing:
 
 1. Read the user's paper, outline, images, school identity assets, presenter, advisor, date, and time limit.
 2. Choose a structure from [references/outline-patterns.md](references/outline-patterns.md).
-3. Choose each page's evidence role and layout from [references/layout-catalog.md](references/layout-catalog.md); read [references/design-language.md](references/design-language.md) before designing a new theme or layout.
+3. Choose each page's evidence role and layout from [references/layout-catalog.md](references/layout-catalog.md); read [references/visual-language.md](references/visual-language.md) and [references/design-language.md](references/design-language.md) before designing a new theme or layout.
 4. Build `deck.json` using [references/deck-schema.md](references/deck-schema.md).
 5. Set `meta.deck_mode` to `content_only` when the user explicitly asks to remove the cover and table of contents; otherwise keep `full`.
 6. For each content page, write a short topic `title` (4–10 Chinese characters) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header.
-7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip or a textual structure; never insert an unrelated placeholder diagram.
+7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip, a formula, a table, or a semantic `diagram`; never insert an unrelated placeholder diagram.
 8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md).
 9. Select or copy a theme. Use `assets/themes/tju_blue/theme.json` for the fixed Tianjin University visual system, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/academic_blue/theme.json` for a generic institutional theme.
 10. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
@@ -64,6 +64,8 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Use `grid` for three to six compact mechanism blocks. Do not leave large empty cards when the source page is information-dense.
 - When a grid block has no real image, prefer `footer` or `output` for a short, content-derived judgement, deliverable, or metric. Do not use `visual` as a generic placeholder.
 - Use `figure` when one real figure is the argument, `figure_flow` for mechanism-plus-evidence, `pipeline` for a genuine sequence, `balance` for a real tradeoff around one central system figure, and `hub` for taxonomy or route panoramas. Do not turn every page into the same left-right card split.
+- Use `concept` when a causal, structural, threshold, or feedback relation needs a labeled schematic. The six semantic kinds are `sequence`, `branch`, `stack`, `ruler`, `matrix`, and `cycle`. Every label and value comes from `deck.json`; the renderer only owns geometry.
+- Use `formula` when one equation is the page's main object. Keep `formula_latex` as the typeset source and `formula` as the portable fallback; add symbol definitions, a condition strip, and explicit boundary panels. Do not use the formula layout as a decorative code block.
 - A `chart` object must become a native editable PowerPoint chart, not a screenshot. Keep the same values, highlight, axes labels, caption, and palette as the deterministic preview. If neither `image` nor `chart` is provided, show a missing-asset notice rather than an unrelated placeholder.
 - Keep measured figures dominant: a hero figure should normally occupy 65%–80% of the content area, with a narrow interpretation rail rather than a wall of small cards.
 - Use red only for a decisive number, risk, or boundary; use one blue family for ordinary structure. Do not use a rainbow of semantic colors.
@@ -81,6 +83,7 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Put a source/citation note in `footnote` when a figure, table, or borrowed number appears. If the number is not comparable across papers, say so in the note.
 - Generated illustrations may clarify a mechanism, but never carry exact Chinese labels, numbers, axes, or citations. Those belong in the deterministic layer.
 - For formulas, store the portable plain fallback in `formula` and the LaTeX source in `formula_latex`. The renderer uses LaTeX-style math typesetting when available and falls back to the plain string without failing.
+- Use real subscript characters or LaTeX math for symbol rows such as `tₑ` or `uₑ`; do not leave code-like `t_e` in the visible slide.
 - The native exporter converts `formula_latex` to OMML through `latex2mathml` and Office's `MML2OMML.XSL`. Keep the plain `formula` fallback. If OMML conversion is unavailable, the PPTX uses an editable Cambria Math text fallback rather than a raster formula.
 
 ## Public-Use Fallbacks
@@ -90,6 +93,7 @@ The skill is intended for users beyond one school or one topic. See [references/
 - Missing school seal or wordmark: use a text lockup or neutral monogram from the theme; never invent an official mark.
 - Missing theme font: fall back through the theme's ordered font candidates; keep the same hierarchy and spacing.
 - Missing real image or paper figure: use a content-derived `footer` / `output` strip, a table, a formula, or a textual structure. Do not draw a generic target, histogram, node chain, or noise plot.
+- Missing a measured figure but having a real mechanism relation: use `concept` with a semantic `diagram`, label it `机制示意` or `研究接口`, and state what it does not prove.
 - `visual` is only drawn when the deck explicitly sets `visual_semantic: true`; otherwise it is ignored. Never use `visual` as an unlabeled placeholder.
 - Missing optional metadata: leave the field blank or write `待补充`; validation must report incomplete required fields.
 - Different school or discipline: copy the theme folder, replace colors, identity assets, fonts, and background motif, then update the theme name. Do not hard-code a university or a research topic in the renderer.

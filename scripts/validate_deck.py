@@ -17,6 +17,8 @@ SUPPORTED_LAYOUTS = {
     "bullets",
     "figure",
     "figure_flow",
+    "concept",
+    "formula",
     "pipeline",
     "compare",
     "metrics",
@@ -29,6 +31,7 @@ SUPPORTED_LAYOUTS = {
 }
 
 REQUIRES_IMAGE_OR_CHART = {"figure", "figure_flow", "metrics", "balance"}
+DIAGRAM_KINDS = {"sequence", "branch", "stack", "ruler", "matrix", "cycle"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +62,10 @@ def content_units(slide: dict) -> int:
         return len(slide.get("panels") or [])
     if layout == "figure_flow":
         return len(slide.get("flow") or []) + len(slide.get("panels") or [])
+    if layout == "concept":
+        return len((slide.get("diagram") or {}).get("items") or []) + len(slide.get("panels") or [])
+    if layout == "formula":
+        return len(slide.get("variables") or []) + len(slide.get("panels") or [])
     if layout == "pipeline":
         return len(slide.get("steps") or [])
     if layout == "compare":
@@ -74,6 +81,68 @@ def content_units(slide: dict) -> int:
     if layout == "references":
         return len(slide.get("references") or [])
     return 0
+
+
+def validate_diagram(diagram: dict, page_id: str, issues: list[dict], label: str = "Diagram") -> None:
+    """Validate semantic diagram data before rendering.
+
+    Diagrams are content-bearing, not decoration. Keep their cardinality and
+    required fields explicit so a model cannot silently produce an empty or
+    misleading schematic.
+    """
+    if not isinstance(diagram, dict):
+        add_issue(issues, "error", page_id, f"{label} must be an object.")
+        return
+    kind = str(diagram.get("kind", "sequence")).strip().lower()
+    if kind not in DIAGRAM_KINDS:
+        add_issue(
+            issues,
+            "error",
+            page_id,
+            f"{label} has unsupported kind: {kind}. Use one of {sorted(DIAGRAM_KINDS)}.",
+        )
+        return
+    items = [item for item in (diagram.get("items") or []) if isinstance(item, dict)]
+    limits = {
+        "sequence": (2, 5),
+        "branch": (2, 4),
+        "stack": (2, 5),
+        "ruler": (2, 8),
+        "matrix": (4, 4),
+        "cycle": (3, 5),
+    }
+    minimum, maximum = limits[kind]
+    if not minimum <= len(items) <= maximum:
+        add_issue(
+            issues,
+            "error",
+            page_id,
+            f"{label} needs {minimum}–{maximum} items for kind '{kind}'.",
+        )
+    if kind == "branch" and not isinstance(diagram.get("root"), dict):
+        add_issue(issues, "warning", page_id, f"{label} should define root for branch diagrams.")
+    if kind == "ruler":
+        for item_index, item in enumerate(items, start=1):
+            if "value" not in item:
+                add_issue(issues, "error", page_id, f"{label} ruler item {item_index} needs numeric value.")
+                continue
+            try:
+                float(item["value"])
+            except (TypeError, ValueError):
+                add_issue(issues, "error", page_id, f"{label} ruler item {item_index} value is not numeric.")
+    for item_index, item in enumerate(items, start=1):
+        if not str(item.get("title") or item.get("label") or "").strip():
+            add_issue(issues, "warning", page_id, f"{label} item {item_index} has no title/label.")
+    if "highlight" in diagram:
+        highlight = diagram.get("highlight")
+        if not isinstance(highlight, int) or not 0 <= highlight < len(items):
+            add_issue(issues, "error", page_id, f"{label} highlight is outside the items range.")
+    if kind == "matrix":
+        if not isinstance(diagram.get("x_axis"), dict) or not isinstance(diagram.get("y_axis"), dict):
+            add_issue(issues, "warning", page_id, f"{label} matrix should define x_axis and y_axis labels.")
+        pairs = diagram.get("pairs") or []
+        if pairs and len(pairs) != len(items):
+            add_issue(issues, "warning", page_id, f"{label} pairs count should match item count.")
 
 
 def main() -> None:
@@ -178,6 +247,26 @@ def main() -> None:
             image_path = resolve_path(slide.get("image"), deck_path.parent)
             if not slide.get("chart") and (image_path is None or not image_path.exists()):
                 add_issue(issues, "error", page_id, "Figure-flow layout needs an image or chart.")
+        if layout == "concept":
+            diagram = slide.get("diagram")
+            if not isinstance(diagram, dict):
+                add_issue(issues, "error", page_id, "Concept layout needs a diagram object.")
+            else:
+                validate_diagram(diagram, page_id, issues, label="Concept diagram")
+            panels = slide.get("panels") or []
+            if not 1 <= len(panels) <= 3:
+                add_issue(issues, "error", page_id, "Concept layout needs one to three interpretation panels.")
+            if slide.get("image") or slide.get("chart"):
+                add_issue(issues, "warning", page_id, "Concept layout is diagram-led; use figure/figure_flow for real evidence.")
+        if layout == "formula":
+            if not (str(slide.get("formula", "")).strip() or str(slide.get("formula_latex", "")).strip()):
+                add_issue(issues, "error", page_id, "Formula layout needs formula or formula_latex.")
+            variables = slide.get("variables") or []
+            if not 2 <= len(variables) <= 8:
+                add_issue(issues, "error", page_id, "Formula layout needs two to eight variable explanations.")
+            panels = slide.get("panels") or []
+            if not 1 <= len(panels) <= 3:
+                add_issue(issues, "error", page_id, "Formula layout needs one to three interpretation panels.")
         if layout == "pipeline":
             step_count = len(slide.get("steps") or [])
             if not 3 <= step_count <= 5:
@@ -228,6 +317,10 @@ def main() -> None:
                         page_id,
                         f"Grid block {block_index} has formula_latex but no plain formula fallback.",
                     )
+                if block.get("diagram"):
+                    validate_diagram(block.get("diagram"), page_id, issues, label=f"Grid block {block_index} diagram")
+                    if block.get("image"):
+                        add_issue(issues, "warning", page_id, f"Grid block {block_index} has both image and diagram; image wins in rendering.")
         if layout == "balance":
             for rail_name in ("left", "right"):
                 rail = slide.get(rail_name) or {}

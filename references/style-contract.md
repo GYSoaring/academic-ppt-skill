@@ -12,7 +12,7 @@
 
 1. Fixed chapter label and short topic title: orientation, not the argument.
 2. Lead band: one complete-sentence claim that tells the audience what this page proves.
-3. Evidence object: figure, table, flow, metric, or concept schematic.
+3. Evidence object: figure, table, flow, metric, formula, or labeled concept schematic.
 4. Interpretation modules: two to four short notes that explain what to look at.
 5. Takeaway band: the condition, boundary, or transition that closes the page.
 
@@ -93,6 +93,9 @@ Do not use the fixed header for a long sentence. Header titles should normally b
 - Avoid nested cards, large rounded corners, saturated multi-color blocks, and dashboard-style widgets.
 - When a real figure is the main evidence, let it occupy roughly 65%–80% of the content area. Put the interpretation in a narrow rail; do not letterbox a dense plot into a small decorative card.
 - Use a hub layout only when the center is a real shared object or question. Four to six surrounding branches should be parallel in rhetorical level; do not use a hub as decoration.
+- Use `concept` only when the relation is genuinely spatial, causal, structural, or cyclical. The diagram must have a labeled kind, content-bearing nodes, and a note stating that it is not measured evidence.
+- A `sequence` is not a decorative arrow chain: it must encode a real order. A `matrix` must have two named axes and four meaningful quadrants. A `ruler` must use numeric values from the source.
+- Use `formula` when one equation is the page's central object. The page must include the equation, symbol definitions, a condition strip, and a boundary panel; a formula without these is not a complete evidence page.
 
 ## Figures
 
@@ -120,6 +123,26 @@ Do not use the fixed header for a long sentence. Header titles should normally b
 - Use `\left...\right`, `\sum`, `\varphi`, `\mathcal`, and braces deliberately; do not fake superscripts with plain text.
 - If the math renderer is unavailable, keep the formula readable as plain text and emit a render warning rather than failing the deck.
 - Do not use an image model to generate formulas, axes, or symbols. They belong in the deterministic layer.
+- Use actual subscript characters or LaTeX math in symbol rows; `t_e` is a code identifier, not a visible academic symbol.
+
+## Image-Generation Extraction
+
+The accepted Image Gen 2.6 academic deck images are a style reference, not a layout source to trace. Extract:
+
+- a fixed header with a double slash, chapter number, and short topic title;
+- a fixed upper-right institutional identity;
+- a five-item mini-directory that is present on content pages and absent on cover/outline;
+- dense evidence pages with a dominant figure, one narrow interpretation rail, and a bottom boundary band;
+- deep-blue module headings, pale blue evidence fills, thin lines, and a single red accent;
+- a consistent rhythm between dense evidence pages and quieter transition pages.
+
+Do not extract or copy:
+
+- exact Chinese titles, seals, school names, photographs, or paper figures from a generated image;
+- a full-page generated slide as a background;
+- fake axes, fake numbers, fake references, or an image-model formula.
+
+The deterministic renderer must redraw the structure and keep every text object editable. The guarantee is editorial and structural fidelity, not pixel-identical reproduction.
 
 ## Identity Assets
 

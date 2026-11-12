@@ -1527,6 +1527,23 @@ class EditableDeckExporter:
             body_size, _ = self.measure(body, "body", int(text_width_available), 150, int(block.get("body_size", self.type_size("body", 22))), self.type_size("small", 15), max_lines=4, line_ratio=1.2)
             self.add_text(slide, (text_left, content_top, text_width_available, 112), body, body_size, "ink", line_ratio=1.2)
             content_top += min(112, max(30, body_size * 1.28 * max(1, math.ceil(len(strip_markup(body)) / max(8, text_width_available / max(1, body_size)))))) + 8
+        diagram = block.get("diagram")
+        has_block_image = image_path is not None and image_path.exists()
+        if isinstance(diagram, dict) and diagram and not has_block_image and content_bottom - content_top > 96:
+            diagram_height = int(
+                block.get(
+                    "diagram_height",
+                    min(170, max(88, int((content_bottom - content_top) * 0.46))),
+                )
+            )
+            self.draw_diagram_native(
+                slide,
+                (text_left, content_top, text_width_available, diagram_height),
+                diagram,
+                label=str(block.get("diagram_label", "")),
+                frame=True,
+            )
+            content_top += diagram_height + 8
         visual = str(block.get("visual", "")).strip() if block.get("visual_semantic") else ""
         bullets_height = max(28, content_bottom - content_top - 10)
         if visual and bullets_height > 70:
@@ -1553,6 +1570,492 @@ class EditableDeckExporter:
         if visual == "flow":
             for index in range(3):
                 self.add_panel(slide, (left + index * width * 0.32, top + height * 0.18, width * 0.2, height * 0.56), "white", "line", radius_px=4, line_width_px=1)
+
+    def draw_diagram_native(
+        self,
+        slide,
+        box: tuple[float, float, float, float],
+        diagram: dict,
+        label: str = "",
+        frame: bool = True,
+    ) -> None:
+        """Native PowerPoint counterpart of design.draw_diagram."""
+        if not diagram:
+            return
+        left, top, width, height = box
+        if width < 100 or height < 80:
+            return
+        if frame:
+            self.add_panel(slide, box, "blue_wash", "line", radius_px=6, line_width_px=1)
+        pad = max(10, min(18, int(width * 0.018)))
+        inner_left, inner_top = left + pad, top + pad
+        inner_width, inner_height = width - pad * 2, height - pad * 2
+        if label:
+            label_width = max(64.0, len(label) * 15.0 + 22.0)
+            self.add_panel(slide, (inner_left, inner_top, label_width, 25), "blue", None, radius_px=3, line_width_px=0)
+            self.add_text(
+                slide,
+                (inner_left + 10, inner_top + 3, label_width - 16, 20),
+                label,
+                13,
+                "white",
+                bold=True,
+                valign="middle",
+                line_ratio=1.0,
+                name="diagram_label",
+            )
+            inner_top += 34
+            inner_height -= 34
+        note = str(diagram.get("note", "")).strip()
+        if note:
+            inner_height -= 30
+        kind = str(diagram.get("kind", "sequence")).strip().lower()
+        items = [item for item in (diagram.get("items") or []) if isinstance(item, dict)]
+        highlight = int(diagram.get("highlight", -1))
+        inner_right = inner_left + inner_width
+        inner_bottom = inner_top + inner_height
+
+        if kind == "sequence":
+            items = items[:5]
+            count = max(1, len(items))
+            gap = max(20, min(34, int(inner_width * 0.035)))
+            node_width = max(64, (inner_width - gap * (count - 1)) // count)
+            node_height = min(112, max(72, int(inner_height * 0.56)))
+            node_top = inner_top + max(0, (inner_height - node_height) // 2)
+            for index, item in enumerate(items):
+                x = inner_left + index * (node_width + gap)
+                is_focus = index == highlight
+                self.add_panel(
+                    slide,
+                    (x, node_top, node_width, node_height),
+                    "blue" if is_focus else "white",
+                    "blue" if is_focus else "line",
+                    radius_px=5,
+                    line_width_px=2 if is_focus else 1,
+                )
+                self.add_text(
+                    slide,
+                    (x + 10, node_top + 9, 34, 22),
+                    f"{index + 1:02d}",
+                    13,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    line_ratio=1.0,
+                    name="diagram_index",
+                )
+                self.add_fit_text(
+                    slide,
+                    (x + 10, node_top + 40, node_width - 20, 30),
+                    str(item.get("title") or item.get("label") or ""),
+                    "title",
+                    18,
+                    12,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    align="center",
+                    max_lines=2,
+                    line_ratio=1.05,
+                    name="diagram_node_title",
+                )
+                body = str(item.get("body", "")).strip()
+                if body:
+                    self.add_fit_text(
+                        slide,
+                        (x + 10, node_top + 72, node_width - 20, node_height - 80),
+                        body,
+                        "body",
+                        14,
+                        10,
+                        "blue_pale" if is_focus else "muted",
+                        align="center",
+                        max_lines=2,
+                        line_ratio=1.08,
+                        name="diagram_node_body",
+                    )
+                if index < count - 1:
+                    self.add_line(
+                        slide,
+                        (x + node_width + 4, node_top + node_height / 2),
+                        (x + node_width + gap - 4, node_top + node_height / 2),
+                        "blue_mid",
+                        2,
+                        arrow=True,
+                        name="diagram_connector",
+                    )
+        elif kind == "branch":
+            items = items[:4]
+            root = diagram.get("root") if isinstance(diagram.get("root"), dict) else {}
+            root_width = int(inner_width * 0.31)
+            root_height = max(100, inner_height - 36)
+            root_top = inner_top + (inner_height - root_height) / 2
+            self.add_panel(slide, (inner_left, root_top, root_width, root_height), "blue", "blue", radius_px=5, line_width_px=1)
+            self.add_fit_text(
+                slide,
+                (inner_left + 12, root_top + 18, root_width - 24, max(48, root_height * 0.4)),
+                str(root.get("title") or diagram.get("center") or "共同问题"),
+                "title",
+                24,
+                14,
+                "white",
+                bold=True,
+                align="center",
+                max_lines=2,
+                valign="middle",
+                name="diagram_root_title",
+            )
+            root_body = str(root.get("body", "")).strip()
+            if root_body:
+                self.add_fit_text(
+                    slide,
+                    (inner_left + 12, root_top + root_height * 0.46, root_width - 24, root_height * 0.46),
+                    root_body,
+                    "body",
+                    16,
+                    11,
+                    "blue_pale",
+                    align="center",
+                    max_lines=3,
+                    valign="middle",
+                    name="diagram_root_body",
+                )
+            item_left = inner_left + root_width + max(34, int(inner_width * 0.08))
+            item_width = inner_right - item_left
+            item_gap = 12
+            item_height = max(48, (inner_height - item_gap * (len(items) - 1)) / max(1, len(items)))
+            for index, item in enumerate(items):
+                y = inner_top + index * (item_height + item_gap)
+                is_focus = index == highlight
+                self.add_panel(
+                    slide,
+                    (item_left, y, item_width, item_height),
+                    "blue_pale" if is_focus else "white",
+                    "red" if is_focus else "line",
+                    radius_px=5,
+                    line_width_px=2 if is_focus else 1,
+                )
+                self.add_text(
+                    slide,
+                    (item_left + 10, y + 9, 36, 22),
+                    f"{index + 1:02d}",
+                    13,
+                    "blue_dark",
+                    bold=True,
+                    line_ratio=1.0,
+                    name="diagram_index",
+                )
+                self.add_fit_text(
+                    slide,
+                    (item_left + 52, y + 7, item_width - 62, 28),
+                    str(item.get("title") or item.get("label") or ""),
+                    "title",
+                    17,
+                    12,
+                    "blue_dark",
+                    bold=True,
+                    max_lines=1,
+                    name="diagram_branch_title",
+                )
+                body = str(item.get("body", "")).strip()
+                if body:
+                    self.add_fit_text(
+                        slide,
+                        (item_left + 52, y + 35, item_width - 62, item_height - 42),
+                        body,
+                        "body",
+                        14,
+                        10,
+                        "ink",
+                        max_lines=2,
+                        line_ratio=1.08,
+                        name="diagram_branch_body",
+                    )
+                self.add_line(
+                    slide,
+                    (inner_left + root_width, root_top + root_height / 2),
+                    (item_left - 6, y + item_height / 2),
+                    "blue_mid",
+                    2,
+                    arrow=True,
+                    name="diagram_branch_connector",
+                )
+        elif kind == "stack":
+            items = items[:5]
+            gap = 8
+            row_height = max(38, (inner_height - gap * (len(items) - 1)) / max(1, len(items)))
+            for index, item in enumerate(items):
+                y = inner_top + index * (row_height + gap)
+                is_focus = index == highlight
+                indent = min(34, index * 10)
+                self.add_panel(
+                    slide,
+                    (inner_left + indent, y, inner_width - indent, row_height),
+                    "blue" if is_focus else ("white" if index % 2 == 0 else "blue_wash"),
+                    "blue_mid" if is_focus else "line",
+                    radius_px=4,
+                    line_width_px=1,
+                )
+                self.add_rect(slide, (inner_left + indent, y, 5, row_height), "red" if is_focus else "blue")
+                self.add_text(
+                    slide,
+                    (inner_left + indent + 12, y + max(7, (row_height - 22) / 2), 34, 22),
+                    f"{index + 1:02d}",
+                    13,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    line_ratio=1.0,
+                    name="diagram_index",
+                )
+                text_left = inner_left + indent + 64
+                title_width = (inner_right - text_left) * 0.34
+                self.add_fit_text(
+                    slide,
+                    (text_left, y + 4, title_width, row_height - 8),
+                    str(item.get("title") or item.get("label") or ""),
+                    "title",
+                    17,
+                    12,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    max_lines=1,
+                    valign="middle",
+                    name="diagram_stack_title",
+                )
+                body = str(item.get("body", "")).strip()
+                if body:
+                    self.add_fit_text(
+                        slide,
+                        (text_left + title_width + 8, y + 4, inner_right - text_left - title_width - 18, row_height - 8),
+                        body,
+                        "body",
+                        14,
+                        10,
+                        "blue_pale" if is_focus else "muted",
+                        max_lines=1,
+                        valign="middle",
+                        name="diagram_stack_body",
+                    )
+                if index < len(items) - 1:
+                    self.add_line(
+                        slide,
+                        (inner_left + indent + (inner_width - indent) / 2, y + row_height + 1),
+                        (inner_left + indent + (inner_width - indent) / 2, y + row_height + gap - 1),
+                        "blue_mid",
+                        2,
+                        arrow=True,
+                        name="diagram_stack_connector",
+                    )
+        elif kind == "ruler":
+            items = items[:8]
+            values: list[float] = []
+            for item in items:
+                try:
+                    values.append(float(item.get("value", 0)))
+                except (TypeError, ValueError):
+                    values.append(0.0)
+            if values:
+                minimum, maximum = min(values), max(values)
+                span = (maximum - minimum) or 1.0
+                axis_y = inner_top + inner_height * 0.55
+                self.add_line(slide, (inner_left, axis_y), (inner_right, axis_y), "blue_dark", 3, arrow=True, name="diagram_ruler_axis")
+                positions: dict[float, float] = {}
+                for index, (item, value) in enumerate(zip(items, values)):
+                    x = inner_left + (inner_width - 12) * (value - minimum) / span
+                    positions[value] = x
+                    is_focus = index == highlight
+                    self.add_line(slide, (x, axis_y - 16), (x, axis_y + 5), "red" if is_focus else "blue_mid", 3, name="diagram_tick")
+                    self.add_ellipse(slide, (x - 5, axis_y - 5, 10, 10), "red" if is_focus else "blue", "white", 2, name="diagram_tick_point")
+                    self.add_text(
+                        slide,
+                        (x - 36, axis_y + 12, 72, 28),
+                        str(item.get("label") or item.get("title") or value),
+                        18,
+                        "red" if is_focus else "blue_dark",
+                        bold=True,
+                        align="center",
+                        line_ratio=1.0,
+                        name="diagram_tick_label",
+                    )
+                    body = str(item.get("body", "")).strip()
+                    if body:
+                        self.add_fit_text(
+                            slide,
+                            (x - 48, axis_y + 42, 96, max(20, inner_bottom - axis_y - 42)),
+                            body,
+                            "body",
+                            12,
+                            9,
+                            "muted",
+                            align="center",
+                            max_lines=2,
+                            line_ratio=1.05,
+                            name="diagram_tick_body",
+                        )
+                pairs = [pair for pair in (diagram.get("pairs") or []) if isinstance(pair, dict)]
+                for pair_index, pair in enumerate(pairs[:4]):
+                    try:
+                        start_value = float(pair.get("from", minimum))
+                        end_value = float(pair.get("to", maximum))
+                    except (TypeError, ValueError):
+                        continue
+                    if start_value not in positions or end_value not in positions:
+                        continue
+                    x1, x2 = positions[start_value], positions[end_value]
+                    if x1 > x2:
+                        x1, x2 = x2, x1
+                    bracket_y = inner_top + 18 + pair_index * 18
+                    self.add_line(slide, (x1, bracket_y), (x2, bracket_y), "blue_mid", 2, name="diagram_pair_rule")
+                    self.add_line(slide, (x1, bracket_y - 5), (x1, bracket_y + 5), "blue_mid", 2)
+                    self.add_line(slide, (x2, bracket_y - 5), (x2, bracket_y + 5), "blue_mid", 2)
+                    label_text = str(pair.get("label", "")).strip()
+                    if label_text:
+                        pair_width = max(28.0, len(label_text) * 14.0 + 12.0)
+                        self.add_text(
+                            slide,
+                            ((x1 + x2 - pair_width) / 2, bracket_y - 11, pair_width, 18),
+                            label_text,
+                            13,
+                            "blue_mid",
+                            bold=True,
+                            align="center",
+                            line_ratio=1.0,
+                            name="diagram_pair_label",
+                        )
+        elif kind == "matrix":
+            items = items[:4]
+            gap = 8
+            grid_left = inner_left + 42
+            grid_top = inner_top + 6
+            grid_right = inner_right
+            grid_bottom = inner_bottom - 34
+            cell_width = (grid_right - grid_left - gap) / 2
+            cell_height = (grid_bottom - grid_top - gap) / 2
+            for index, item in enumerate(items):
+                row = index // 2
+                column = index % 2
+                x = grid_left + column * (cell_width + gap)
+                y = grid_top + row * (cell_height + gap)
+                is_focus = index == highlight
+                self.add_panel(
+                    slide,
+                    (x, y, cell_width, cell_height),
+                    "blue" if is_focus else ("white" if row == column else "blue_wash"),
+                    "red" if is_focus else "line",
+                    radius_px=4,
+                    line_width_px=2 if is_focus else 1,
+                )
+                self.add_text(
+                    slide,
+                    (x + 9, y + 8, 36, 22),
+                    f"{index + 1:02d}",
+                    13,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    line_ratio=1.0,
+                    name="diagram_index",
+                )
+                self.add_fit_text(
+                    slide,
+                    (x + 34, y + 7, cell_width - 44, 32),
+                    str(item.get("title") or item.get("label") or ""),
+                    "title",
+                    16,
+                    11,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    max_lines=1,
+                    name="diagram_matrix_title",
+                )
+                body = str(item.get("body", "")).strip()
+                if body:
+                    self.add_fit_text(
+                        slide,
+                        (x + 10, y + 40, cell_width - 18, cell_height - 48),
+                        body,
+                        "body",
+                        13,
+                        9,
+                        "blue_pale" if is_focus else "ink",
+                        max_lines=2,
+                        line_ratio=1.08,
+                        name="diagram_matrix_body",
+                    )
+            self.add_line(slide, (grid_left, grid_top), (grid_left, grid_bottom), "blue_dark", 2, name="diagram_y_axis")
+            self.add_line(slide, (grid_left, grid_bottom), (grid_right, grid_bottom), "blue_dark", 2, name="diagram_x_axis")
+            x_axis = diagram.get("x_axis") if isinstance(diagram.get("x_axis"), dict) else {}
+            y_axis = diagram.get("y_axis") if isinstance(diagram.get("y_axis"), dict) else {}
+            if x_axis.get("low"):
+                self.add_fit_text(slide, (grid_left, grid_bottom + 5, cell_width, 24), str(x_axis["low"]), "body", 12, 9, "muted", align="center", max_lines=1, name="diagram_x_low")
+            if x_axis.get("high"):
+                self.add_fit_text(slide, (grid_right - cell_width, grid_bottom + 5, cell_width, 24), str(x_axis["high"]), "body", 12, 9, "muted", align="center", max_lines=1, name="diagram_x_high")
+            if y_axis.get("high"):
+                self.add_fit_text(slide, (inner_left, grid_top, grid_left - inner_left - 6, cell_height), str(y_axis["high"]), "body", 12, 9, "muted", align="center", max_lines=2, valign="middle", name="diagram_y_high")
+            if y_axis.get("low"):
+                self.add_fit_text(slide, (inner_left, grid_bottom - cell_height, grid_left - inner_left - 6, cell_height), str(y_axis["low"]), "body", 12, 9, "muted", align="center", max_lines=2, valign="middle", name="diagram_y_low")
+        elif kind == "cycle":
+            items = items[:5]
+            count = max(3, len(items))
+            center_x = inner_left + inner_width / 2
+            center_y = inner_top + inner_height / 2
+            radius_x = max(70, inner_width / 3)
+            radius_y = max(52, inner_height / 3)
+            points: list[tuple[float, float]] = []
+            for index in range(count):
+                angle = -math.pi / 2 + index * 2 * math.pi / count
+                points.append((center_x + math.cos(angle) * radius_x, center_y + math.sin(angle) * radius_y))
+            for index, point in enumerate(points):
+                next_point = points[(index + 1) % len(points)]
+                self.add_line(slide, (point[0] + 20, point[1]), (next_point[0] - 20, next_point[1]), "blue_mid", 2, arrow=True, name="diagram_cycle_connector")
+            node_width = min(150, max(90, inner_width / 4))
+            for index, (item, point) in enumerate(zip(items, points)):
+                is_focus = index == highlight
+                self.add_panel(
+                    slide,
+                    (point[0] - node_width / 2, point[1] - 28, node_width, 56),
+                    "blue" if is_focus else "white",
+                    "red" if is_focus else "line",
+                    radius_px=5,
+                    line_width_px=2 if is_focus else 1,
+                )
+                self.add_fit_text(
+                    slide,
+                    (point[0] - node_width / 2 + 8, point[1] - 23, node_width - 16, 46),
+                    str(item.get("title") or item.get("label") or ""),
+                    "title",
+                    16,
+                    11,
+                    "white" if is_focus else "blue_dark",
+                    bold=True,
+                    align="center",
+                    max_lines=2,
+                    valign="middle",
+                    name="diagram_cycle_title",
+                )
+        else:
+            self.add_fit_text(
+                slide,
+                (inner_left, inner_top, inner_width, inner_height),
+                f"暂不支持的原生示意图：{kind}",
+                "body",
+                16,
+                11,
+                "red",
+                align="center",
+                valign="middle",
+                name="diagram_unsupported",
+            )
+        if note:
+            self.add_fit_text(
+                slide,
+                (inner_left, inner_top + inner_height + 5, inner_width, 24),
+                note,
+                "body",
+                13,
+                9,
+                "muted",
+                max_lines=1,
+                line_ratio=1.0,
+                name="diagram_note",
+            )
 
     def add_formula(self, slide, latex: str, box: tuple[float, float, float, float], size_px: float = 34) -> None:
         source = (latex or "").strip()
@@ -1606,6 +2109,115 @@ class EditableDeckExporter:
             raise RuntimeError("LaTeX to OMML conversion returned no root")
         self.formula_cache[latex] = root
         return root
+
+    def draw_concept(self, slide, s: dict) -> None:
+        left, top, right, bottom = self.content_bounds(s)
+        body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
+        self.add_sidebar(slide, s.get("section"))
+        diagram = s.get("diagram") or {}
+        panels = s.get("panels") or []
+        gap = 18
+        if panels:
+            diagram_ratio = max(0.48, min(0.68, float(s.get("diagram_width_ratio", 0.58))))
+            diagram_width = (right - left) * diagram_ratio
+            panel_width = right - left - diagram_width - gap
+        else:
+            diagram_width = right - left
+            panel_width = 0
+        self.draw_diagram_native(
+            slide,
+            (left, body_top, diagram_width, bottom - body_top),
+            diagram,
+            label=str(s.get("diagram_label", "机制示意")),
+            frame=True,
+        )
+        if panels:
+            panel_left = left + diagram_width + gap
+            panel_gap = 12
+            panel_height = (bottom - body_top - panel_gap * (len(panels) - 1)) / max(1, len(panels))
+            for index, panel in enumerate(panels):
+                panel_top = body_top + index * (panel_height + panel_gap)
+                box = (panel_left, panel_top, panel_width, panel_height)
+                self.add_panel(slide, box, "white" if index % 2 == 0 else "blue_wash", "line", radius_px=self.panel_radius, line_width_px=1)
+                self.add_module_header(slide, box, str(panel.get("heading", "")), index=f"{index + 1:02d}", icon=str(panel.get("icon", "")), height=48)
+                content_top = panel_top + 58
+                body = str(panel.get("body", "")).strip()
+                bullets = panel.get("bullets") or []
+                if body:
+                    body_size, _ = self.measure(body, "body", int(panel_width - 28), max(40, int(panel_height - 70)), self.type_size("body", 19), self.type_size("small", 13), max_lines=4 if not bullets else 3, line_ratio=1.2)
+                    self.add_text(slide, (panel_left + 14, content_top, panel_width - 28, max(36, panel_top + panel_height - content_top - 10)), body, body_size, "ink", line_ratio=1.2)
+                    content_top += min(panel_top + panel_height - content_top - 10, max(34, body_size * 1.3 * max(1, math.ceil(len(strip_markup(body)) / max(8, (panel_width - 28) / max(1, body_size)))))) + 8
+                if bullets:
+                    self.add_bullets(slide, bullets, (panel_left + 14, content_top, panel_width - 28, max(24, panel_top + panel_height - content_top - 10)), max_size=self.type_size("bullet", 16), min_size=self.type_size("micro", 11), gap_px=4)
+        self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
+        self.add_footnote(slide, s.get("footnote", ""))
+
+    def draw_formula(self, slide, s: dict) -> None:
+        left, top, right, bottom = self.content_bounds(s)
+        body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
+        self.add_sidebar(slide, s.get("section"))
+        gap = 18
+        left_ratio = max(0.52, min(0.70, float(s.get("formula_width_ratio", 0.62))))
+        left_width = (right - left) * left_ratio
+        right_left = left + left_width + gap
+        panel_height = int(s.get("formula_panel_height", 236))
+        formula_box = (left, body_top, left_width, panel_height)
+        self.add_panel(slide, formula_box, "blue_wash", "line", radius_px=self.panel_radius, line_width_px=1)
+        self.add_rect(slide, (left, body_top, 6, panel_height), "blue")
+        label = str(s.get("formula_label", "核心关系"))
+        label_width = max(80.0, len(label) * 16.0 + 28.0)
+        self.add_panel(slide, (left + 18, body_top + 14, label_width, 30), "blue", None, radius_px=3, line_width_px=0)
+        self.add_text(slide, (left + 32, body_top + 19, label_width - 24, 22), label, 16, "white", bold=True, valign="middle", line_ratio=1.0, name="formula_label")
+        formula = str(s.get("formula_latex") or s.get("formula") or "").strip()
+        condition = str(s.get("formula_condition", "")).strip()
+        math_bottom = body_top + panel_height - (58 if condition else 22)
+        self.add_formula(slide, formula, (left + 28, body_top + 58, left_width - 56, max(50, math_bottom - body_top - 58)), 46)
+        if condition:
+            self.add_panel(slide, (left + 18, body_top + panel_height - 42, left_width - 36, 32), "blue_pale", "line", radius_px=3, line_width_px=1)
+            self.add_fit_text(slide, (left + 28, body_top + panel_height - 37, left_width - 56, 24), condition, "body", 14, 10, "ink", max_lines=1, line_ratio=1.05, name="formula_condition")
+
+        variables_top = body_top + panel_height + 18
+        variables = [item for item in (s.get("variables") or []) if isinstance(item, dict)]
+        self.add_text(slide, (left, variables_top, left_width, 28), str(s.get("variables_title", "符号与条件")), 18, "blue_dark", bold=True, line_ratio=1.0, name="formula_variables_title")
+        self.add_line(slide, (left, variables_top + 30), (left + left_width, variables_top + 30), "line", 2)
+        if variables:
+            columns = 2 if len(variables) > 2 else 1
+            column_gap = 18
+            column_width = (left_width - column_gap * (columns - 1)) / columns
+            rows = math.ceil(len(variables) / columns)
+            row_height = max(54, min(74, (bottom - variables_top - 50) / max(1, rows)))
+            for index, item in enumerate(variables):
+                column = index % columns
+                row = index // columns
+                x = left + column * (column_width + column_gap)
+                y = variables_top + 42 + row * row_height
+                self.add_line(slide, (x, y + row_height - 6), (x + column_width, y + row_height - 6), "line", 1)
+                symbol = str(item.get("symbol", "")).strip()
+                meaning = str(item.get("meaning", "")).strip()
+                self.add_text(slide, (x, y, column_width, 32), symbol, 26, "blue", family=self.fonts["formula"], line_ratio=1.0, name="formula_symbol")
+                self.add_fit_text(slide, (x, y + 32, column_width, max(20, row_height - 42)), meaning, "body", 16, 11, "ink", max_lines=2, line_ratio=1.15, name="formula_meaning")
+
+        panels = s.get("panels") or []
+        if panels:
+            panel_gap = 12
+            panel_height_right = (bottom - body_top - panel_gap * (len(panels) - 1)) / max(1, len(panels))
+            panel_width = right - right_left
+            for index, panel in enumerate(panels):
+                panel_top = body_top + index * (panel_height_right + panel_gap)
+                box = (right_left, panel_top, panel_width, panel_height_right)
+                self.add_panel(slide, box, "white" if index % 2 == 0 else "blue_wash", "line", radius_px=self.panel_radius, line_width_px=1)
+                self.add_module_header(slide, box, str(panel.get("heading", "")), index=f"{index + 1:02d}", icon=str(panel.get("icon", "")), height=48)
+                content_top = panel_top + 58
+                body = str(panel.get("body", "")).strip()
+                bullets = panel.get("bullets") or []
+                if body:
+                    body_size, _ = self.measure(body, "body", int(panel_width - 28), max(36, int(panel_height_right - 72)), self.type_size("body", 18), self.type_size("small", 12), max_lines=4 if not bullets else 3, line_ratio=1.18)
+                    self.add_text(slide, (right_left + 14, content_top, panel_width - 28, max(32, panel_top + panel_height_right - content_top - 10)), body, body_size, "ink", line_ratio=1.18)
+                    content_top += min(panel_top + panel_height_right - content_top - 10, max(30, body_size * 1.25 * max(1, math.ceil(len(strip_markup(body)) / max(8, (panel_width - 28) / max(1, body_size)))))) + 8
+                if bullets:
+                    self.add_bullets(slide, bullets, (right_left + 14, content_top, panel_width - 28, max(22, panel_top + panel_height_right - content_top - 10)), max_size=self.type_size("bullet", 16), min_size=self.type_size("micro", 11), gap_px=4)
+        self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
+        self.add_footnote(slide, s.get("footnote", ""))
 
     def draw_pipeline(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
@@ -2309,6 +2921,10 @@ class EditableDeckExporter:
                 self.draw_figure(slide, s)
             elif layout == "figure_flow":
                 self.draw_figure_flow(slide, s)
+            elif layout == "concept":
+                self.draw_concept(slide, s)
+            elif layout == "formula":
+                self.draw_formula(slide, s)
             elif layout == "metrics":
                 self.draw_metrics(slide, s)
             elif layout == "balance":

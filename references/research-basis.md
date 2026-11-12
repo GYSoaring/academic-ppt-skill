@@ -12,6 +12,11 @@ Queries included:
 - `slidev academic theme`
 - `marp academic theme`
 - `image generation presentation slides`
+- `academic presentation visual hierarchy grid evidence layout`
+- `scientific infographic reading order arrows numbers`
+- `consulting action title one exhibit source line`
+- `academic poster information hierarchy typography`
+- `graphical abstract layout linear parallel matrix`
 
 Selection favored repositories with an actual slide system, not a single decorative template.
 
@@ -30,6 +35,12 @@ Selection favored repositories with an actual slide system, not a single decorat
 | [VectorSpaceLab/InfoVis](https://github.com/VectorSpaceLab/InfoVis) | Slide-image generation and editing benchmark | Confirms the separation between visual generation and exact layout/text; we keep text, axes, citations, and page chrome deterministic |
 | [KaTeX/KaTeX](https://github.com/KaTeX/KaTeX) | Fast LaTeX-style math typesetting with standard operator and script spacing | Treat formula typography as its own layer rather than ordinary body text; keep math italic, upright function names, and true sub/superscripts |
 | [matplotlib/matplotlib](https://github.com/matplotlib/matplotlib) | Offline mathtext renderer with STIX/Computer Modern-compatible math fonts | Render `formula_latex` to a transparent high-resolution asset when a browser or Node math renderer is unavailable; fall back to plain text rather than failing |
+| [Harvard Catalyst: Slides](https://catalyst.harvard.edu/writing-communication-center/visualize-science/slides/) | Assertion-evidence structure, audience-centered visuals, and slide-level assessment | Write a complete-sentence lead; pair one assertion with one visual evidence object; keep the boundary visible |
+| [UW Design Help Desk: The Little Book of Visual Design Principles for Scientists](https://depts.washington.edu/deshelp/toolkit/DesignGuide.pdf) | Contrast, space, micro-space, unity, and grid | Enforce one blue family, readable margins, consistent spacing, and a stable content grid |
+| [OpenPresentation layout templates](https://www.openpresentation.org/docs/reference/layout-templates) | Regions are read in order; layout expresses a relationship; content flows into a declared structure | Put comparison in parallel regions, sequence in reading order, and evidence next to its claim; do not use a generic card grid for every relation |
+| [OpenPresentation format card](https://www.openpresentation.org/docs/reference/format-card) | One slide, one message; explicit design tokens | Keep one job per page; make spacing and type scale theme tokens rather than ad hoc values |
+| [Aperivue/medsci-skills](https://github.com/Aperivue/medsci-skills) | Clinical/academic palettes, evidence plates, and figure/text separation | Preserve a restrained blue-gray palette and separate measured evidence from explanatory text |
+| [Russell-cell/PPT-Design-Prompt](https://github.com/Russell-cell/PPT-Design-Prompt) | Prompt structure that separates layout, content, and visual style | Keep the style contract independent from the topic; never hard-code a school or a research field |
 
 ## Rules Adopted
 
@@ -43,6 +54,9 @@ Selection favored repositories with an actual slide system, not a single decorat
 8. **Close on the argument.** The last page should still be useful during Q&A: conclusions, boundary, next step.
 9. **Semantic fallback before decoration.** If the user supplies no image, a `footer`/`output` judgement or a textual structure is better than an unrelated target, histogram, or node chain.
 10. **Math is not body text.** Formula variables, operators, and scripts need LaTeX-style typesetting; keep a plain fallback for portability.
+11. **Diagrams encode relations, not decoration.** Use `sequence` only for a real order, `matrix` only for a two-axis tradeoff, `ruler` only for a scale, and `cycle` only for a real loop.
+12. **One strong evidence field per page.** A lead claim, one dominant evidence object, and a small interpretation rail are enough; repeated equal cards hide the absence of a relation.
+13. **Image generation supplies atmosphere, not truth.** Extract the fixed zones and density rhythm from accepted image-gen references; redraw text, formulas, figures, tables, and citations deterministically.
 
 ## Deliberately Not Copied
 
@@ -67,6 +81,9 @@ Selection favored repositories with an actual slide system, not a single decorat
 | Portable model brief | `scripts/export_agent_brief.py` |
 | LaTeX-style formula rendering | `scripts/design.py` → `render_math_image`, `draw_grid_block` |
 | Text-only fallback strips | `draw_output_strip`; `footer` / `output` fields in the deck schema |
+| Semantic concept diagrams | `scripts/design.py` → `draw_diagram`; native `draw_diagram_native` |
+| Formula-led pages | `scripts/render_deck_next.py` → `draw_formula`; `scripts/export_editable_pptx.py` → `draw_formula`, `add_formula` |
+| Image-gen extraction rules | `references/visual-language.md` |
 
 ## Limits
 

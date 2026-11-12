@@ -28,6 +28,7 @@ from design import (
     draw_arrow,
     draw_chart,
     draw_chevrons,
+    draw_diagram,
     draw_figure_card,
     draw_gradient_panel,
     draw_icon,
@@ -1157,6 +1158,25 @@ class DeckRenderer:
             if not fits:
                 self.warn(page_id, f"Grid body overflowed: {block.get('heading', '')}")
             content_top += used + 8
+        diagram = block.get("diagram")
+        has_block_image = image_path is not None and image_path.exists()
+        if isinstance(diagram, dict) and diagram and not has_block_image and content_bottom - content_top > 96:
+            diagram_height = int(
+                block.get(
+                    "diagram_height",
+                    min(170, max(88, int((content_bottom - content_top) * 0.46))),
+                )
+            )
+            draw_diagram(
+                draw,
+                (text_left, content_top, right - 16, content_top + diagram_height),
+                diagram,
+                self.colors,
+                self.fonts,
+                label=str(block.get("diagram_label", "")),
+                frame=True,
+            )
+            content_top += diagram_height + 8
         visual = str(block.get("visual", "")).strip() if block.get("visual_semantic") else ""
         bullets_height = content_bottom - content_top - 10
         if visual and content_bottom - content_top > 70:
@@ -1862,6 +1882,311 @@ class DeckRenderer:
         )
         draw = ImageDraw.Draw(image)
         self.draw_figure_panels(image, draw, slide, (text_left, lower_top, right, lower_bottom))
+        self.draw_takeaway(image, slide, str(slide.get("id", "")))
+        self.draw_footnote(image, slide.get("footnote", ""))
+        return image
+
+    def draw_concept(self, slide: dict, page_number: int) -> Image.Image:
+        image, draw = self.draw_frame(slide, page_number)
+        left, top, right, bottom = self.content_bounds(slide)
+        body_top = self.draw_lead(image, slide.get("lead", ""), top, str(slide.get("id", "")))
+        diagram = slide.get("diagram") or {}
+        panels = slide.get("panels") or []
+        gap = 18
+        panel_width = 0
+        if panels:
+            diagram_ratio = float(slide.get("diagram_width_ratio", 0.58))
+            diagram_ratio = max(0.48, min(0.68, diagram_ratio))
+            diagram_right = left + round((right - left) * diagram_ratio)
+            panel_width = right - diagram_right - gap
+        else:
+            diagram_right = right
+        draw_diagram(
+            draw,
+            (left, body_top, diagram_right, bottom),
+            diagram,
+            self.colors,
+            self.fonts,
+            label=str(slide.get("diagram_label", "机制示意")),
+            frame=True,
+        )
+        if panels:
+            panel_left = diagram_right + gap
+            panel_gap = 12
+            panel_height = (bottom - body_top - panel_gap * (len(panels) - 1)) // max(1, len(panels))
+            for index, panel in enumerate(panels):
+                panel_top = body_top + index * (panel_height + panel_gap)
+                panel_box = (panel_left, panel_top, panel_left + panel_width, panel_top + panel_height)
+                draw_shadowed_panel(
+                    image,
+                    draw,
+                    panel_box,
+                    self.color("white") if index % 2 == 0 else self.color("blue_wash"),
+                    self.color("line"),
+                    radius=self.panel_radius,
+                    width=1,
+                    shadow_offset=(0, 3),
+                    shadow_blur=6,
+                    shadow_alpha=max(10, self.panel_shadow_alpha - 6),
+                )
+                self.draw_module_header(
+                    image,
+                    draw,
+                    panel_box,
+                    str(panel.get("heading", "")),
+                    index=f"{index + 1:02d}",
+                    icon=str(panel.get("icon", "")),
+                    height=48,
+                )
+                content_top = panel_top + 58
+                body = str(panel.get("body", "")).strip()
+                bullets = panel.get("bullets") or []
+                if body:
+                    fits, used = draw_rich_block(
+                        draw,
+                        body,
+                        (panel_left + 14, content_top),
+                        panel_width - 28,
+                        max(34, panel_top + panel_height - content_top - 10),
+                        self.fonts,
+                        self.colors,
+                        self.type_size("body", 20),
+                        self.type_size("small", 14),
+                        max_lines=4 if not bullets else 3,
+                        line_ratio=1.22,
+                    )
+                    if not fits:
+                        self.warn(str(slide.get("id", "")), f"Concept panel body overflowed: {panel.get('heading', '')}")
+                    content_top += used + 8
+                if bullets:
+                    fits, _ = self.draw_compact_bullets(
+                        draw,
+                        bullets,
+                        panel_left + 14,
+                        content_top,
+                        panel_width - 28,
+                        panel_top + panel_height - content_top - 10,
+                        max_size=self.type_size("bullet", 17),
+                        min_size=self.type_size("micro", 12),
+                        gap=5,
+                    )
+                    if not fits:
+                        self.warn(str(slide.get("id", "")), f"Concept panel bullets overflowed: {panel.get('heading', '')}")
+        self.draw_takeaway(image, slide, str(slide.get("id", "")))
+        self.draw_footnote(image, slide.get("footnote", ""))
+        return image
+
+    def draw_formula(self, slide: dict, page_number: int) -> Image.Image:
+        image, draw = self.draw_frame(slide, page_number)
+        left, top, right, bottom = self.content_bounds(slide)
+        body_top = self.draw_lead(image, slide.get("lead", ""), top, str(slide.get("id", "")))
+        gap = 18
+        left_ratio = float(slide.get("formula_width_ratio", 0.62))
+        left_ratio = max(0.52, min(0.70, left_ratio))
+        left_right = left + round((right - left) * left_ratio)
+        right_left = left_right + gap
+        formula_panel_height = int(slide.get("formula_panel_height", 236))
+        formula_box = (left, body_top, left_right, body_top + formula_panel_height)
+        draw_gradient_panel(
+            image,
+            draw,
+            formula_box,
+            self.color("blue_wash"),
+            self.color("white"),
+            self.color("line"),
+            radius=self.panel_radius,
+            width=1,
+        )
+        draw.rectangle((formula_box[0], formula_box[1], formula_box[0] + 6, formula_box[3]), fill=self.color("blue"))
+        label = str(slide.get("formula_label", "核心关系"))
+        label_font = self.fonts.get(TextStyle(bold=True), 16)
+        label_width = text_width(draw, label, label_font) + 28
+        label_box = (formula_box[0] + 18, formula_box[1] + 14, formula_box[0] + 18 + label_width, formula_box[1] + 44)
+        draw.rounded_rectangle(label_box, radius=3, fill=self.color("blue"))
+        draw.text((label_box[0] + 14, label_box[1] + 7), label, font=label_font, fill=self.color("white"))
+
+        formula_text = str(slide.get("formula", "")).strip()
+        formula_latex = str(slide.get("formula_latex", "")).strip()
+        condition = str(slide.get("formula_condition", "")).strip()
+        math_bottom = formula_box[3] - (58 if condition else 22)
+        math_box = (formula_box[0] + 28, formula_box[1] + 58, formula_box[2] - 28, math_bottom)
+        math_image = (
+            render_math_image(formula_latex, self.color("blue_dark"), font_size=48)
+            if formula_latex
+            else None
+        )
+        if math_image is not None:
+            inner_width = math_box[2] - math_box[0]
+            inner_height = math_box[3] - math_box[1]
+            scale = min(inner_width / math_image.width, inner_height / math_image.height)
+            size = (max(1, round(math_image.width * scale)), max(1, round(math_image.height * scale)))
+            resized = math_image.resize(size, Image.Resampling.LANCZOS)
+            paste_x = math_box[0] + (inner_width - size[0]) // 2
+            paste_y = math_box[1] + (inner_height - size[1]) // 2
+            image.paste(resized, (paste_x, paste_y), resized)
+            draw = ImageDraw.Draw(image)
+        else:
+            fallback = formula_text or formula_latex or "公式待补充"
+            fallback_font, fallback_lines, _, fallback_fits = fit_text_block(
+                draw,
+                fallback,
+                self.formula_fonts,
+                math_box[2] - math_box[0],
+                math_box[3] - math_box[1],
+                46,
+                18,
+                max_lines=3,
+                line_ratio=1.16,
+            )
+            if not fallback_fits:
+                self.warn(str(slide.get("id", "")), "Formula text overflowed.")
+            block_height = line_height(fallback_font, 1.16) * max(1, len(fallback_lines))
+            draw_lines(
+                draw,
+                fallback_lines,
+                (math_box[0], math_box[1] + (math_box[3] - math_box[1] - block_height) // 2),
+                fallback_font,
+                self.color("blue_dark"),
+                1.16,
+                align="center",
+                max_width=math_box[2] - math_box[0],
+            )
+        if condition:
+            condition_box = (formula_box[0] + 18, formula_box[3] - 42, formula_box[2] - 18, formula_box[3] - 10)
+            draw.rounded_rectangle(
+                condition_box,
+                radius=3,
+                fill=mix_color(self.color("blue_pale"), self.color("white"), 0.3),
+                outline=mix_color(self.color("line"), self.color("white"), 0.15),
+                width=1,
+            )
+            draw_rich_block(
+                draw,
+                condition,
+                (condition_box[0] + 10, condition_box[1] + 5),
+                condition_box[2] - condition_box[0] - 20,
+                condition_box[3] - condition_box[1] - 8,
+                self.fonts,
+                self.colors,
+                14,
+                10,
+                max_lines=1,
+                line_ratio=1.08,
+            )
+
+        variables_top = formula_box[3] + 18
+        variables = [item for item in (slide.get("variables") or []) if isinstance(item, dict)]
+        variable_title = str(slide.get("variables_title", "符号与条件"))
+        title_font = self.fonts.get(TextStyle(bold=True), 18)
+        draw.text((left, variables_top), variable_title, font=title_font, fill=self.color("blue_dark"))
+        draw.line((left, variables_top + 30, left_right, variables_top + 30), fill=self.color("line"), width=2)
+        if variables:
+            columns = 2 if len(variables) > 2 else 1
+            column_gap = 18
+            column_width = (left_right - left - column_gap * (columns - 1)) // columns
+            rows = math.ceil(len(variables) / columns)
+            row_height = max(54, min(74, (bottom - variables_top - 50) // max(1, rows)))
+            for index, item in enumerate(variables):
+                column = index % columns
+                row = index // columns
+                x = left + column * (column_width + column_gap)
+                y = variables_top + 42 + row * row_height
+                draw.line((x, y + row_height - 6, x + column_width, y + row_height - 6), fill=mix_color(self.color("line"), self.color("white"), 0.35), width=1)
+                symbol = str(item.get("symbol", "")).strip()
+                meaning = str(item.get("meaning", "")).strip()
+                symbol_font, symbol_lines, _, symbol_fits = fit_text_block(
+                    draw,
+                    symbol,
+                    self.formula_fonts,
+                    column_width - 10,
+                    38,
+                    26,
+                    13,
+                    max_lines=1,
+                )
+                if not symbol_fits:
+                    self.warn(str(slide.get("id", "")), f"Formula symbol overflowed: {symbol}")
+                draw.text((x, y), symbol_lines[0] if symbol_lines else symbol, font=symbol_font, fill=self.color("blue"))
+                meaning_top = y + 32
+                fits, _ = draw_rich_block(
+                    draw,
+                    meaning,
+                    (x, meaning_top),
+                    column_width - 10,
+                    max(20, row_height - 42),
+                    self.fonts,
+                    self.colors,
+                    self.type_size("small", 16),
+                    self.type_size("micro", 11),
+                    max_lines=2,
+                    line_ratio=1.16,
+                )
+                if not fits:
+                    self.warn(str(slide.get("id", "")), f"Formula variable meaning overflowed: {symbol}")
+
+        panels = slide.get("panels") or []
+        if panels:
+            panel_gap = 12
+            panel_height = (bottom - body_top - panel_gap * (len(panels) - 1)) // max(1, len(panels))
+            panel_width = right - right_left
+            for index, panel in enumerate(panels):
+                panel_top = body_top + index * (panel_height + panel_gap)
+                panel_box = (right_left, panel_top, right, panel_top + panel_height)
+                draw_shadowed_panel(
+                    image,
+                    draw,
+                    panel_box,
+                    self.color("white") if index % 2 == 0 else self.color("blue_wash"),
+                    self.color("line"),
+                    radius=self.panel_radius,
+                    width=1,
+                    shadow_offset=(0, 3),
+                    shadow_blur=6,
+                    shadow_alpha=max(10, self.panel_shadow_alpha - 6),
+                )
+                self.draw_module_header(
+                    image,
+                    draw,
+                    panel_box,
+                    str(panel.get("heading", "")),
+                    index=f"{index + 1:02d}",
+                    icon=str(panel.get("icon", "")),
+                    height=48,
+                )
+                content_top = panel_top + 58
+                body = str(panel.get("body", "")).strip()
+                bullets = panel.get("bullets") or []
+                if body:
+                    fits, used = draw_rich_block(
+                        draw,
+                        body,
+                        (right_left + 14, content_top),
+                        panel_width - 28,
+                        max(30, panel_top + panel_height - content_top - 10),
+                        self.fonts,
+                        self.colors,
+                        self.type_size("body", 18),
+                        self.type_size("small", 13),
+                        max_lines=4 if not bullets else 3,
+                        line_ratio=1.2,
+                    )
+                    if not fits:
+                        self.warn(str(slide.get("id", "")), f"Formula panel body overflowed: {panel.get('heading', '')}")
+                    content_top += used + 8
+                if bullets:
+                    fits, _ = self.draw_compact_bullets(
+                        draw,
+                        bullets,
+                        right_left + 14,
+                        content_top,
+                        panel_width - 28,
+                        panel_top + panel_height - content_top - 10,
+                        max_size=self.type_size("bullet", 16),
+                        min_size=self.type_size("micro", 11),
+                        gap=4,
+                    )
+                    if not fits:
+                        self.warn(str(slide.get("id", "")), f"Formula panel bullets overflowed: {panel.get('heading', '')}")
         self.draw_takeaway(image, slide, str(slide.get("id", "")))
         self.draw_footnote(image, slide.get("footnote", ""))
         return image
@@ -2901,6 +3226,10 @@ class DeckRenderer:
                 image = self.draw_figure(slide, index)
             elif layout == "figure_flow":
                 image = self.draw_figure_flow(slide, index)
+            elif layout == "concept":
+                image = self.draw_concept(slide, index)
+            elif layout == "formula":
+                image = self.draw_formula(slide, index)
             elif layout == "pipeline":
                 image = self.draw_pipeline(slide, index)
             elif layout == "compare":

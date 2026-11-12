@@ -25,9 +25,11 @@
 - **结构化内容输入**：`deck.json` 分别记录章节、页面主张、证据、边界、图片来源和逐页讲稿。
 - **完整版 / 纯内容版**：`deck_mode: full` 生成封面与目录；`deck_mode: content_only` 从正文页开始，适合作品集嵌入、长图预览和已有封面的场合。
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
-- **多种证据型版式**：`figure`、`figure_flow`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
+- **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
+- **语义示意图**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle` 六种图理由内容驱动，渲染器只负责几何与排版；PPTX 中仍是原生形状和文本。
 - **原生可编辑 PPTX**：文字、形状、表格、图表和 OMML 公式均为可编辑对象，而不是整页截图。
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
+- **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **真实缺图提示**：没有论文原图时显示明确提示或改用文字结构，不伪造直方图、目标框、噪声曲线来凑版面。
 - **答辩稿与备注**：按页生成 speaker notes 与连贯讲述稿，并检查时长和证据口径。
 - **主题可替换**：内置通用学术蓝与院校示例主题，学校名称、校标、颜色和字体全部配置化，不写死在渲染器里。
@@ -137,10 +139,12 @@ outputs/<project>/
 - `**强调**` 只表示红色粗体，不自动添加下划线。
 - 深色结论带上的普通文字、强调文字和弱化文字都必须切换为高对比前景色。
 - 一个页面只承担一个主要论证任务；真实图片优先于装饰性占位图。
+- 没有实测图但确有机制关系时，使用带标签的 `concept` 示意图；没有关系时用 `footer` / `output` 或文字结构，不塞无关占位图。
+- 公式页必须同时给出公式、符号说明、适用条件和边界；`tₑ` 这类真实下标不能被写成代码式 `t_e`。
 - 论文曲线、硬件照片、实验场景和实测数据不得重绘。
 - 未提供的指标、引用、排名和实验结论不得生成或补造。
 
-这些规则集中记录在 [`references/style-contract.md`](references/style-contract.md) 与 [`references/layout-catalog.md`](references/layout-catalog.md)。
+这些规则集中记录在 [`references/visual-language.md`](references/visual-language.md)、[`references/style-contract.md`](references/style-contract.md) 与 [`references/layout-catalog.md`](references/layout-catalog.md)。
 
 ## Editable PPTX
 

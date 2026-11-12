@@ -12,6 +12,8 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from common import (
     PUNCTUATION,
+    draw_lines,
+    fit_text_block,
     hex_rgb,
     line_height,
     mix_color,
@@ -826,6 +828,527 @@ def draw_mini_visual(
     else:
         draw.line((plot_left, baseline, plot_right, baseline), fill=colors["line"], width=2)
         draw_chevrons(draw, plot_left + 8, baseline - 26, 18, mid, count=2, width=2, gap=7)
+
+
+def _diagram_fit_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    box: tuple[int, int, int, int],
+    fonts: FontBook,
+    fill: tuple[int, int, int],
+    max_size: int,
+    min_size: int,
+    bold: bool = False,
+    align: str = "left",
+    max_lines: int = 2,
+    line_ratio: float = 1.16,
+    valign: str = "top",
+) -> tuple[bool, int]:
+    left, top, right, bottom = box
+    candidates = fonts.title_paths if bold else fonts.body_paths
+    font, lines, block_height, fits = fit_text_block(
+        draw,
+        text,
+        candidates,
+        max(20, right - left),
+        max(20, bottom - top),
+        max_size,
+        min_size,
+        max_lines=max_lines,
+        line_ratio=line_ratio,
+    )
+    if valign == "middle":
+        y = top + max(0, (bottom - top - block_height) // 2)
+    elif valign == "bottom":
+        y = max(top, bottom - block_height)
+    else:
+        y = top
+    draw_lines(
+        draw,
+        lines,
+        (left, y),
+        font,
+        fill,
+        line_ratio,
+        align=align,
+        max_width=right - left,
+    )
+    return fits, block_height
+
+
+def _diagram_index(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[int, int],
+    index: int,
+    colors: dict[str, tuple[int, int, int]],
+    fonts: FontBook,
+    dark: bool = False,
+) -> None:
+    font = fonts.get(TextStyle(bold=True), 13)
+    text = f"{index:02d}"
+    width = text_width(draw, text, font) + 16
+    left, top = xy
+    fill = colors["blue"] if dark else colors["blue_pale"]
+    text_fill = colors["white"] if dark else colors["blue_dark"]
+    draw.rounded_rectangle((left, top, left + width, top + 24), radius=3, fill=fill)
+    draw.text((left + 8, top + 4), text, font=font, fill=text_fill)
+
+
+def draw_diagram(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    diagram: dict,
+    colors: dict[str, tuple[int, int, int]],
+    fonts: FontBook,
+    label: str = "",
+    frame: bool = True,
+) -> None:
+    """Draw a compact, data-driven academic concept diagram.
+
+    The grammar is intentionally semantic rather than decorative. It supports
+    sequence, branch, stack, ruler, matrix, and cycle structures. Labels and
+    values come from deck.json; the renderer only owns geometry and typography.
+    """
+    if not diagram:
+        return
+    left, top, right, bottom = box
+    if right - left < 100 or bottom - top < 80:
+        return
+    if frame:
+        draw.rounded_rectangle(
+            box,
+            radius=6,
+            fill=mix_color(colors["blue_wash"], colors["white"], 0.2),
+            outline=colors["line"],
+            width=1,
+        )
+    pad = max(10, min(18, int((right - left) * 0.018)))
+    inner_left, inner_right = left + pad, right - pad
+    inner_top, inner_bottom = top + pad, bottom - pad
+    if label:
+        label_font = fonts.get(TextStyle(bold=True), 13)
+        label_width = text_width(draw, label, label_font) + 22
+        label_box = (inner_left, inner_top, inner_left + label_width, inner_top + 25)
+        draw.rounded_rectangle(label_box, radius=3, fill=colors["blue"])
+        draw.text((label_box[0] + 10, label_box[1] + 4), label, font=label_font, fill=colors["white"])
+        inner_top += 34
+    note = str(diagram.get("note", "")).strip()
+    note_height = 25 if note else 0
+    if note:
+        inner_bottom -= 30
+    kind = str(diagram.get("kind", "sequence")).strip().lower()
+    items = [item for item in (diagram.get("items") or []) if isinstance(item, dict)]
+    highlight = int(diagram.get("highlight", -1))
+    blue = colors["blue"]
+    blue_dark = colors["blue_dark"]
+    blue_mid = colors["blue_mid"]
+    blue_pale = colors["blue_pale"]
+    blue_wash = colors["blue_wash"]
+    red = colors["red"]
+    ink = colors["ink"]
+    muted = colors["muted"]
+    white = colors["white"]
+
+    if kind == "sequence":
+        items = items[:5]
+        count = max(1, len(items))
+        gap = max(20, min(34, int((inner_right - inner_left) * 0.035)))
+        node_width = max(64, (inner_right - inner_left - gap * (count - 1)) // count)
+        node_height = min(112, max(72, int((inner_bottom - inner_top) * 0.56)))
+        node_top = inner_top + max(0, (inner_bottom - inner_top - node_height) // 2)
+        centers: list[tuple[int, int]] = []
+        for index, item in enumerate(items):
+            x = inner_left + index * (node_width + gap)
+            is_focus = index == highlight
+            node_box = (x, node_top, x + node_width, node_top + node_height)
+            draw.rounded_rectangle(
+                node_box,
+                radius=5,
+                fill=blue if is_focus else white,
+                outline=blue if is_focus else colors["line"],
+                width=2 if is_focus else 1,
+            )
+            if is_focus:
+                draw.rectangle((x + 1, node_top + 1, x + node_width - 1, node_top + 5), fill=blue_mid)
+            _diagram_index(
+                draw,
+                (x + 10, node_top + 10),
+                index + 1,
+                colors,
+                fonts,
+                dark=is_focus,
+            )
+            text_fill = white if is_focus else blue_dark
+            _diagram_fit_text(
+                draw,
+                str(item.get("title") or item.get("label") or ""),
+                (x + 10, node_top + 40, x + node_width - 10, node_top + 68),
+                fonts,
+                text_fill,
+                18,
+                12,
+                bold=True,
+                align="center",
+                max_lines=2,
+                line_ratio=1.05,
+            )
+            body = str(item.get("body", "")).strip()
+            if body:
+                _diagram_fit_text(
+                    draw,
+                    body,
+                    (x + 10, node_top + 70, x + node_width - 10, node_top + node_height - 8),
+                    fonts,
+                    mix_color(white, blue_pale, 0.42) if is_focus else muted,
+                    14,
+                    10,
+                    align="center",
+                    max_lines=2,
+                    line_ratio=1.08,
+                    valign="top",
+                )
+            centers.append((x + node_width // 2, node_top + node_height // 2))
+        for start, end in zip(centers[:-1], centers[1:]):
+            draw_arrow(
+                draw,
+                (start[0] + node_width // 2 + 4, start[1]),
+                (end[0] - node_width // 2 - 4, end[1]),
+                blue_mid,
+                width=2,
+                head=7,
+            )
+    elif kind == "branch":
+        items = items[:4]
+        root = diagram.get("root") if isinstance(diagram.get("root"), dict) else {}
+        root_width = int((inner_right - inner_left) * 0.31)
+        root_box = (inner_left, inner_top + 18, inner_left + root_width, inner_bottom - 18)
+        draw.rounded_rectangle(
+            root_box,
+            radius=5,
+            fill=blue,
+            outline=blue,
+            width=1,
+        )
+        _diagram_fit_text(
+            draw,
+            str(root.get("title") or diagram.get("center") or "共同问题"),
+            (root_box[0] + 12, root_box[1] + 16, root_box[2] - 12, root_box[1] + 58),
+            fonts,
+            white,
+            24,
+            14,
+            bold=True,
+            align="center",
+            max_lines=2,
+        )
+        root_body = str(root.get("body", "")).strip()
+        if root_body:
+            _diagram_fit_text(
+                draw,
+                root_body,
+                (root_box[0] + 12, root_box[1] + 66, root_box[2] - 12, root_box[3] - 12),
+                fonts,
+                mix_color(white, blue_pale, 0.48),
+                16,
+                11,
+                align="center",
+                max_lines=3,
+            )
+        gap = 12
+        item_left = inner_left + root_width + max(34, int((inner_right - inner_left) * 0.08))
+        item_width = inner_right - item_left
+        item_height = max(48, (inner_bottom - inner_top - gap * (len(items) - 1)) // max(1, len(items)))
+        root_center = ((root_box[0] + root_box[2]) // 2, (root_box[1] + root_box[3]) // 2)
+        for index, item in enumerate(items):
+            y = inner_top + index * (item_height + gap)
+            is_focus = index == highlight
+            item_box = (item_left, y, item_left + item_width, y + item_height)
+            draw.rounded_rectangle(
+                item_box,
+                radius=5,
+                fill=blue_wash if not is_focus else blue_pale,
+                outline=red if is_focus else colors["line"],
+                width=2 if is_focus else 1,
+            )
+            _diagram_index(draw, (item_left + 10, y + 9), index + 1, colors, fonts, dark=is_focus)
+            _diagram_fit_text(
+                draw,
+                str(item.get("title") or item.get("label") or ""),
+                (item_left + 52, y + 8, item_box[2] - 10, y + 34),
+                fonts,
+                blue_dark,
+                17,
+                12,
+                bold=True,
+                max_lines=1,
+            )
+            body = str(item.get("body", "")).strip()
+            if body:
+                _diagram_fit_text(
+                    draw,
+                    body,
+                    (item_left + 52, y + 35, item_box[2] - 10, item_box[3] - 7),
+                    fonts,
+                    ink,
+                    14,
+                    10,
+                    max_lines=2,
+                    line_ratio=1.08,
+                )
+            draw_arrow(
+                draw,
+                (root_center[0] + root_width // 2 - 8, root_center[1]),
+                (item_left - 6, y + item_height // 2),
+                blue_mid,
+                width=2,
+                head=7,
+            )
+    elif kind == "stack":
+        items = items[:5]
+        gap = 8
+        row_height = max(38, (inner_bottom - inner_top - gap * (len(items) - 1)) // max(1, len(items)))
+        for index, item in enumerate(items):
+            y = inner_top + index * (row_height + gap)
+            is_focus = index == highlight
+            indent = min(34, index * 10)
+            row_box = (inner_left + indent, y, inner_right, y + row_height)
+            draw.rounded_rectangle(
+                row_box,
+                radius=4,
+                fill=blue if is_focus else (white if index % 2 == 0 else blue_wash),
+                outline=blue_mid if is_focus else colors["line"],
+                width=1,
+            )
+            draw.rectangle((row_box[0], row_box[1], row_box[0] + 5, row_box[3]), fill=blue if not is_focus else red)
+            _diagram_index(
+                draw,
+                (row_box[0] + 12, row_box[1] + max(7, (row_height - 24) // 2)),
+                index + 1,
+                colors,
+                fonts,
+                dark=is_focus,
+            )
+            text_left = row_box[0] + 64
+            text_color = white if is_focus else blue_dark
+            _diagram_fit_text(
+                draw,
+                str(item.get("title") or item.get("label") or ""),
+                (text_left, row_box[1] + 5, text_left + int((row_box[2] - text_left) * 0.34), row_box[3] - 5),
+                fonts,
+                text_color,
+                17,
+                12,
+                bold=True,
+                max_lines=1,
+                valign="middle",
+            )
+            body = str(item.get("body", "")).strip()
+            if body:
+                _diagram_fit_text(
+                    draw,
+                    body,
+                    (text_left + int((row_box[2] - text_left) * 0.36), row_box[1] + 5, row_box[2] - 10, row_box[3] - 5),
+                    fonts,
+                    mix_color(white, blue_pale, 0.45) if is_focus else muted,
+                    14,
+                    10,
+                    max_lines=1,
+                    valign="middle",
+                )
+            if index < len(items) - 1:
+                draw_arrow(
+                    draw,
+                    ((row_box[0] + row_box[2]) // 2, row_box[3] + 1),
+                    ((row_box[0] + row_box[2]) // 2, row_box[3] + gap - 1),
+                    blue_mid,
+                    width=2,
+                    head=5,
+                )
+    elif kind == "ruler":
+        items = items[:8]
+        values: list[float] = []
+        for item in items:
+            try:
+                values.append(float(item.get("value", 0)))
+            except (TypeError, ValueError):
+                values.append(0.0)
+        if values:
+            minimum, maximum = min(values), max(values)
+            span = (maximum - minimum) or 1.0
+            axis_y = inner_top + int((inner_bottom - inner_top) * 0.55)
+            draw.line((inner_left, axis_y, inner_right, axis_y), fill=blue_dark, width=3)
+            draw_arrow(draw, (inner_left, axis_y), (inner_right, axis_y), blue_dark, width=3, head=8)
+            positions: dict[float, int] = {}
+            for index, (item, value) in enumerate(zip(items, values)):
+                x = inner_left + int((inner_right - inner_left - 12) * (value - minimum) / span)
+                positions[value] = x
+                is_focus = index == highlight
+                draw.line((x, axis_y - 16, x, axis_y + 5), fill=red if is_focus else blue_mid, width=3)
+                draw.ellipse((x - 5, axis_y - 5, x + 5, axis_y + 5), fill=red if is_focus else blue, outline=white, width=2)
+                _diagram_fit_text(
+                    draw,
+                    str(item.get("label") or item.get("title") or value),
+                    (x - 36, axis_y + 12, x + 36, axis_y + 40),
+                    fonts,
+                    red if is_focus else blue_dark,
+                    18,
+                    11,
+                    bold=True,
+                    align="center",
+                    max_lines=1,
+                )
+                body = str(item.get("body", "")).strip()
+                if body:
+                    _diagram_fit_text(
+                        draw,
+                        body,
+                        (x - 48, axis_y + 42, x + 48, inner_bottom),
+                        fonts,
+                        muted,
+                        12,
+                        9,
+                        align="center",
+                        max_lines=2,
+                    )
+            pairs = [pair for pair in (diagram.get("pairs") or []) if isinstance(pair, dict)]
+            for pair_index, pair in enumerate(pairs[:4]):
+                try:
+                    start_value = float(pair.get("from", minimum))
+                    end_value = float(pair.get("to", maximum))
+                except (TypeError, ValueError):
+                    continue
+                if start_value not in positions or end_value not in positions:
+                    continue
+                x1, x2 = positions[start_value], positions[end_value]
+                if x1 > x2:
+                    x1, x2 = x2, x1
+                bracket_y = inner_top + 18 + pair_index * 18
+                draw.line((x1, bracket_y, x2, bracket_y), fill=blue_mid, width=2)
+                draw.line((x1, bracket_y - 5, x1, bracket_y + 5), fill=blue_mid, width=2)
+                draw.line((x2, bracket_y - 5, x2, bracket_y + 5), fill=blue_mid, width=2)
+                label_text = str(pair.get("label", "")).strip()
+                if label_text:
+                    pair_font = fonts.get(TextStyle(bold=True), 13)
+                    label_width = text_width(draw, label_text, pair_font)
+                    draw.rectangle(
+                        ((x1 + x2 - label_width) // 2 - 6, bracket_y - 10, (x1 + x2 + label_width) // 2 + 6, bracket_y + 3),
+                        fill=mix_color(colors["blue_wash"], colors["white"], 0.1),
+                    )
+                    draw.text(
+                        ((x1 + x2 - label_width) // 2, bracket_y - 11),
+                        label_text,
+                        font=pair_font,
+                        fill=blue_mid,
+                    )
+    elif kind == "matrix":
+        items = items[:4]
+        gap = 8
+        grid_left = inner_left + 42
+        grid_top = inner_top + 6
+        grid_right = inner_right
+        grid_bottom = inner_bottom - 34
+        cell_width = (grid_right - grid_left - gap) // 2
+        cell_height = (grid_bottom - grid_top - gap) // 2
+        for index, item in enumerate(items):
+            row = index // 2
+            column = index % 2
+            x = grid_left + column * (cell_width + gap)
+            y = grid_top + row * (cell_height + gap)
+            is_focus = index == highlight
+            cell_box = (x, y, x + cell_width, y + cell_height)
+            draw.rounded_rectangle(
+                cell_box,
+                radius=4,
+                fill=blue if is_focus else (white if row == column else blue_wash),
+                outline=red if is_focus else colors["line"],
+                width=2 if is_focus else 1,
+            )
+            _diagram_index(draw, (x + 9, y + 8), index + 1, colors, fonts, dark=is_focus)
+            _diagram_fit_text(
+                draw,
+                str(item.get("title") or item.get("label") or ""),
+                (x + 34, y + 8, x + cell_width - 8, y + 38),
+                fonts,
+                white if is_focus else blue_dark,
+                16,
+                11,
+                bold=True,
+                max_lines=1,
+            )
+            body = str(item.get("body", "")).strip()
+            if body:
+                _diagram_fit_text(
+                    draw,
+                    body,
+                    (x + 10, y + 40, x + cell_width - 8, y + cell_height - 7),
+                    fonts,
+                    mix_color(white, blue_pale, 0.5) if is_focus else ink,
+                    13,
+                    9,
+                    max_lines=2,
+                    line_ratio=1.08,
+                )
+        draw.line((grid_left, grid_top, grid_left, grid_bottom), fill=blue_dark, width=2)
+        draw.line((grid_left, grid_bottom, grid_right, grid_bottom), fill=blue_dark, width=2)
+        x_axis = diagram.get("x_axis") if isinstance(diagram.get("x_axis"), dict) else {}
+        y_axis = diagram.get("y_axis") if isinstance(diagram.get("y_axis"), dict) else {}
+        if x_axis.get("low"):
+            _diagram_fit_text(draw, str(x_axis["low"]), (grid_left, grid_bottom + 6, grid_left + cell_width, inner_bottom), fonts, muted, 12, 9, align="center", max_lines=1)
+        if x_axis.get("high"):
+            _diagram_fit_text(draw, str(x_axis["high"]), (grid_right - cell_width, grid_bottom + 6, grid_right, inner_bottom), fonts, muted, 12, 9, align="center", max_lines=1)
+        if y_axis.get("high"):
+            _diagram_fit_text(draw, str(y_axis["high"]), (inner_left, grid_top, grid_left - 6, grid_top + cell_height), fonts, muted, 12, 9, align="center", max_lines=2, valign="middle")
+        if y_axis.get("low"):
+            _diagram_fit_text(draw, str(y_axis["low"]), (inner_left, grid_bottom - cell_height, grid_left - 6, grid_bottom), fonts, muted, 12, 9, align="center", max_lines=2, valign="middle")
+    elif kind == "cycle":
+        items = items[:5]
+        count = max(3, len(items))
+        center_x = (inner_left + inner_right) // 2
+        center_y = (inner_top + inner_bottom) // 2
+        radius_x = max(70, (inner_right - inner_left) // 3)
+        radius_y = max(52, (inner_bottom - inner_top) // 3)
+        points: list[tuple[int, int]] = []
+        for index in range(count):
+            angle = -math.pi / 2 + index * 2 * math.pi / count
+            points.append((int(center_x + math.cos(angle) * radius_x), int(center_y + math.sin(angle) * radius_y)))
+        for index, point in enumerate(points):
+            next_point = points[(index + 1) % len(points)]
+            draw_arrow(draw, (point[0] + 20, point[1]), (next_point[0] - 20, next_point[1]), blue_mid, width=2, head=7)
+        node_width = min(150, max(90, (inner_right - inner_left) // 4))
+        for index, (item, point) in enumerate(zip(items, points)):
+            is_focus = index == highlight
+            node_box = (point[0] - node_width // 2, point[1] - 28, point[0] + node_width // 2, point[1] + 28)
+            draw.rounded_rectangle(
+                node_box,
+                radius=5,
+                fill=blue if is_focus else white,
+                outline=red if is_focus else colors["line"],
+                width=2 if is_focus else 1,
+            )
+            _diagram_fit_text(
+                draw,
+                str(item.get("title") or item.get("label") or ""),
+                (node_box[0] + 8, node_box[1] + 5, node_box[2] - 8, node_box[3] - 5),
+                fonts,
+                white if is_focus else blue_dark,
+                16,
+                11,
+                bold=True,
+                align="center",
+                max_lines=2,
+                valign="middle",
+            )
+    if note:
+        _diagram_fit_text(
+            draw,
+            note,
+            (inner_left, inner_bottom + 6, inner_right, inner_bottom + 28),
+            fonts,
+            muted,
+            13,
+            9,
+            max_lines=1,
+        )
 
 
 def draw_figure_card(

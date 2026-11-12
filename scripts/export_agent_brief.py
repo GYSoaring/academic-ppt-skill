@@ -48,7 +48,7 @@ def main() -> None:
         f"- 底色：{colors['paper']}；主色：{colors['blue']}；深色结论带：{colors['blue_dark']}；辅助色：{colors['blue_mid']}、{colors['blue_pale']}。",
         f"- 正文色：{colors['ink']}；弱化文字：{colors['muted']}；分隔线：{colors['line']}。",
         "- 风格：浅纸色背景、深蓝标题、细蓝线、克制的浅蓝面板；不要玻璃拟态、霓虹、3D 大卡片、彩色仪表盘、手写批注、星星或装饰性箭头。",
-        "- 封面：没有顶部标题栏，没有左侧小目录。校徽/校名组合放在上方中间，标题在下方，汇报人和日期再往下。",
+        "- 封面：没有顶部标题栏，没有左侧小目录。按主题选择居中或编辑式封面；身份资产位置保持全篇一致，标题、汇报人和日期不要与身份层挤在一起。",
         "- 目录页：没有左侧小目录，只放五个大标题，不写解释句，不写页码范围。",
         "- 第 3 页起：顶部标题栏、右上角校名校徽、底部蓝线、左侧五项小目录全部固定。正文不因为文字多而挤压固定区域。",
         f"- 左上双斜杠与章节号 x≈{layout['chapter_x']}，页标题 x≈{layout['title_x']}，标题字号约 {layout['title_size']}。",
@@ -84,6 +84,8 @@ def main() -> None:
             "",
             "- `figure`：一张实测图或论文原图占主导，右侧放 2–3 条解释；主图应占内容区约 65%–80%。",
             "- `figure_flow`：顶部 3–5 步流程，下方一张主图和侧栏解释；适合“原理 + 机制”。",
+            "- `concept`：一张带标签的语义示意图 + 2–3 个解释面板；只用于真实存在的时间顺序、分支、层级、刻度、二维取舍或闭环关系。",
+            "- `formula`：一个公式 + 符号表 + 适用条件 + 读法/边界/验证面板；公式页不是装饰性代码块，也不能替代实测证据。",
             "- `grid`：3–6 个证据或机制块，可用 `span` 让系统图或公式跨列；不要全部做成同样大小。",
             "- `balance`：左栏收益、右栏代价、中间一张系统主图；只有真实权衡关系时才使用。",
             "- `pipeline`：4–5 个连续步骤，每步有输入/输出或微型机制图；不要用 3 个空盒子充当流程。",
@@ -95,6 +97,7 @@ def main() -> None:
             "- `closing`：2–4 条结论 + 边界 + 下一步；不要把“谢谢”作为唯一内容。",
             "- 内容页至少有 3 个内容单元；如果只有 1–2 个，合并上一页或拆成两页，不要靠放大标题填空。",
             "- 没有真实图片时，用 `footer` / `output` 写“判断、交付、输出、指标”，不要放与文字无关的 target、histogram、nodes 或 noise 占位图。",
+            "- 有真实机制关系但没有实测图时，可用 `concept` 的 `diagram`，并在页面上标明“机制示意 / 研究接口 / 概念示意”；不能把它说成实测结果。",
             "- 公式同时提供 `formula` 纯文本回退和 `formula_latex`；正式渲染优先用 LaTeX 数学排版，不要让生图模型画公式。",
             "- 深色结论带上的所有文字必须切换为浅色；`**强调**` 只表示红色粗体，不自动加下划线。",
             "",
@@ -141,8 +144,39 @@ def main() -> None:
                     lines.append(f"- 信息块 {block_index} 图片：`{block['image']}`")
                 if block.get("visual"):
                     lines.append(f"- 信息块 {block_index} 微型机制图：`{block['visual']}`")
+                if block.get("diagram"):
+                    diagram = block["diagram"]
+                    lines.append(
+                        f"- 信息块 {block_index} 语义示意图：`{diagram.get('kind', 'sequence')}`"
+                    )
+                    for item_index, item in enumerate(diagram.get("items", []), start=1):
+                        lines.append(
+                            f"- 信息块 {block_index} 图示节点 {item_index}「{item.get('title', '')}」："
+                            f"{item.get('body', '') or item.get('label', '')}"
+                        )
                 if block.get("stat"):
                     lines.append(f"- 信息块 {block_index} 关键数字：{block['stat']}（{block.get('stat_label', '')}）")
+        if slide.get("layout") == "concept":
+            diagram = slide.get("diagram") or {}
+            lines.append(f"- 示意图类型：`{diagram.get('kind', 'sequence')}`")
+            lines.append(f"- 示意图标签：{slide.get('diagram_label', '机制示意')}")
+            for item_index, item in enumerate(diagram.get("items", []), start=1):
+                lines.append(
+                    f"- 示意图节点 {item_index}「{item.get('title', '') or item.get('label', '')}」："
+                    f"{item.get('body', '')}"
+                )
+            if diagram.get("note"):
+                lines.append(f"- 示意图边界：{diagram['note']}")
+        if slide.get("layout") == "formula":
+            lines.append(f"- 公式标签：{slide.get('formula_label', '核心关系')}")
+            lines.append(f"- 公式纯文本：`{slide.get('formula', '')}`")
+            lines.append(f"- 公式 LaTeX：`{slide.get('formula_latex', '')}`")
+            if slide.get("formula_condition"):
+                lines.append(f"- 适用条件：{slide['formula_condition']}")
+            for item_index, item in enumerate(slide.get("variables", []), start=1):
+                lines.append(
+                    f"- 符号 {item_index}「{item.get('symbol', '')}」：{item.get('meaning', '')}"
+                )
         if slide.get("layout") == "balance":
             for rail_name, rail_label in (("left", "收益/条件"), ("right", "代价/约束")):
                 rail = slide.get(rail_name) or {}

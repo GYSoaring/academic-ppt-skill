@@ -202,6 +202,98 @@ Use `grid` when the original page needs several small evidence blocks rather tha
 
 Each block may contain `heading`, `body`, `bullets`, `formula`, `formula_latex`, `footer`, `footer_label`, `image`, `visual`, `visual_semantic`, `stat`, `stat_label`, `span`, `icon`, `body_size`, and `tone`. Supported icon names include `signal`, `wave`, `target`, `clock`, `layers`, `chart`, `check`, `alert`, `matrix`, `atom`, `photon`, `laser`, `histogram`, `mountain`, `chip`, and `database`. `formula` is the portable plain fallback; `formula_latex` is the optional LaTeX source. `footer` renders a bottom information strip with `footer_label` such as `判断`, `交付`, `输出`, `指标`, or `消融`. Use it instead of a generic `visual` when no real figure exists. `visual` is drawn only when the deck also sets `visual_semantic: true`; it is reserved for a genuine concept schematic and must be semantically related to the block. Use `span` to give a system image or formula across columns. Use `pale` sparingly for the block that carries the main claim. Do not use a grid for more than six blocks; split the page instead.
 
+If a block has no real image, a block-level `diagram` may be used when the relation is genuinely structural:
+
+```json
+{
+  "heading": "证据接口",
+  "body": "从观测到路径的三个接口。",
+  "diagram": {
+    "kind": "sequence",
+    "items": [
+      {"title": "观测接入"},
+      {"title": "边级证据"},
+      {"title": "路径判断"}
+    ],
+    "highlight": 1,
+    "note": "机制示意，不是实测结果。"
+  }
+}
+```
+
+The same diagram grammar applies as in the `concept` layout. A real `image` always wins over a diagram; do not provide both unless the image is intentionally the main evidence and the diagram is omitted.
+
+## Layout: concept
+
+Use `concept` when a labeled schematic is the page's main evidence object.
+
+```json
+{
+  "id": "06",
+  "layout": "concept",
+  "section": "method",
+  "eyebrow": "3.2",
+  "title": "证据链",
+  "lead": "从观测到路径，真正需要打通的是三层**证据接口**。",
+  "diagram_label": "研究接口",
+  "diagram_width_ratio": 0.6,
+  "diagram": {
+    "kind": "sequence",
+    "highlight": 1,
+    "items": [
+      {"title": "观测接入", "body": "统一来源、时间、坐标和可见性。"},
+      {"title": "边级证据", "body": "把局部观测映射到同一条路网边。"},
+      {"title": "风险边权", "body": "把冲突、缺失和误差转成风险。"},
+      {"title": "路径判断", "body": "在时间、风险和不确定性之间取舍。"}
+    ],
+    "note": "只表达研究接口，不代表已经完成的实验结果。"
+  },
+  "panels": [
+    {"heading": "观察", "body": "先看什么。", "icon": "layers"},
+    {"heading": "机制", "body": "这说明什么。", "icon": "target"},
+    {"heading": "边界", "body": "这不能证明什么。", "icon": "alert"}
+  ]
+}
+```
+
+`diagram.kind` accepts `sequence` (2–5), `branch` (2–4), `stack` (2–5), `ruler` (2–8), `matrix` (exactly 4), and `cycle` (3–5). `highlight` is a zero-based item index. `ruler` items need numeric `value`; `matrix` should provide `x_axis` and `y_axis`; `branch` should provide a `root` object. The diagram is rendered as native shapes in the PPTX, with all labels from this JSON.
+
+Do not use `concept` for measured plots or paper figures. Use `figure` or `figure_flow` when real evidence is available.
+
+## Layout: formula
+
+Use `formula` when one equation is the main object and needs symbol definitions and conditions.
+
+```json
+{
+  "id": "10",
+  "layout": "formula",
+  "section": "method",
+  "eyebrow": "4.3",
+  "title": "风险代价",
+  "lead": "路径是否可走，取决于时间、风险与不确定性能否被**统一校准**。",
+  "formula_label": "路径目标函数",
+  "formula": "J(π)=Σ_e(αt_e+βr_e+γu_e)",
+  "formula_latex": "J(\\pi)=\\sum_{e\\in\\pi}\\left(\\alpha t_e+\\beta r_e+\\gamma u_e\\right)",
+  "formula_condition": "成立条件：边级证据可对齐，且风险项可校准",
+  "variables": [
+    {"symbol": "tₑ", "meaning": "边 e 的通行时间"},
+    {"symbol": "rₑ", "meaning": "边 e 的风险代价"},
+    {"symbol": "uₑ", "meaning": "边 e 的不确定性"},
+    {"symbol": "α, β, γ", "meaning": "经验证集校准的权重"}
+  ],
+  "panels": [
+    {"heading": "读法", "body": "公式在比较什么。", "icon": "formula"},
+    {"heading": "边界", "body": "权重未校准时不能声称什么。", "icon": "alert"},
+    {"heading": "验证", "body": "用什么消融或敏感性分析来检验。", "icon": "check"}
+  ]
+}
+```
+
+`formula` is the portable plain fallback; `formula_latex` is the preferred typeset source. `formula_condition` states the interpretability condition. `variables` needs two to eight entries, each with `symbol` and `meaning`. Use real subscript characters such as `tₑ` or LaTeX math; do not leave code-like `t_e` in the visible slide. The native PPTX export converts `formula_latex` to OMML and keeps the fallback editable.
+
+Do not invent coefficients, fitted values, or measured outcomes. A formula page is a definition or a testable model, not evidence by itself.
+
 ## Layout: balance
 
 Use for a real tradeoff with one dominant central system figure. The left rail carries benefits or enabling conditions; the right rail carries costs, failure modes, or constraints.

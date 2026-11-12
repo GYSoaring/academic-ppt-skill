@@ -51,6 +51,10 @@ def main() -> None:
 
     expected_formula_count = 0
     for slide in slides:
+        if slide.get("layout") == "formula" and (
+            str(slide.get("formula_latex", "")).strip() or str(slide.get("formula", "")).strip()
+        ):
+            expected_formula_count += 1
         for block in slide.get("blocks") or []:
             if block.get("formula_latex") or block.get("formula"):
                 expected_formula_count += 1
@@ -87,6 +91,15 @@ def main() -> None:
             add_issue(issues, "error", page, "Compare layout should be a native PowerPoint table.")
         if source.get("chart") and not charts:
             add_issue(issues, "error", page, "Chart data is present but the slide has no native editable chart.")
+        if layout == "formula":
+            formula_expected = int(
+                bool(
+                    str(source.get("formula_latex", "")).strip()
+                    or str(source.get("formula", "")).strip()
+                )
+            )
+            if formula_expected and formula_count < formula_expected:
+                add_issue(issues, "error", page, f"Only {formula_count}/{formula_expected} formulas are native OMML.")
         if layout == "grid":
             formula_expected = sum(1 for block in source.get("blocks") or [] if block.get("formula_latex") or block.get("formula"))
             if formula_expected and formula_count < formula_expected:

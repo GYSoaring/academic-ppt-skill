@@ -15,7 +15,8 @@ The native version deliberately reuses the preview renderer's theme coordinates 
 - Comparison tables.
 - Bar, histogram, column, line, and curve charts. The chart is a native PowerPoint chart object with an editable data sheet; the chart label, badge, axis labels, caption, and annotation are native text.
 - Pipeline nodes, timeline cards, hub cards, references, and closing blocks.
-- Formula zones as OMML equations.
+- Semantic `concept` diagrams as native shapes and text boxes: `sequence`, `branch`, `stack`, `ruler`, `matrix`, and `cycle`.
+- Formula-led pages: the equation as OMML, symbol definitions as native text, and condition/boundary panels as native shapes.
 - Speaker notes.
 
 Only the paper texture and institutional lockup are pictures. The background picture contains no readable content and can be replaced without deleting the slide text.
@@ -60,6 +61,8 @@ The formula remains editable in PowerPoint's equation editor. Keep `formula` as 
 
 If `latex2mathml` or the Office XSL is unavailable, the exporter writes the plain formula with Cambria Math. It reports this in `pptx_report.json` and `pptx_validation_report.json`.
 
+For a `formula` layout, the validator counts the page equation as one expected formula. Symbol rows are text, not separate equations; use real subscript characters such as `tₑ` or `uₑ` in the visible text. Do not write `t_e` in the slide.
+
 ## Validation
 
 Run:
@@ -77,6 +80,8 @@ python scripts/validate_pptx.py --pptx output/defense_deck.pptx --deck deck.json
 - comparison layouts contain native tables
 - slides with `chart` data contain a native editable PowerPoint chart
 - formulas are OMML rather than a single raster image
+- a `formula` layout has its page equation as native OMML
+- a `concept` layout has editable diagram text and shapes, not a single raster diagram
 - the deck is not just one full-page picture per slide
 
 `pptx_report.json` records per-slide editable shape counts, picture counts, native tables, native charts, and formula conversion status.
