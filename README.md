@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/brand/skill-icon.svg" width="112" height="112" alt="Academic PPT Skill icon">
+</p>
+
 # Academic PPT Skill
 
 一个面向学术汇报的 Codex Skill：把论文、提纲、图片、学校身份信息与时间限制，整理成结构稳定的答辩 / 开题 / 中期 / 课程汇报幻灯片，并生成自然讲述稿。
