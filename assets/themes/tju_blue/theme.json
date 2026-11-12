@@ -1,0 +1,151 @@
+{
+  "name": "tju_blue",
+  "display_name": "北洋蓝学术答辩",
+  "canvas": {
+    "width": 2048,
+    "height": 1152
+  },
+  "colors": {
+    "paper": "#F9FCFF",
+    "paper_alt": "#EDF5FF",
+    "white": "#FFFFFF",
+    "ink": "#172B45",
+    "muted": "#5B7086",
+    "blue": "#0B3F91",
+    "blue_dark": "#07306F",
+    "blue_mid": "#2B6FC4",
+    "blue_bright": "#3E8BD6",
+    "blue_pale": "#D9E9FB",
+    "blue_wash": "#EEF6FF",
+    "line": "#AFC8E6",
+    "red": "#B3261E",
+    "green": "#1F7A5C"
+  },
+  "fonts": {
+    "title": [
+      "C:/Windows/Fonts/Noto Sans SC Bold (TrueType).otf",
+      "C:/Windows/Fonts/msyhbd.ttc",
+      "C:/Windows/Fonts/simhei.ttf",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
+    ],
+    "body": [
+      "C:/Windows/Fonts/Noto Sans SC Medium (TrueType).otf",
+      "C:/Windows/Fonts/Noto Sans SC (TrueType).otf",
+      "C:/Windows/Fonts/msyh.ttc",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    ],
+    "serif": [
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "C:/Windows/Fonts/simkai.ttf",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"
+    ],
+    "display": [
+      "C:/Windows/Fonts/方正粗黑宋简体.ttf",
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
+    ],
+    "formula": [
+      "C:/Windows/Fonts/cambria.ttc",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Cambria.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+    ],
+    "latin": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    ]
+  },
+  "pptx_fonts": {
+    "title": "Noto Sans SC",
+    "body": "Noto Sans SC",
+    "display": "Source Han Serif CN Heavy",
+    "latin": "Arial",
+    "formula": "Cambria Math"
+  },
+  "type_scale": {
+    "cover_title": 80,
+    "cover_subtitle": 35,
+    "cover_info": 31,
+    "header_title": 48,
+    "eyebrow": 48,
+    "lead": 31,
+    "takeaway": 29,
+    "sidebar": 29,
+    "block_title": 25,
+    "body": 21,
+    "bullet": 20,
+    "small": 16,
+    "micro": 14,
+    "metric_value": 64,
+    "metric_label": 24
+  },
+  "brand": {
+    "lockup": "brand_lockup.png",
+    "cover_box": [672, 54, 1376, 292],
+    "header_box": [1778, 9, 1998, 78],
+    "fallback_text": "天津大学"
+  },
+  "background": {
+    "motif": "campus",
+    "arc": true,
+    "noise": 1.1,
+    "motif_opacity": 0.22
+  },
+  "layout": {
+    "header_height": 112,
+    "divider_y": 94,
+    "footer_y": 1102,
+    "margin_x": 36,
+    "title_x": 216,
+    "title_y": 38,
+    "title_size": 48,
+    "chapter_x": 122,
+    "chapter_y": 48,
+    "chapter_size": 48,
+    "slash_x": 24,
+    "slash_y": 18,
+    "slash_width": 34,
+    "slash_height": 74,
+    "sidebar": [40, 278, 260, 796],
+    "content": [320, 186, 1992, 986],
+    "content_top": 186,
+    "lead_height": 88,
+    "takeaway_top": 996,
+    "takeaway_height": 68
+  },
+  "cover": {
+    "title_y": 348,
+    "title_size": 80,
+    "subtitle_y": 458,
+    "subtitle_size": 35,
+    "rule_y": 526,
+    "info_y": 592,
+    "info_size": 31,
+    "bottom_arc": true
+  },
+  "outline": {
+    "x": 300,
+    "y": 208,
+    "width": 1540,
+    "row_height": 112,
+    "gap": 24
+  },
+  "table": {
+    "header_height": 62,
+    "row_height": 96,
+    "font_size": 24,
+    "header_size": 26
+  }
+}

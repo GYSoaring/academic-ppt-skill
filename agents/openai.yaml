@@ -1,0 +1,4 @@
+interface:
+  display_name: "Academic Defense Deck"
+  short_description: "Academic defense decks and matching speeches"
+  default_prompt: "Use $academic-defense-deck to create a styled defense deck, figure-aware speaker notes, and a natural defense script."

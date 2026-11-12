@@ -1,0 +1,40 @@
+# Generated deliverables
+work/
+outputs/
+**/rendered/
+**/powerpoint_png/
+*.pptx
+~$*
+
+# Generated reports
+**/render_report.json
+**/pptx_report.json
+**/pptx_validation_report.json
+**/speech_report.json
+**/validation_report.json
+
+# Python
+**/__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Editor and OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+
+# Demo content with research-paper figures is kept local.
+examples/demo_defense/
+examples/demo_defense_v2/

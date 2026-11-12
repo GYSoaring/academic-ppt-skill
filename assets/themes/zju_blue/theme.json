@@ -1,0 +1,166 @@
+{
+  "name": "zju_blue",
+  "display_name": "求是蓝开题报告",
+  "canvas": {
+    "width": 2048,
+    "height": 1152
+  },
+  "colors": {
+    "paper": "#F7FBFF",
+    "paper_alt": "#E7F1FA",
+    "white": "#FFFFFF",
+    "ink": "#152A42",
+    "muted": "#5B7085",
+    "blue": "#003F88",
+    "blue_dark": "#002C5F",
+    "blue_mid": "#1A62A6",
+    "blue_bright": "#2E7FC2",
+    "blue_pale": "#D4E5F4",
+    "blue_wash": "#EDF6FC",
+    "line": "#AFC9DF",
+    "red": "#B01F24",
+    "green": "#1F7A5C"
+  },
+  "fonts": {
+    "title": [
+      "C:/Windows/Fonts/Noto Sans SC Bold (TrueType).otf",
+      "C:/Windows/Fonts/msyhbd.ttc",
+      "C:/Windows/Fonts/simhei.ttf",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
+    ],
+    "body": [
+      "C:/Windows/Fonts/Noto Sans SC Medium (TrueType).otf",
+      "C:/Windows/Fonts/Noto Sans SC (TrueType).otf",
+      "C:/Windows/Fonts/msyh.ttc",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    ],
+    "serif": [
+      "C:/Windows/Fonts/STSONG.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/Supplemental/Songti.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"
+    ],
+    "display": [
+      "C:/Windows/Fonts/STSONG.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/Supplemental/Songti.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
+    ],
+    "formula": [
+      "C:/Windows/Fonts/cambria.ttc",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Cambria.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+    ],
+    "latin": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    ]
+  },
+  "pptx_fonts": {
+    "title": "Noto Sans SC",
+    "body": "Noto Sans SC",
+    "display": "Source Han Serif CN SemiBold",
+    "latin": "Arial",
+    "formula": "Cambria Math"
+  },
+  "type_scale": {
+    "cover_kicker": 27,
+    "cover_title": 86,
+    "cover_subtitle": 34,
+    "cover_info": 28,
+    "header_title": 54,
+    "eyebrow": 54,
+    "lead": 33,
+    "lead_label": 22,
+    "takeaway": 29,
+    "sidebar": 28,
+    "block_title": 26,
+    "body": 22,
+    "bullet": 20,
+    "small": 17,
+    "micro": 14,
+    "metric_value": 68,
+    "metric_label": 24
+  },
+  "brand": {
+    "lockup": "brand_lockup.png",
+    "emblem": "emblem_mark.png",
+    "cover_box": [118, 54, 720, 226],
+    "header_box": [1750, 9, 1996, 84],
+    "fallback_text": "浙江大学"
+  },
+  "background": {
+    "motif": "contour",
+    "arc": true,
+    "noise": 0.8,
+    "motif_opacity": 0.24
+  },
+  "panel": {
+    "header_style": "flat"
+  },
+  "layout": {
+    "header_height": 118,
+    "divider_y": 104,
+    "footer_y": 1098,
+    "margin_x": 36,
+    "title_x": 226,
+    "title_y": 31,
+    "title_size": 54,
+    "chapter_x": 126,
+    "chapter_y": 48,
+    "chapter_size": 54,
+    "slash_x": 24,
+    "slash_y": 14,
+    "slash_width": 42,
+    "slash_height": 84,
+    "sidebar": [42, 286, 268, 806],
+    "content": [338, 194, 1992, 982],
+    "content_top": 194,
+    "lead_height": 98,
+    "lead_label": "核心判断",
+    "lead_label_width": 172,
+    "takeaway_top": 990,
+    "takeaway_height": 76,
+    "panel_radius": 6,
+    "panel_shadow_alpha": 18
+  },
+  "cover": {
+    "style": "editorial",
+    "brand_box": [118, 52, 730, 228],
+    "kicker_y": 252,
+    "title_y": 304,
+    "title_size": 86,
+    "subtitle_gap": 22,
+    "subtitle_size": 34,
+    "rule_gap": 34,
+    "info_gap": 34,
+    "info_y": 708,
+    "info_size": 28,
+    "bottom_band_y": 1002,
+    "bottom_band_height": 92,
+    "watermark_box": [1288, 228, 1964, 862],
+    "watermark_alpha": 0.09
+  },
+  "outline": {
+    "x": 300,
+    "y": 212,
+    "width": 1500,
+    "row_height": 118,
+    "gap": 26
+  },
+  "table": {
+    "header_height": 66,
+    "row_height": 100,
+    "font_size": 23,
+    "header_size": 25
+  }
+}
