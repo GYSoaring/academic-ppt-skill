@@ -29,12 +29,13 @@ Produce a self-contained output directory containing:
 2. Choose a structure from [references/outline-patterns.md](references/outline-patterns.md).
 3. Choose each page's evidence role and layout from [references/layout-catalog.md](references/layout-catalog.md); read [references/design-language.md](references/design-language.md) before designing a new theme or layout.
 4. Build `deck.json` using [references/deck-schema.md](references/deck-schema.md).
-5. For each content page, write a short topic `title` (4–10 Chinese characters) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header.
-6. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip or a textual structure; never insert an unrelated placeholder diagram.
-7. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md).
-8. Select or copy a theme. Use `assets/themes/tju_blue/theme.json` for the fixed Tianjin University visual system, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/academic_blue/theme.json` for a generic institutional theme.
-9. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
-10. Render the deterministic preview, export the native editable PowerPoint, and validate both:
+5. Set `meta.deck_mode` to `content_only` when the user explicitly asks to remove the cover and table of contents; otherwise keep `full`.
+6. For each content page, write a short topic `title` (4–10 Chinese characters) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header.
+7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip or a textual structure; never insert an unrelated placeholder diagram.
+8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md).
+9. Select or copy a theme. Use `assets/themes/tju_blue/theme.json` for the fixed Tianjin University visual system, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/academic_blue/theme.json` for a generic institutional theme.
+10. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
+11. Render the deterministic preview, export the native editable PowerPoint, and validate both:
 
 ```bash
 python scripts/render_deck.py --deck path/to/deck.json --theme assets/themes/tju_blue/theme.json --out path/to/output
@@ -45,7 +46,7 @@ python scripts/validate_pptx.py --pptx path/to/output/defense_deck.pptx --deck p
 python scripts/export_agent_brief.py --deck path/to/deck.json --theme assets/themes/tju_blue/theme.json --out path/to/output/agent_brief.md
 ```
 
-11. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.
+12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.
 
 ## Fixed Visual Contract
 
@@ -55,6 +56,7 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Cover: no header bar and no mini-directory. Keep one institutional identity and one cover composition.
 - The cover may be centered or editorial; choose once in the theme. The editorial variant uses a left title column and a faint watermark, but still keeps one institutional identity.
 - Outline: only the five or six section titles, with no descriptions, page ranges, or mini-directory.
+- Content-only mode: omit both cover and outline when explicitly requested; start directly with the first content page while keeping the fixed header, footer, identity, and mini-directory.
 - Content pages: fixed header, fixed upper-right identity, fixed footer rule, and a five-item mini-directory from the third page onward.
 - Chapter numbers, outline row numbers, and their adjacent titles use the same measured font size and baseline. If a long title has to shrink, the number shrinks with it.
 - Keep body content inside the theme's `content` box. Never move fixed elements to compensate for crowded text.

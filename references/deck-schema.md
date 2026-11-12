@@ -27,11 +27,19 @@ The model writes content; the renderer owns layout. Use one slide object per pag
   "report_type": "硕士学位论文开题报告",
   "date": "2026.11.13",
   "duration_min": 20,
+  "deck_mode": "full",
   "language": "zh-CN",
   "cover_line": "封面底部的一句边界或判断，可选",
   "source_note": "材料范围与任何全局限制"
 }
 ```
+
+`deck_mode` controls whether the deck includes the standard opening pages:
+
+- `full`: default. Slide 1 is `cover`, slide 2 is `outline`.
+- `content_only`: omit both the cover and the outline. Every slide is a content or closing page, and the validator does not require the first two layouts.
+
+Use `content_only` only when the user explicitly asks for a content-only deck or says to remove the cover and table of contents.
 
 ## Sections
 

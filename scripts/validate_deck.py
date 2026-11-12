@@ -86,10 +86,13 @@ def main() -> None:
     deck = load_json(deck_path)
     theme = load_theme(theme_path)
     issues: list[dict] = []
+    deck_mode = str(deck.get("meta", {}).get("deck_mode", "full")).strip().lower()
     sections = deck.get("sections", [])
     slides = deck.get("slides", [])
     section_ids = [section.get("id") for section in sections]
 
+    if deck_mode not in {"full", "content_only"}:
+        add_issue(issues, "error", "meta", "meta.deck_mode must be 'full' or 'content_only'.")
     if not deck.get("meta", {}).get("title"):
         add_issue(issues, "error", "meta", "Missing meta.title.")
     if not slides:
@@ -101,11 +104,15 @@ def main() -> None:
     if len(set(section_ids)) != len(section_ids):
         add_issue(issues, "error", "sections", "Section ids must be unique.")
 
-    if slides:
+    if slides and deck_mode == "full":
         if slides[0].get("layout") != "cover":
             add_issue(issues, "error", "01", "The first slide must use the cover layout.")
         if len(slides) > 1 and slides[1].get("layout") != "outline":
             add_issue(issues, "error", "02", "The second slide must use the outline layout.")
+    if slides and deck_mode == "content_only":
+        for index, slide in enumerate(slides, start=1):
+            if slide.get("layout") in {"cover", "outline"}:
+                add_issue(issues, "error", str(slide.get("id", f"{index:02d}")), "content_only mode must not include cover or outline slides.")
 
     for index, slide in enumerate(slides, start=1):
         page_id = str(slide.get("id", f"{index:02d}"))
@@ -342,6 +349,7 @@ def main() -> None:
     report = {
         "deck": str(deck_path),
         "theme": theme["name"],
+        "deck_mode": deck_mode,
         "slide_count": len(slides),
         "rendered_count": len(rendered_paths),
         "estimated_speech_seconds": estimated,
