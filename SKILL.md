@@ -1,11 +1,11 @@
 ---
-name: academic-defense-deck
+name: academic-ppt-skill
 description: Create academic defense, proposal, midterm, course, competition, and literature-review decks with fixed institutional branding, structured slides, figure-aware speaker notes, and a natural defense script. Use when visual consistency and claim-evidence discipline matter more than one-off slide decoration.
 metadata:
   short-description: Academic defense decks and speeches
 ---
 
-# Academic Defense Deck
+# Academic PPT Skill（学术汇报 PPT）
 
 Build the deck as structured content plus a deterministic rendering layer. Do not ask an image model to render exact Chinese titles, school names, seals, page numbers, or fixed headers.
 

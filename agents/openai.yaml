@@ -1,4 +1,4 @@
 interface:
-  display_name: "Academic Defense Deck"
-  short_description: "Academic defense decks and matching speeches"
-  default_prompt: "Use $academic-defense-deck to create a styled defense deck, figure-aware speaker notes, and a natural defense script."
+  display_name: "Academic PPT Skill"
+  short_description: "学术答辩、开题与中期汇报 PPT 生成"
+  default_prompt: "Use $academic-ppt-skill to create a styled academic defense deck, figure-aware speaker notes, and a natural defense script."

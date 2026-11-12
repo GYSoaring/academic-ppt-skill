@@ -1,4 +1,4 @@
-# Academic Defense Deck
+# Academic PPT Skill
 
 一个面向学术汇报的 Codex Skill：把论文、提纲、图片、学校身份信息与时间限制，整理成结构稳定的答辩 / 开题 / 中期 / 课程汇报幻灯片，并生成自然讲述稿。
 
@@ -8,7 +8,9 @@
 
 ## Preview
 
-![Academic Defense Deck preview](docs/preview.jpg)
+![单光子激光雷达答辩 PPT 预览](docs/preview.jpg)
+
+预览主题：`单光子激光雷达距离模糊消解技术研究进展`。示例中的汇报人和导师已匿名化。
 
 示例内容仅用于演示排版能力，不代表真实研究成果或学校官方背书。
 
@@ -34,20 +36,20 @@
 ### 方式一：作为 Codex Skill 安装
 
 ```bash
-git clone https://github.com/gxy2574927925-0512/academic-defense-deck.git
+git clone https://github.com/gxy2574927925-0512/academic-ppt-skill.git
 ```
 
 将仓库放到 Codex 的 skills 目录：
 
 ```text
-macOS / Linux:  ~/.codex/skills/academic-defense-deck
-Windows:        %USERPROFILE%\.codex\skills\academic-defense-deck
+macOS / Linux:  ~/.codex/skills/academic-ppt-skill
+Windows:        %USERPROFILE%\.codex\skills\academic-ppt-skill
 ```
 
 然后重新加载 Codex。调用示例：
 
 ```text
-使用 $academic-defense-deck，根据这篇论文和学校素材生成 15 页开题报告。
+使用 $academic-ppt-skill，根据这篇论文和学校素材生成 15 页开题报告。
 ```
 
 ### 方式二：直接在仓库中运行
