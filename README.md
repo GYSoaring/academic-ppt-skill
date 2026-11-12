@@ -33,6 +33,10 @@
 
 ### 方式一：作为 Codex Skill 安装
 
+```bash
+git clone https://github.com/gxy2574927925-0512/academic-defense-deck.git
+```
+
 将仓库放到 Codex 的 skills 目录：
 
 ```text
