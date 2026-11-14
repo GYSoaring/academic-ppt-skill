@@ -23,6 +23,8 @@
 ## Features
 
 - **结构化内容输入**：`deck.json` 分别记录章节、页面主张、证据、边界、图片来源和逐页讲稿。
+- **源材料抽取**：PDF / DOCX / PPTX / Markdown / 图片文件夹 → `source.md`、`source_manifest.json`、`figures/`，让图片和来源可追溯。
+- **PPTX 主题导入**：从用户现有 `.pptx` 读取 theme colors、major/minor fonts 和 slide size，生成可审查的 `theme.json` 草稿。
 - **完整版 / 纯内容版**：`deck_mode: full` 生成封面与目录；`deck_mode: content_only` 从正文页开始，适合作品集嵌入、长图预览和已有封面的场合。
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
 - **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
@@ -75,6 +77,15 @@ python -m pip install -r requirements.txt
 从仓库根目录运行内置示例：
 
 ```bash
+python scripts/extract_source.py \
+  --input path/to/paper.pdf path/to/figures \
+  --out outputs/zju-proposal/source_pack
+
+python scripts/import_pptx_theme.py \
+  --pptx path/to/school_template.pptx \
+  --out outputs/zju-proposal/imported-theme/theme.json \
+  --name "学校名称"
+
 python scripts/render_deck.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
@@ -124,6 +135,7 @@ Windows PowerShell 可把行末的 `\` 改为单行命令，或在 Git Bash / WS
 ```text
 outputs/<project>/
 |-- deck.json                   # 结构化内容与逐页讲稿
+|-- source_pack/                # 可选的论文/图表抽取结果
 |-- rendered/slide_01.png ...   # 确定性版面预览
 |-- contact_sheet.jpg           # 全篇缩略图
 |-- defense_deck.pptx           # 原生可编辑 PowerPoint

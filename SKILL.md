@@ -27,7 +27,7 @@ Produce a self-contained output directory containing:
 
 ## Workflow
 
-1. Read the user's paper, outline, images, school identity assets, presenter, advisor, date, and time limit.
+1. Read the user's paper, outline, images, school identity assets, presenter, advisor, date, and time limit. If the user supplies PDF, DOCX, PPTX, Markdown, or a folder of figures, run `scripts/extract_source.py` first and review `source.md`, `source_manifest.json`, and `figures.json` before planning slides.
 2. Choose a structure from [references/outline-patterns.md](references/outline-patterns.md).
 3. Choose each page's evidence role and layout from [references/layout-catalog.md](references/layout-catalog.md); read [references/visual-language.md](references/visual-language.md) and [references/design-language.md](references/design-language.md) before designing a new theme or layout.
 4. Build `deck.json` using [references/deck-schema.md](references/deck-schema.md).
@@ -36,7 +36,7 @@ Produce a self-contained output directory containing:
 7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip, a formula, a table, or a semantic `diagram`; never insert an unrelated placeholder diagram.
 8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md).
 9. Select or copy a theme. Use `assets/themes/academic_blue/theme.json` as the public default, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/tju_blue/theme.json` for the Tianjin University visual system. Use `--profile document` for dense handouts and `--profile projection` for lecture-room readability.
-10. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
+10. If the user provides an existing PPTX template, run `scripts/import_pptx_theme.py` to extract its theme colors and major/minor fonts into a `theme.json` draft. Review the draft before using it. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
 11. Render the deterministic preview, export the native editable PowerPoint, and validate both:
 
 ```bash
@@ -48,6 +48,13 @@ python scripts/validate_pptx.py --pptx path/to/output/defense_deck.pptx --deck p
 python scripts/check_accessibility.py --pptx path/to/output/defense_deck.pptx --out path/to/output
 python scripts/render_pptx_preview.py --pptx path/to/output/defense_deck.pptx --out path/to/output/pptx_preview --compare-dir path/to/output/rendered --strict
 python scripts/export_agent_brief.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output/agent_brief.md
+```
+
+Before building the deck:
+
+```bash
+python scripts/extract_source.py --input path/to/paper.pdf path/to/figures --out path/to/source_pack
+python scripts/import_pptx_theme.py --pptx path/to/school_template.pptx --out path/to/theme/theme.json --name "学校名称"
 ```
 
 12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.
@@ -63,6 +70,8 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Content-only mode: omit both cover and outline when explicitly requested; start directly with the first content page while keeping the fixed header, footer, identity, and mini-directory.
 - Content pages: fixed header, fixed upper-right identity, fixed footer rule, and a five-item mini-directory from the third page onward.
 - Every slide must have a real PowerPoint title placeholder; pictures and charts need semantic alt text; background textures, lockups used as decoration, and non-text chrome must be marked decorative; comparison tables need header-row semantics.
+- Treat `source_manifest.json` as the evidence index: every figure used in a slide should be traceable to a source file and page/section.
+- A theme imported from a PPTX is a draft. Review the mapped palette, fonts, and identity assets before delivery; do not assume a template's accent colors are semantically correct for a new topic.
 - Chapter numbers, outline row numbers, and their adjacent titles use the same measured font size and baseline. If a long title has to shrink, the number shrinks with it.
 - Keep body content inside the theme's `content` box. Never move fixed elements to compensate for crowded text.
 - Use paper-like pale backgrounds, deep institutional blue, thin rules, restrained panels, and faithful rectangular figure inserts.

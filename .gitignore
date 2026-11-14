@@ -18,6 +18,7 @@ outputs/
 *.py[cod]
 *.pyo
 .pytest_cache/
+tests/.tmp/
 .mypy_cache/
 .ruff_cache/
 .coverage

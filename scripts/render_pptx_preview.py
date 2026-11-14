@@ -86,7 +86,7 @@ def export_with_powerpoint(pptx: Path, out_dir: Path, width: int, height: int) -
 
 
 def export_with_libreoffice(pptx: Path, out_dir: Path, width: int, height: int) -> int:
-    import fitz
+    import pymupdf as fitz
 
     soffice = find_libreoffice()
     if soffice is None:

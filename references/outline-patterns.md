@@ -9,6 +9,8 @@ For every content page, write two layers:
 
 Read only the `lead` sentences in sequence. If they do not tell the argument, fix the outline before rendering.
 
+If the deck was built from a source pack, keep the `figure.id` from `figures.json` in the slide's `source_note` or `footnote` so a reviewer can trace the visual back to its PDF/DOCX/PPTX source page.
+
 ## Thesis Defense
 
 1. 研究背景与问题

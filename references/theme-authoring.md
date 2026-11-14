@@ -14,6 +14,19 @@ theme-name/
 
 If the user does not provide an approved identity asset, omit the images and use `brand.fallback_text` or a neutral monogram.
 
+## Import An Existing PPTX Theme
+
+If the user supplies a school or lab `.pptx`, start with:
+
+```bash
+python scripts/import_pptx_theme.py \
+  --pptx school_template.pptx \
+  --out assets/themes/imported/theme.json \
+  --name "学校名称"
+```
+
+The importer reads `ppt/theme/theme*.xml`, maps theme colors to the semantic palette, reads major/minor Latin and East Asian fonts, and reuses the layout geometry of `academic_blue`. Treat the result as a draft: verify the palette, font availability, cover identity, and protected zones before rendering the full deck. The importer does not infer an official seal or logo from arbitrary slide images.
+
 ## Minimum Theme Contract
 
 - `canvas.width` and `canvas.height`
