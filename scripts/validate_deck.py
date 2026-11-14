@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from common import estimate_seconds, load_json, load_theme, resolve_path, write_json
+from common import apply_type_profile, estimate_seconds, load_json, load_theme, resolve_path, write_json
 
 
 SUPPORTED_LAYOUTS = {
@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--render-dir", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--profile", choices=["document", "projection"], default=None)
     return parser.parse_args()
 
 
@@ -154,6 +155,8 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     deck = load_json(deck_path)
     theme = load_theme(theme_path)
+    profile = args.profile or str(deck.get("meta", {}).get("type_profile", "document"))
+    apply_type_profile(theme, profile)
     issues: list[dict] = []
     deck_mode = str(deck.get("meta", {}).get("deck_mode", "full")).strip().lower()
     sections = deck.get("sections", [])
@@ -430,6 +433,20 @@ def main() -> None:
             if not np.array_equal(reference_footer, current_footer):
                 add_issue(issues, "error", f"{index:02d}", "Footer rule is not pixel-fixed.")
 
+    render_report_path = render_dir.parent / "render_report.json"
+    if render_report_path.exists():
+        render_report = load_json(render_report_path)
+        for warning in render_report.get("warnings", []):
+            message = str(warning.get("message", "")).strip()
+            page = str(warning.get("page", "render"))
+            if not message:
+                continue
+            fatal_terms = ("overflowed", "did not fit", "missing", "has no")
+            severity = "error" if any(term in message.lower() for term in fatal_terms) else "warning"
+            add_issue(issues, severity, page, f"Renderer warning: {message}")
+    else:
+        add_issue(issues, "warning", "render", "render_report.json is missing; visual overflow was not checked.")
+
     estimated = sum(estimate_seconds(str(slide.get("speech", ""))) for slide in slides)
     target_seconds = int(float(deck.get("meta", {}).get("duration_min", 20)) * 60)
     if target_seconds and estimated > target_seconds * 1.15:
@@ -442,6 +459,7 @@ def main() -> None:
     report = {
         "deck": str(deck_path),
         "theme": theme["name"],
+        "type_profile": profile,
         "deck_mode": deck_mode,
         "slide_count": len(slides),
         "rendered_count": len(rendered_paths),

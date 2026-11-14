@@ -25,6 +25,7 @@ from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 
 from common import (
+    apply_type_profile,
     fit_text_block,
     load_json,
     load_theme,
@@ -33,6 +34,7 @@ from common import (
     text_width,
     write_json,
 )
+from accessibility import finalize_slide_accessibility, mark_decorative, set_alt_text
 from design import Run, TextStyle, parse_markup
 from render_deck_next import DeckRenderer
 
@@ -148,7 +150,7 @@ def set_shape_effect(shape, color: tuple[int, int, int], blur_px: float = 8, dis
 
 
 class EditableDeckExporter:
-    def __init__(self, deck_path: Path, theme_path: Path, output_dir: Path) -> None:
+    def __init__(self, deck_path: Path, theme_path: Path, output_dir: Path, profile: str | None = None) -> None:
         self.deck_path = deck_path.resolve()
         self.theme_path = theme_path.resolve()
         self.output_dir = output_dir.resolve()
@@ -157,7 +159,9 @@ class EditableDeckExporter:
         self.asset_dir.mkdir(parents=True, exist_ok=True)
         self.deck = load_json(self.deck_path)
         self.theme = load_theme(self.theme_path)
-        self.renderer = DeckRenderer(self.deck_path, self.theme_path, self.output_dir)
+        self.profile = profile or str(self.deck.get("meta", {}).get("type_profile", "document"))
+        apply_type_profile(self.theme, self.profile)
+        self.renderer = DeckRenderer(self.deck_path, self.theme_path, self.output_dir, profile=self.profile)
         self.width = int(self.theme["canvas"]["width"])
         self.height = int(self.theme["canvas"]["height"])
         self.colors = self.theme["_colors"]
@@ -191,6 +195,16 @@ class EditableDeckExporter:
 
     def type_size(self, name: str, fallback: int) -> int:
         return int(self.type_scale.get(name, fallback))
+
+    @staticmethod
+    def image_alt(slide_data: dict) -> str:
+        return str(
+            slide_data.get("image_alt")
+            or slide_data.get("image_role")
+            or slide_data.get("image_caption")
+            or slide_data.get("image_label")
+            or "内容配图"
+        ).strip()
 
     def resolve_pptx_fonts(self) -> dict[str, str]:
         configured = self.theme.get("pptx_fonts", {})
@@ -524,6 +538,8 @@ class EditableDeckExporter:
         align: str = "center",
         valign: str = "middle",
         name: str = "",
+        alt_text: str = "",
+        decorative: bool = False,
     ):
         if not path:
             return None
@@ -551,6 +567,10 @@ class EditableDeckExporter:
         shape = slide.shapes.add_picture(str(image_path), px(target_left), px(target_top), px(draw_width), px(draw_height))
         if name:
             shape.name = name
+        if decorative:
+            mark_decorative(shape)
+        else:
+            set_alt_text(shape, alt_text or "内容配图")
         self.picture_count += 1
         return shape
 
@@ -598,6 +618,15 @@ class EditableDeckExporter:
             data,
         )
         graphic.name = name
+        set_alt_text(
+            graphic,
+            str(
+                chart_data.get("alt_text")
+                or chart_data.get("caption")
+                or chart_data.get("annotation")
+                or f"图表：{chart_data.get('series_name', '数据')}"
+            ),
+        )
 
         chart = graphic.chart
         chart.has_legend = False
@@ -796,7 +825,19 @@ class EditableDeckExporter:
     def add_brand(self, slide, box: tuple[float, float, float, float], align: str = "center", name: str = "brand_lockup") -> None:
         lockup = self.theme.get("brand", {}).get("lockup_path")
         if lockup and Path(lockup).exists():
-            self.add_picture_fit(slide, lockup, box, align=align, name=name)
+            fallback = str(
+                self.theme.get("brand", {}).get("fallback_text")
+                or self.deck.get("meta", {}).get("institution")
+                or "院校"
+            )
+            self.add_picture_fit(
+                slide,
+                lockup,
+                box,
+                align=align,
+                name=name,
+                alt_text=f"{fallback}校名与校徽",
+            )
             return
         fallback = str(self.theme.get("brand", {}).get("fallback_text") or self.deck.get("meta", {}).get("institution") or "")
         if not fallback:
@@ -984,6 +1025,7 @@ class EditableDeckExporter:
     ) -> None:
         if not bullets:
             return
+        max_size = max(max_size, min_size)
         left, top, width, height = box
         chosen = min_size
         for candidate in range(max_size, min_size - 1, -1):
@@ -1204,16 +1246,16 @@ class EditableDeckExporter:
             if divider_x < title_left - 20:
                 divider_top = float(self.layout["title_y"]) + 4
                 self.add_line(slide, (divider_x, divider_top), (divider_x, divider_top + eyebrow_size * 0.92), "line", 2)
-        self.add_text(
+        self.set_slide_title(
             slide,
-            (title_left, float(self.layout["title_y"]) - 4, title_width, 62),
             title,
+            (title_left, float(self.layout["title_y"]) - 4, title_width, 62),
             title_size,
-            "blue_dark",
+            color_name="blue_dark",
             bold=True,
             family=self.fonts["title"],
-            line_ratio=1.0,
             name="header_title",
+            line_ratio=1.0,
         )
         divider_y = float(self.layout["divider_y"])
         self.add_rect(slide, (24, divider_y, self.width - 48, 4), "blue")
@@ -1267,12 +1309,89 @@ class EditableDeckExporter:
         return left, top, right, bottom
 
     def new_slide(self, index: int) -> object:
-        slide = self.presentation.slides.add_slide(self.presentation.slide_layouts[6])
+        layout = (
+            self.presentation.slide_layouts[5]
+            if len(self.presentation.slide_layouts) > 5
+            else self.presentation.slide_layouts[6]
+        )
+        slide = self.presentation.slides.add_slide(layout)
         background = self.cover_background if index == 1 and self.deck["slides"][index - 1].get("layout") == "cover" else self.background_paths[index - 1]
         picture = slide.shapes.add_picture(str(background), 0, 0, px(self.width), px(self.height))
         picture.name = "background_texture"
+        mark_decorative(picture)
+        self.send_to_back(picture)
         self.picture_count += 1
         return slide
+
+    def send_to_back(self, shape) -> None:
+        element = shape._element
+        parent = element.getparent()
+        if parent is None:
+            return
+        parent.remove(element)
+        parent.insert(2, element)
+
+    def set_slide_title(
+        self,
+        slide,
+        text: str,
+        box: tuple[float, float, float, float],
+        size_px: float,
+        color_name: str = "blue_dark",
+        family: str | None = None,
+        bold: bool = True,
+        align: str = "left",
+        line_ratio: float = 1.0,
+        name: str = "slide_title",
+    ) -> None:
+        """Write the visible header/cover title into the real title placeholder."""
+        title_shape = slide.shapes.title
+        if title_shape is None:
+            self.add_text(
+                slide,
+                box,
+                text,
+                size_px,
+                color_name,
+                bold=bold,
+                family=family,
+                align=align,
+                line_ratio=line_ratio,
+                name=name,
+            )
+            return
+        self.text_shape_count += 1
+        left, top, width, height = box
+        title_shape.left = px(left)
+        title_shape.top = px(top)
+        title_shape.width = px(width)
+        title_shape.height = px(height)
+        title_shape.name = name
+        tf = title_shape.text_frame
+        tf.clear()
+        tf.word_wrap = True
+        tf.auto_size = None
+        tf.margin_left = 0
+        tf.margin_right = 0
+        tf.margin_top = 0
+        tf.margin_bottom = 0
+        tf.vertical_anchor = MSO_ANCHOR.TOP
+        paragraphs = str(text).split("\n") if str(text) else [""]
+        for paragraph_index, paragraph_text in enumerate(paragraphs):
+            paragraph = tf.paragraphs[0] if paragraph_index == 0 else tf.add_paragraph()
+            paragraph.alignment = align_value(align)
+            paragraph.line_spacing = line_ratio
+            paragraph.space_before = Pt(0)
+            paragraph.space_after = Pt(0)
+            run = paragraph.add_run()
+            run.text = strip_markup(paragraph_text)
+            self.apply_font(
+                run,
+                family or self.fonts["title"],
+                size_px,
+                self.rgb(color_name),
+                bold=bold,
+            )
 
     def draw_cover(self, slide, s: dict) -> None:
         if str(self.theme.get("cover", {}).get("style", "centered")) != "editorial":
@@ -1289,7 +1408,13 @@ class EditableDeckExporter:
         self.add_line(slide, (panel_left, 210), (panel_left, 930), "line", 2)
         if self.watermark_path is not None:
             wb = tuple(cover.get("watermark_box", (1288, 228, 1964, 862)))
-            self.add_picture_fit(slide, self.watermark_path, (wb[0], wb[1], wb[2] - wb[0], wb[3] - wb[1]), name="cover_watermark")
+            self.add_picture_fit(
+                slide,
+                self.watermark_path,
+                (wb[0], wb[1], wb[2] - wb[0], wb[3] - wb[1]),
+                name="cover_watermark",
+                decorative=True,
+            )
         kicker = str(meta.get("report_type") or meta.get("subtitle") or "学术报告").strip()
         kicker_y = float(cover.get("kicker_y", 252))
         self.add_rect(slide, (accent_x, kicker_y + 1, 7, 38), "blue")
@@ -1300,7 +1425,17 @@ class EditableDeckExporter:
             title = "\n".join(str(line) for line in title_lines)
         title_size, _ = self.measure(title, "display", int(title_width), 270, min(66, self.type_size("cover_title", 86)), 44, max_lines=3, line_ratio=1.10)
         title_top = float(cover.get("title_y", 304))
-        title_shape = self.add_text(slide, (accent_x, title_top, title_width, 276), title, title_size, "blue", family=self.fonts["display"], line_ratio=1.10, name="cover_title")
+        self.set_slide_title(
+            slide,
+            title,
+            (accent_x, title_top, title_width, 276),
+            title_size,
+            color_name="blue",
+            family=self.fonts["display"],
+            align="left",
+            line_ratio=1.10,
+            name="cover_title",
+        )
         title_bottom = title_top + title_size * 1.22 * max(1, len(title.split("\n"))) + 12
         subtitle = str(s.get("subtitle") or meta.get("subtitle") or "").strip()
         subtitle_bottom = title_bottom
@@ -1346,7 +1481,17 @@ class EditableDeckExporter:
         if isinstance(title_lines, list) and title_lines:
             title = "\n".join(str(line) for line in title_lines)
         title_size, _ = self.measure(title, "display", title_width, 128, self.type_size("cover_title", 80), 44, max_lines=2, line_ratio=1.10)
-        self.add_text(slide, (title_left, float(cover.get("title_y", 352)), title_width, 136), title, title_size, "blue", family=self.fonts["display"], align="center", line_ratio=1.10, name="cover_title")
+        self.set_slide_title(
+            slide,
+            title,
+            (title_left, float(cover.get("title_y", 352)), title_width, 136),
+            title_size,
+            color_name="blue",
+            family=self.fonts["display"],
+            align="center",
+            line_ratio=1.10,
+            name="cover_title",
+        )
         subtitle = str(s.get("subtitle") or meta.get("subtitle") or "").strip()
         if subtitle:
             subtitle_size, _ = self.measure(subtitle, "body", title_width, 54, self.type_size("cover_subtitle", 35), 22, max_lines=1, line_ratio=1.1)
@@ -1505,11 +1650,23 @@ class EditableDeckExporter:
             if width > 520:
                 image_width = width * 0.46
                 image_box = (left + width - image_width - 14, content_top, image_width, content_bottom - content_top)
-                self.add_picture_fit(slide, image_path, image_box, name="block_image")
+                self.add_picture_fit(
+                    slide,
+                    image_path,
+                    image_box,
+                    name="block_image",
+                    alt_text=str(block.get("image_alt") or block.get("heading") or "内容配图"),
+                )
                 text_width_available = (image_box[0] - text_left - 14)
             else:
                 image_height = max(50, (content_bottom - content_top) * 0.38)
-                self.add_picture_fit(slide, image_path, (left + 14, content_top, width - 28, image_height), name="block_image")
+                self.add_picture_fit(
+                    slide,
+                    image_path,
+                    (left + 14, content_top, width - 28, image_height),
+                    name="block_image",
+                    alt_text=str(block.get("image_alt") or block.get("heading") or "内容配图"),
+                )
                 content_top += image_height + 10
         stat = str(block.get("stat", "")).strip()
         if stat:
@@ -2278,7 +2435,7 @@ class EditableDeckExporter:
         header_top = body_top + max(0, (bottom - body_top - table_height - 18) // 2)
         graphic = slide.shapes.add_table(len(rows) + 1, len(columns), px(left), px(header_top), px(right - left), px(table_height))
         table = graphic.table
-        table.first_row = False
+        table.first_row = True
         table.horz_banding = False
         self.native_table_count += 1
         for index, width in enumerate(widths):
@@ -2622,6 +2779,7 @@ class EditableDeckExporter:
                     image_path,
                     (image_box[0] + 14, body_top + 14, image_width - 28, bottom - body_top - 28),
                     name="hero_figure",
+                    alt_text=self.image_alt(s),
                 )
             else:
                 self.add_text(
@@ -2749,6 +2907,7 @@ class EditableDeckExporter:
                     image_path,
                     (left + 14, lower_top + 14, image_width - 28, bottom - lower_top - 28),
                     name="flow_figure",
+                    alt_text=self.image_alt(s),
                 )
             else:
                 self.add_text(
@@ -2838,7 +2997,7 @@ class EditableDeckExporter:
                 name="metrics_chart",
             )
         elif image_path and image_path.exists():
-            self.add_picture_fit(slide, image_path, evidence_box, name="metrics_image")
+            self.add_picture_fit(slide, image_path, evidence_box, name="metrics_image", alt_text=self.image_alt(s))
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
         self.add_footnote(slide, s.get("footnote", ""))
 
@@ -2868,7 +3027,13 @@ class EditableDeckExporter:
             self.add_panel(slide, center_box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True)
             image_path = resolve_path(s.get("image"), self.deck_path.parent)
             if image_path and image_path.exists():
-                self.add_picture_fit(slide, image_path, (center_left + 18, body_top + 38, center_right - center_left - 36, bottom - body_top - 74), name="balance_figure")
+                self.add_picture_fit(
+                    slide,
+                    image_path,
+                    (center_left + 18, body_top + 38, center_right - center_left - 36, bottom - body_top - 74),
+                    name="balance_figure",
+                    alt_text=self.image_alt(s),
+                )
             self.add_text(slide, (center_left + 20, bottom - 28, center_right - center_left - 40, 20), str(s.get("image_label", "系统结构")), 16, "muted", align="center", line_ratio=1.0)
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
         self.add_footnote(slide, s.get("footnote", ""))
@@ -2935,6 +3100,7 @@ class EditableDeckExporter:
             speech = str(s.get("speech", "")).strip()
             if speech:
                 slide.notes_slide.notes_text_frame.text = speech
+            finalize_slide_accessibility(slide)
             chart_count = sum(1 for shape in slide.shapes if getattr(shape, "has_chart", False))
             self.native_chart_count += chart_count
             self.slide_stats.append(
@@ -2948,6 +3114,14 @@ class EditableDeckExporter:
                     "chart_count": chart_count,
                 }
             )
+        meta = self.deck.get("meta", {})
+        core = self.presentation.core_properties
+        core.title = str(meta.get("title", ""))
+        core.author = str(meta.get("presenter") or "GYSoaring")
+        core.subject = str(meta.get("report_type") or "Academic presentation")
+        core.keywords = ", ".join(str(section.get("title", "")) for section in self.deck.get("sections", []))
+        core.language = str(meta.get("language") or "zh-CN")
+        core.comments = "Generated by academic-ppt-skill"
         pptx_path = self.output_dir / pptx_name
         self.presentation.save(str(pptx_path))
         report = {
@@ -2979,12 +3153,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--pptx-name", default="defense_deck.pptx")
+    parser.add_argument("--profile", choices=["document", "projection"], default=None)
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    exporter = EditableDeckExporter(Path(args.deck), Path(args.theme), Path(args.out))
+    exporter = EditableDeckExporter(Path(args.deck), Path(args.theme), Path(args.out), profile=args.profile)
     report = exporter.export(args.pptx_name)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

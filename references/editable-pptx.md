@@ -7,6 +7,8 @@ The skill produces two PowerPoint files from the same `deck.json`:
 
 The native version deliberately reuses the preview renderer's theme coordinates and type scale. It does not redesign the page while exporting.
 
+Use `--profile document` for dense handout decks. Use `--profile projection` when the deck will be projected; it raises the physical PowerPoint type scale and intentionally fails on overflow instead of silently shrinking text.
+
 ## What Is Native
 
 - Cover title, kicker, subtitle, presenter, advisor, date, institution, and bottom line.
@@ -17,6 +19,7 @@ The native version deliberately reuses the preview renderer's theme coordinates 
 - Pipeline nodes, timeline cards, hub cards, references, and closing blocks.
 - Semantic `concept` diagrams as native shapes and text boxes: `sequence`, `branch`, `stack`, `ruler`, `matrix`, and `cycle`.
 - Formula-led pages: the equation as OMML, symbol definitions as native text, and condition/boundary panels as native shapes.
+- Real title placeholders, semantic alt text, decorative markers, header-row table semantics, and document core properties.
 - Speaker notes.
 
 Only the paper texture and institutional lockup are pictures. The background picture contains no readable content and can be replaced without deleting the slide text.
@@ -63,6 +66,20 @@ If `latex2mathml` or the Office XSL is unavailable, the exporter writes the plai
 
 For a `formula` layout, the validator counts the page equation as one expected formula. Symbol rows are text, not separate equations; use real subscript characters such as `tₑ` or `uₑ` in the visible text. Do not write `t_e` in the slide.
 
+## Accessibility And Render QA
+
+The exporter uses a real title placeholder on every slide. Background textures and non-text chrome are marked decorative; content pictures use `image_role`/`image_caption` as semantic alt text; comparison tables set `first_row = True`; core properties are populated from `meta`.
+
+Run these gates after exporting:
+
+```bash
+python scripts/validate_pptx.py --pptx defense_deck.pptx --deck deck.json --out output
+python scripts/check_accessibility.py --pptx defense_deck.pptx --out output
+python scripts/render_pptx_preview.py --pptx defense_deck.pptx --out output/pptx_preview --compare-dir output/rendered --strict
+```
+
+`render_pptx_preview.py` prefers PowerPoint COM on Windows and falls back to LibreOffice plus PyMuPDF on other systems. A skipped render is reported explicitly; it must not be described as a successful visual QA pass.
+
 ## Validation
 
 Run:
@@ -82,6 +99,9 @@ python scripts/validate_pptx.py --pptx output/defense_deck.pptx --deck deck.json
 - formulas are OMML rather than a single raster image
 - a `formula` layout has its page equation as native OMML
 - a `concept` layout has editable diagram text and shapes, not a single raster diagram
+- every slide has a non-empty title placeholder
+- content pictures have semantic alt text or are marked decorative
+- comparison tables have header-row semantics
 - the deck is not just one full-page picture per slide
 
 `pptx_report.json` records per-slide editable shape counts, picture counts, native tables, native charts, and formula conversion status.

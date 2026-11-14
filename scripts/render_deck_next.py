@@ -11,6 +11,7 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from common import (
+    apply_type_profile,
     draw_lines,
     fit_text_block,
     line_height,
@@ -48,14 +49,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--columns", type=int, default=3)
+    parser.add_argument("--profile", choices=["document", "projection"], default=None)
     return parser.parse_args()
 
 
 class DeckRenderer:
-    def __init__(self, deck_path: Path, theme_path: Path, output_dir: Path) -> None:
+    def __init__(self, deck_path: Path, theme_path: Path, output_dir: Path, profile: str | None = None) -> None:
         self.deck_path = deck_path.resolve()
         self.deck = load_json(self.deck_path)
         self.theme = load_theme(theme_path)
+        self.profile = profile or str(self.deck.get("meta", {}).get("type_profile", "document"))
+        apply_type_profile(self.theme, self.profile)
         self.output_dir = output_dir.resolve()
         self.render_dir = self.output_dir / "rendered"
         self.render_dir.mkdir(parents=True, exist_ok=True)
@@ -894,6 +898,7 @@ class DeckRenderer:
         min_size: int = 15,
         gap: int = 10,
     ) -> tuple[bool, int]:
+        max_size = max(max_size, min_size)
         current_top = top
         all_fit = True
         for bullet in bullets:
@@ -3325,7 +3330,7 @@ class DeckRenderer:
 
 def main() -> None:
     args = parse_args()
-    renderer = DeckRenderer(Path(args.deck), Path(args.theme), Path(args.out))
+    renderer = DeckRenderer(Path(args.deck), Path(args.theme), Path(args.out), profile=args.profile)
     report = renderer.render()
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

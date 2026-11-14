@@ -21,6 +21,7 @@ If the user does not provide an approved identity asset, omit the images and use
 - `fonts.title`, `fonts.body`, `fonts.serif`, `fonts.display`, `fonts.formula`, and `fonts.latin` as ordered fallback lists
 - `layout.content`, `layout.sidebar`, `layout.header_height`, `layout.footer_y`, and `layout.takeaway_top`
 - `type_scale.header_title` and `type_scale.eyebrow` must describe the same header type size; `layout.title_size` and `layout.chapter_size` should also match. The renderer fits both to the same measured size so a long title shrinks together with its chapter number.
+- `type_profiles` is optional. If omitted, `--profile projection` uses the built-in projection scale. A theme may override it with `type_profiles.projection.type_scale` to match its own layout density.
 - `brand.lockup` or `brand.fallback_text`
 - `cover.style`: `centered` or `editorial`
 
@@ -50,6 +51,7 @@ The font lists above use file paths for the PNG renderer; `pptx_fonts` uses Powe
 4. Keep `panel_radius` small and `panel_shadow_alpha` restrained. The academic look comes from hierarchy, spacing, and typography, not from dashboard effects.
 5. Use the same identity asset family on cover and content pages. Do not mix a dark-background lockup with a light-background page.
 6. Preview the cover and one content page before rendering the full deck.
+7. Run both `--profile document` and `--profile projection` on a representative page. Projection is expected to reject pages that are too dense; split them instead of reducing the font below the profile minimum.
 
 ## Public-Use Checklist
 

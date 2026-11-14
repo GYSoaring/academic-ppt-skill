@@ -41,6 +41,7 @@ Selection favored repositories with an actual slide system, not a single decorat
 | [OpenPresentation format card](https://www.openpresentation.org/docs/reference/format-card) | One slide, one message; explicit design tokens | Keep one job per page; make spacing and type scale theme tokens rather than ad hoc values |
 | [Aperivue/medsci-skills](https://github.com/Aperivue/medsci-skills) | Clinical/academic palettes, evidence plates, and figure/text separation | Preserve a restrained blue-gray palette and separate measured evidence from explanatory text |
 | [Russell-cell/PPT-Design-Prompt](https://github.com/Russell-cell/PPT-Design-Prompt) | Prompt structure that separates layout, content, and visual style | Keep the style contract independent from the topic; never hard-code a school or a research field |
+| [Microsoft Support: Accessible PowerPoint presentations](https://support.microsoft.com/en-us/accessibility/powerpoint/make-your-powerpoint-presentations-accessible-to-people-with-disabilities) | Real title placeholders, alt text, reading order, table headers, contrast, and document language | Export semantic title/alt/table/core-property metadata and validate it separately from the PNG preview |
 
 ## Rules Adopted
 
@@ -57,6 +58,7 @@ Selection favored repositories with an actual slide system, not a single decorat
 11. **Diagrams encode relations, not decoration.** Use `sequence` only for a real order, `matrix` only for a two-axis tradeoff, `ruler` only for a scale, and `cycle` only for a real loop.
 12. **One strong evidence field per page.** A lead claim, one dominant evidence object, and a small interpretation rail are enough; repeated equal cards hide the absence of a relation.
 13. **Image generation supplies atmosphere, not truth.** Extract the fixed zones and density rhythm from accepted image-gen references; redraw text, formulas, figures, tables, and citations deterministically.
+14. **Accessibility is a delivery gate.** A slide that has no title placeholder, filename-only alt text, or a headerless table is not a finished academic artifact.
 
 ## Deliberately Not Copied
 

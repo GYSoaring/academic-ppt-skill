@@ -29,7 +29,10 @@
 - **语义示意图**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle` 六种图理由内容驱动，渲染器只负责几何与排版；PPTX 中仍是原生形状和文本。
 - **原生可编辑 PPTX**：文字、形状、表格、图表和 OMML 公式均为可编辑对象，而不是整页截图。
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
+- **投影/文档双字号档**：`document` 保留高密度阅读版；`projection` 提高实际 PPTX 字号，并通过溢出门禁要求拆页，而不是把字压小。
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
+- **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。
+- **真实成品质检**：`render_pptx_preview.py` 通过 PowerPoint COM 或 LibreOffice 渲染 PPTX，并与 PIL 预览做差异比较，避免“预览能过、交付跑版”。
 - **真实缺图提示**：没有论文原图时显示明确提示或改用文字结构，不伪造直方图、目标框、噪声曲线来凑版面。
 - **答辩稿与备注**：按页生成 speaker notes 与连贯讲述稿，并检查时长和证据口径。
 - **主题可替换**：内置通用学术蓝与院校示例主题，学校名称、校标、颜色和字体全部配置化，不写死在渲染器里。
@@ -75,13 +78,15 @@ python -m pip install -r requirements.txt
 python scripts/render_deck.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
-  --out outputs/zju-proposal
+  --out outputs/zju-proposal \
+  --profile document
 
 python scripts/export_editable_pptx.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
   --out outputs/zju-proposal \
-  --pptx-name defense_deck.pptx
+  --pptx-name defense_deck.pptx \
+  --profile document
 
 python scripts/build_speech.py \
   --deck examples/zju_proposal/deck.json \
@@ -91,12 +96,23 @@ python scripts/validate_deck.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
   --render-dir outputs/zju-proposal/rendered \
-  --out outputs/zju-proposal
+  --out outputs/zju-proposal \
+  --profile document
 
 python scripts/validate_pptx.py \
   --pptx outputs/zju-proposal/defense_deck.pptx \
   --deck examples/zju_proposal/deck.json \
   --out outputs/zju-proposal
+
+python scripts/check_accessibility.py \
+  --pptx outputs/zju-proposal/defense_deck.pptx \
+  --out outputs/zju-proposal
+
+python scripts/render_pptx_preview.py \
+  --pptx outputs/zju-proposal/defense_deck.pptx \
+  --out outputs/zju-proposal/pptx_preview \
+  --compare-dir outputs/zju-proposal/rendered \
+  --strict
 ```
 
 Windows PowerShell 可把行末的 `\` 改为单行命令，或在 Git Bash / WSL 中执行。
@@ -111,10 +127,13 @@ outputs/<project>/
 |-- rendered/slide_01.png ...   # 确定性版面预览
 |-- contact_sheet.jpg           # 全篇缩略图
 |-- defense_deck.pptx           # 原生可编辑 PowerPoint
+|-- pptx_preview/               # PowerPoint/LibreOffice 实际渲染页
+|   `-- pptx_render_report.json # 实际渲染、空白页和预览差异
 |-- speaker_notes.md            # 逐页演讲备注
 |-- defense_script.md           # 连续答辩稿
 |-- render_report.json          # 溢出、缺图和版面检查
 |-- pptx_validation_report.json # PPTX 原生对象与完整性检查
+|-- accessibility_report.json   # 标题、alt、表格 header、阅读顺序检查
 `-- agent_brief.md              # 无法运行脚本时的可移植任务书
 ```
 
@@ -141,6 +160,8 @@ outputs/<project>/
 - 一个页面只承担一个主要论证任务；真实图片优先于装饰性占位图。
 - 没有实测图但确有机制关系时，使用带标签的 `concept` 示意图；没有关系时用 `footer` / `output` 或文字结构，不塞无关占位图。
 - 公式页必须同时给出公式、符号说明、适用条件和边界；`tₑ` 这类真实下标不能被写成代码式 `t_e`。
+- `projection` 模式如果触发溢出，必须拆页或删减次要文本；不得用更小字号强行塞入。
+- 每页必须有真实 title placeholder；内容图必须有语义 alt；装饰背景必须标记 decorative；对比表必须有 header row。
 - 论文曲线、硬件照片、实验场景和实测数据不得重绘。
 - 未提供的指标、引用、排名和实验结论不得生成或补造。
 
@@ -165,9 +186,12 @@ outputs/<project>/
 
 ```bash
 python -m py_compile scripts/*.py
-python scripts/render_deck.py --deck examples/zju_proposal/deck.json --theme assets/themes/academic_blue/theme.json --out work/smoke
-python scripts/export_editable_pptx.py --deck examples/zju_proposal/deck.json --theme assets/themes/academic_blue/theme.json --out work/smoke --pptx-name defense_deck.pptx
+python -m pytest -q
+python scripts/render_deck.py --deck examples/zju_proposal/deck.json --theme assets/themes/academic_blue/theme.json --out work/smoke --profile document
+python scripts/export_editable_pptx.py --deck examples/zju_proposal/deck.json --theme assets/themes/academic_blue/theme.json --out work/smoke --pptx-name defense_deck.pptx --profile document
 python scripts/validate_pptx.py --pptx work/smoke/defense_deck.pptx --deck examples/zju_proposal/deck.json --out work/smoke
+python scripts/check_accessibility.py --pptx work/smoke/defense_deck.pptx --out work/smoke
+python scripts/render_pptx_preview.py --pptx work/smoke/defense_deck.pptx --out work/smoke/pptx_preview --compare-dir work/smoke/rendered --strict
 ```
 
 `work/`、`outputs/`、PPTX、渲染图和报告都被 `.gitignore` 排除。

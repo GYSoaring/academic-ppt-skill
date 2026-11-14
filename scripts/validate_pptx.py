@@ -3,11 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import statistics
+from pathlib import Path
 from pathlib import Path
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
+from accessibility import get_alt_text, is_decorative
 from common import load_json, write_json
 
 
@@ -48,6 +51,9 @@ def main() -> None:
 
     if len(presentation.slides) != len(slides):
         add_issue(issues, "error", "pptx", f"PPTX has {len(presentation.slides)} slides, deck has {len(slides)}.")
+    for field in ("title", "author", "language"):
+        if not str(getattr(presentation.core_properties, field, "") or "").strip():
+            add_issue(issues, "warning", "core", f"core_properties.{field} is empty.")
 
     expected_formula_count = 0
     for slide in slides:
@@ -76,6 +82,18 @@ def main() -> None:
         total_charts += len(charts)
         total_native_formula += formula_count
         layout = str(source.get("layout", ""))
+        title_shape = slide.shapes.title
+        title_text = title_shape.text.strip() if title_shape is not None else ""
+        if not title_text:
+            add_issue(issues, "error", page, "Slide has no non-empty title placeholder.")
+        font_sizes = [
+            round(run.font.size.pt, 1)
+            for shape in slide.shapes
+            if shape.has_text_frame
+            for paragraph in shape.text_frame.paragraphs
+            for run in paragraph.runs
+            if run.font.size
+        ]
 
         if len(text_shapes) < (3 if layout == "cover" else 5):
             add_issue(issues, "error", page, f"Only {len(text_shapes)} editable text shapes; page is likely still an image.")
@@ -89,6 +107,20 @@ def main() -> None:
             add_issue(issues, "warning", page, f"Slide title not found in editable text: {title}")
         if layout == "compare" and not tables:
             add_issue(issues, "error", page, "Compare layout should be a native PowerPoint table.")
+        for table in tables:
+            if not table.table.first_row:
+                add_issue(issues, "error", page, f"Table '{table.name}' has no header-row semantics.")
+        picture_alt_missing = []
+        for shape in slide.shapes:
+            if shape.shape_type != MSO_SHAPE_TYPE.PICTURE or is_decorative(shape):
+                continue
+            alt = get_alt_text(shape)
+            if not alt:
+                picture_alt_missing.append(shape.name)
+            elif Path(alt).suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".emf", ".wmf"}:
+                add_issue(issues, "warning", page, f"Picture '{shape.name}' alt text looks like a filename.")
+        if picture_alt_missing:
+            add_issue(issues, "error", page, "Pictures missing semantic alt text: " + ", ".join(picture_alt_missing))
         if source.get("chart") and not charts:
             add_issue(issues, "error", page, "Chart data is present but the slide has no native editable chart.")
         if layout == "formula":
@@ -116,6 +148,16 @@ def main() -> None:
                 "native_charts": len(charts),
                 "native_formulas": formula_count,
                 "notes_chars": len(notes),
+                "has_title_placeholder": bool(title_text),
+                "decorative_pictures": sum(
+                    1
+                    for shape in slide.shapes
+                    if shape.shape_type == MSO_SHAPE_TYPE.PICTURE and is_decorative(shape)
+                ),
+                "font_size_min_pt": min(font_sizes) if font_sizes else None,
+                "font_size_median_pt": round(statistics.median(font_sizes), 1) if font_sizes else None,
+                "font_size_max_pt": max(font_sizes) if font_sizes else None,
+                "text_runs_below_9pt": sum(1 for size in font_sizes if size < 9),
             }
         )
 

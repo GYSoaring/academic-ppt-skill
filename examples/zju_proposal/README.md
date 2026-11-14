@@ -15,16 +15,26 @@ Render from the skill root:
 python scripts/render_deck.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
-  --out examples/zju_proposal/rendered
+  --out examples/zju_proposal/rendered \
+  --profile document
 python scripts/export_editable_pptx.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
   --out examples/zju_proposal/rendered \
-  --pptx-name defense_deck.pptx
+  --pptx-name defense_deck.pptx \
+  --profile document
 python scripts/validate_pptx.py \
   --pptx examples/zju_proposal/rendered/defense_deck.pptx \
   --deck examples/zju_proposal/deck.json \
   --out examples/zju_proposal/rendered
+python scripts/check_accessibility.py \
+  --pptx examples/zju_proposal/rendered/defense_deck.pptx \
+  --out examples/zju_proposal/rendered
+python scripts/render_pptx_preview.py \
+  --pptx examples/zju_proposal/rendered/defense_deck.pptx \
+  --out examples/zju_proposal/rendered/pptx_preview \
+  --compare-dir examples/zju_proposal/rendered/rendered \
+  --strict
 ```
 
 The example content is illustrative. It does not claim completed experiments or measured results.

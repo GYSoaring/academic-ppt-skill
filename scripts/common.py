@@ -10,6 +10,25 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+PROJECTION_TYPE_SCALE = {
+    "cover_kicker": 30,
+    "cover_title": 96,
+    "cover_subtitle": 38,
+    "cover_info": 34,
+    "header_title": 54,
+    "eyebrow": 54,
+    "lead": 38,
+    "lead_label": 24,
+    "takeaway": 34,
+    "sidebar": 32,
+    "block_title": 32,
+    "body": 28,
+    "bullet": 24,
+    "small": 21,
+    "micro": 16,
+    "metric_value": 78,
+    "metric_label": 28,
+}
 PUNCTUATION = set("，。；：？！、）》」』】”’%）")
 CLOSING_PUNCTUATION = set(".,;:!?)]}%\"'")
 LATIN_CHUNK_RE = re.compile(
@@ -58,6 +77,29 @@ def load_theme(path: str | Path) -> dict:
     lockup = theme.get("brand", {}).get("lockup")
     resolved_lockup = resolve_path(lockup, theme_path.parent)
     theme["brand"]["lockup_path"] = str(resolved_lockup) if resolved_lockup else None
+    return theme
+
+
+def apply_type_profile(theme: dict, profile: str | None = None) -> dict:
+    """Apply a named type profile without changing layout coordinates.
+
+    `document` keeps the existing theme values. `projection` raises the
+    physical PowerPoint type scale so the same canvas remains legible in a
+    lecture room. Theme authors can override either profile via
+    `theme["type_profiles"][profile]["type_scale"]`.
+    """
+    name = str(profile or "document").strip().lower() or "document"
+    profiles = theme.get("type_profiles") or {}
+    configured = profiles.get(name) or {}
+    if isinstance(configured, dict):
+        scale = configured.get("type_scale") or configured
+    else:
+        scale = {}
+    if not scale and name == "projection":
+        scale = PROJECTION_TYPE_SCALE
+    if isinstance(scale, dict) and scale:
+        theme.setdefault("type_scale", {}).update(scale)
+    theme["active_type_profile"] = name
     return theme
 
 

@@ -21,6 +21,8 @@ Produce a self-contained output directory containing:
 - `speaker_notes.md`: one timed note block per slide.
 - `defense_script.md`: continuous, natural spoken script.
 - `render_report.json`: overflow, missing-asset, and layout warnings.
+- `accessibility_report.json`: title, alt, table-header, reading-order, and core-property checks.
+- `pptx_preview/` and `pptx_preview/pptx_render_report.json`: real PowerPoint/LibreOffice render and preview comparison.
 - `agent_brief.md`: portable instructions for Doubao or another model that cannot run these scripts.
 
 ## Workflow
@@ -33,17 +35,19 @@ Produce a self-contained output directory containing:
 6. For each content page, write a short topic `title` (4–10 Chinese characters) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header.
 7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip, a formula, a table, or a semantic `diagram`; never insert an unrelated placeholder diagram.
 8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md).
-9. Select or copy a theme. Use `assets/themes/tju_blue/theme.json` for the fixed Tianjin University visual system, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/academic_blue/theme.json` for a generic institutional theme.
+9. Select or copy a theme. Use `assets/themes/academic_blue/theme.json` as the public default, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/tju_blue/theme.json` for the Tianjin University visual system. Use `--profile document` for dense handouts and `--profile projection` for lecture-room readability.
 10. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
 11. Render the deterministic preview, export the native editable PowerPoint, and validate both:
 
 ```bash
-python scripts/render_deck.py --deck path/to/deck.json --theme assets/themes/tju_blue/theme.json --out path/to/output
-python scripts/export_editable_pptx.py --deck path/to/deck.json --theme assets/themes/tju_blue/theme.json --out path/to/output --pptx-name defense_deck.pptx
+python scripts/render_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output --profile document
+python scripts/export_editable_pptx.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output --pptx-name defense_deck.pptx --profile document
 python scripts/build_speech.py --deck path/to/deck.json --out path/to/output
-python scripts/validate_deck.py --deck path/to/deck.json --theme assets/themes/tju_blue/theme.json --render-dir path/to/output/rendered --out path/to/output
+python scripts/validate_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --render-dir path/to/output/rendered --out path/to/output --profile document
 python scripts/validate_pptx.py --pptx path/to/output/defense_deck.pptx --deck path/to/deck.json --out path/to/output
-python scripts/export_agent_brief.py --deck path/to/deck.json --theme assets/themes/tju_blue/theme.json --out path/to/output/agent_brief.md
+python scripts/check_accessibility.py --pptx path/to/output/defense_deck.pptx --out path/to/output
+python scripts/render_pptx_preview.py --pptx path/to/output/defense_deck.pptx --out path/to/output/pptx_preview --compare-dir path/to/output/rendered --strict
+python scripts/export_agent_brief.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output/agent_brief.md
 ```
 
 12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.
@@ -58,6 +62,7 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Outline: only the five or six section titles, with no descriptions, page ranges, or mini-directory.
 - Content-only mode: omit both cover and outline when explicitly requested; start directly with the first content page while keeping the fixed header, footer, identity, and mini-directory.
 - Content pages: fixed header, fixed upper-right identity, fixed footer rule, and a five-item mini-directory from the third page onward.
+- Every slide must have a real PowerPoint title placeholder; pictures and charts need semantic alt text; background textures, lockups used as decoration, and non-text chrome must be marked decorative; comparison tables need header-row semantics.
 - Chapter numbers, outline row numbers, and their adjacent titles use the same measured font size and baseline. If a long title has to shrink, the number shrinks with it.
 - Keep body content inside the theme's `content` box. Never move fixed elements to compensate for crowded text.
 - Use paper-like pale backgrounds, deep institutional blue, thin rules, restrained panels, and faithful rectangular figure inserts.
@@ -84,6 +89,8 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Generated illustrations may clarify a mechanism, but never carry exact Chinese labels, numbers, axes, or citations. Those belong in the deterministic layer.
 - For formulas, store the portable plain fallback in `formula` and the LaTeX source in `formula_latex`. The renderer uses LaTeX-style math typesetting when available and falls back to the plain string without failing.
 - Use real subscript characters or LaTeX math for symbol rows such as `tₑ` or `uₑ`; do not leave code-like `t_e` in the visible slide.
+- Treat `render_report.json` warnings as delivery blockers when they indicate overflow, missing assets, or incomplete content. Use `render_pptx_preview.py` for a real PowerPoint/LibreOffice rendering check; do not rely on the PIL preview alone.
+- Use `projection` for a lecture-room deck. If it reports overflow, split the page or remove secondary text; do not shrink below the profile minimum to force it.
 - The native exporter converts `formula_latex` to OMML through `latex2mathml` and Office's `MML2OMML.XSL`. Keep the plain `formula` fallback. If OMML conversion is unavailable, the PPTX uses an editable Cambria Math text fallback rather than a raster formula.
 
 ## Public-Use Fallbacks

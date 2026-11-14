@@ -30,6 +30,7 @@ Do not use the fixed header for a long sentence. Header titles should normally b
 - Chinese headings: bold sans or display serif according to the theme; body: regular CJK sans.
 - Formulas and Latin symbols: serif or the theme's formula font; do not set a whole Chinese paragraph in a math font.
 - Body text should normally be 18–22 px at the 2048 × 1152 canvas. Do not shrink below 14 px to force more text onto a page.
+- Provide two physical type profiles: `document` for dense handouts and `projection` for lecture rooms. `projection` must be validated against actual PPTX export, not only the PIL preview.
 - Use red bold text for at most two emphasis points per page. Do not underline every claim.
 - `**text**` means red bold emphasis only; it must not draw an underline. Use `__text__` only for a deliberate underline.
 - Keep line length readable: 22–36 Chinese characters per line in a panel; break long claims into a lead plus two or three short notes.
@@ -143,6 +144,13 @@ Do not extract or copy:
 - fake axes, fake numbers, fake references, or an image-model formula.
 
 The deterministic renderer must redraw the structure and keep every text object editable. The guarantee is editorial and structural fidelity, not pixel-identical reproduction.
+
+## Accessibility
+
+- Every slide needs a real title placeholder, not only a styled text box.
+- Meaningful pictures need semantic alt text; decorative paper texture, watermarks, and non-text chrome must be marked decorative.
+- Comparison tables need a header row; core document properties should carry title, author, subject, keywords, and language.
+- Run `check_accessibility.py` and a real PPTX render pass before delivery. A PIL preview is not a PowerPoint accessibility or rendering audit.
 
 ## Identity Assets
 

@@ -129,6 +129,10 @@ Do not let an image model draw the equation. Do not add a numerical value to a s
 - Cover title may use a display serif; content titles and body use a CJK sans.
 - Latin and mathematical characters use the theme's Latin or formula family, not the CJK body font.
 
+The 2048 × 1152 canvas maps to a 13.333-inch PowerPoint slide at 153.6 px/in. That means `1 px ≈ 0.469 pt`: a body value of 22 px is only about 10.3 pt in PowerPoint. Do not confuse the preview pixel size with the physical point size in the exported deck.
+
+Use `--profile projection` for a lecture-room deck. It raises the physical type scale and should surface overflow rather than silently shrink text. Use `--profile document` for a dense handout and state that distinction in the delivery notes.
+
 ## Color And Contrast
 
 Use one institutional blue family for structure:
