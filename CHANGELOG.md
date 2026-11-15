@@ -4,6 +4,11 @@
 
 - Header titles are short topic labels by default; `title_max_chars` and the validator warn when a header becomes a sentence.
 - Brand asset builder supports official horizontal lockups (`--lockup`) with crop and theme-color recoloring, so the school name uses its official calligraphic wordmark instead of a typeset substitute.
+- Genre playbooks (`experiment`, `systems`, `theory`, `empirical`, `survey`, `design`, `humanities`, `clinical`) with narrative and evidence-page guidance.
+- `quote` layout for humanities close reading, plus layout variants (`figure.image_left/image_right/chart`, `quote.centered/split`).
+- `lecture` type profile and `validate_pptx --lecture-audit` physical font-size audit.
+- `build_gallery.py` and a 20+ page layout gallery covering all six diagram kinds and layout variants.
+- Figure sourcing: `extract_source.py` now captures PDF figure captions; `find_figures.py` searches arXiv and renders complete figure regions; `suggest_figures.py` ranks/attaches figures with source and review-required role/boundary fields.
 
 ## v0.1.0 — 2026-11-15
 

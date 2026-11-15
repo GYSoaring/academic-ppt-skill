@@ -28,6 +28,8 @@ def main() -> None:
     brand = theme["brand"]
     title = meta.get("title", "学术答辩汇报")
     title_mode = str(meta.get("title_mode", "topic")).strip().lower() or "topic"
+    genre = str(meta.get("genre", "general")).strip().lower() or "general"
+    narrative = str(meta.get("narrative", "")).strip().lower()
     output_path = Path(args.out).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -42,6 +44,7 @@ def main() -> None:
         "2. 每页 45–90 秒的自然口播讲解词。",
         "3. 一份连续答辩稿，按页面顺序衔接，不要逐条朗读页面文字。",
         "4. 每张论文图、系统图、实验图都要说明：图中是什么、为什么放在这里、支持哪条结论、不能证明什么。",
+        f"5. 题材：`{genre}`；叙事：`{narrative or '由材料决定'}`。先读 `references/genre-playbooks.md`，不要套用固定页序。",
         "",
         "## 固定视觉规则",
         "",

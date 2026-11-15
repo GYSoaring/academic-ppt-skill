@@ -1,5 +1,7 @@
 # Defense Outline Patterns
 
+Read [genre-playbooks.md](genre-playbooks.md) first. The outlines below are starting points for common defense formats, not a fixed page order. A humanities close reading, a theory proof sketch, and a systems evaluation need different evidence objects and may use different page sequences.
+
 Use five or six major sections. The outline page and mini-directory must use the same names.
 
 For every content page, write two layers:
@@ -87,6 +89,7 @@ Use a taxonomy figure early. Compare methods by information source and cost, not
 - `compare`: methods, conditions, or design tradeoffs.
 - `metrics`: a small number of measured values with conditions.
 - `hub`: a shared problem or object with four to six parallel branches.
+- `quote`: a quotation plus attribution and commentary; use for humanities close reading.
 - `closing`: conclusion, limitations, next step, and thanks.
 
 ## Density Check

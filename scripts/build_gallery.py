@@ -1,0 +1,572 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from PIL import Image, ImageDraw
+
+from common import SKILL_ROOT, resolve_font, write_json
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build the academic layout gallery deck and demo image.")
+    parser.add_argument("--out", default="examples/gallery/deck.json")
+    return parser.parse_args()
+
+
+def ensure_demo_image(path: Path) -> None:
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    theme = json.loads((SKILL_ROOT / "assets/themes/academic_blue/theme.json").read_text(encoding="utf-8"))
+    title_font = resolve_font(theme["fonts"]["title"], 38)
+    body_font = resolve_font(theme["fonts"]["body"], 24)
+    small_font = resolve_font(theme["fonts"]["body"], 18)
+    image = Image.new("RGB", (1200, 700), (243, 247, 251))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((20, 20, 1180, 680), radius=18, outline=(201, 217, 232), width=3)
+    draw.text((64, 52), "版式示例图", font=title_font, fill=(23, 74, 126))
+    draw.text((64, 104), "仅用于展示版式，不代表任何实验数据或论文插图", font=small_font, fill=(91, 109, 126))
+    boxes = [
+        (80, "多模态观测", "视觉、语言、本体状态"),
+        (460, "场景表征", "物体、关系、可操作区域"),
+        (840, "可验证执行", "约束检查、监控、归因"),
+    ]
+    for x, heading, body in boxes:
+        draw.rounded_rectangle((x, 230, x + 280, 470), radius=12, fill=(255, 255, 255), outline=(186, 210, 227), width=2)
+        draw.rectangle((x, 230, x + 8, 470), fill=(23, 74, 126))
+        draw.text((x + 28, 270), heading, font=body_font, fill=(23, 74, 126))
+        draw.text((x + 28, 320), body, font=small_font, fill=(91, 109, 126))
+    for start, end in ((360, 460), (740, 840)):
+        draw.line((start, 350, end - 10, 350), fill=(45, 110, 164), width=4)
+        draw.polygon([(end - 10, 340), (end + 8, 350), (end - 10, 360)], fill=(45, 110, 164))
+    draw.text((64, 620), "academic-ppt-skill · layout demo", font=small_font, fill=(122, 145, 164))
+    image.save(path, optimize=True)
+
+
+def build_deck() -> dict:
+    sections = [
+        {"id": "content", "title": "内容页"},
+        {"id": "diagram", "title": "关系图"},
+        {"id": "data", "title": "数据页"},
+        {"id": "structure", "title": "结构页"},
+        {"id": "closing", "title": "收束页"},
+    ]
+    slides: list[dict] = [
+        {
+            "id": "01",
+            "layout": "cover",
+            "title": "学术版式画廊",
+            "subtitle": "layout · diagram · chart 速查",
+            "title_lines": ["学术版式画廊"],
+            "speech": "这是一份版式画廊，用来快速查看每种页面适合承载什么内容。",
+        },
+        {
+            "id": "02",
+            "layout": "outline",
+            "title": "画廊目录",
+            "speech": "画廊分为内容页、关系图、数据页、结构页和收束页五组。",
+        },
+        {
+            "id": "03",
+            "layout": "section",
+            "section": "content",
+            "eyebrow": "01",
+            "title": "内容页",
+            "speech": "先看最常用的内容页：要点页、网格页和公式页。",
+        },
+        {
+            "id": "04",
+            "layout": "bullets",
+            "section": "content",
+            "eyebrow": "1.1",
+            "title": "要点页",
+            "lead": "两个并列栏目适合承载一组短要点和一组解释。",
+            "columns": [
+                {"heading": "适用场景", "bullets": ["研究背景", "问题定义", "方法概览"]},
+                {"heading": "写法要求", "bullets": ["一句一个判断", "每栏不超过四条", "把细节放到讲稿"]},
+            ],
+            "takeaway": "要点页不承担证据，只负责把结构说清。",
+            "speech": "要点页适合研究背景、问题定义和方法概览这类内容。",
+        },
+        {
+            "id": "05",
+            "layout": "grid",
+            "section": "content",
+            "eyebrow": "1.2",
+            "title": "网格页",
+            "lead": "三个平行卡片各带一个语义示意图，适合并列机制。",
+            "columns": 3,
+            "blocks": [
+                {
+                    "heading": "任务",
+                    "body": "同一指令在不同场景下对应不同动作。",
+                    "bullets": ["物体差异", "布局差异"],
+                    "diagram_label": "任务分支",
+                    "diagram_height": 260,
+                    "diagram": {
+                        "kind": "branch",
+                        "root": {"title": "同一指令"},
+                        "items": [{"title": "物体"}, {"title": "布局"}, {"title": "光照"}],
+                        "highlight": 0,
+                    },
+                },
+                {
+                    "heading": "观测",
+                    "body": "不同模态的时间尺度并不一致。",
+                    "bullets": ["视觉", "语言", "本体"],
+                    "diagram_label": "模态层级",
+                    "diagram_height": 260,
+                    "diagram": {
+                        "kind": "stack",
+                        "items": [{"title": "视觉"}, {"title": "语言"}, {"title": "本体"}],
+                        "highlight": 1,
+                    },
+                    "tone": "pale",
+                },
+                {
+                    "heading": "执行",
+                    "body": "真实动作有碰撞和不可恢复代价。",
+                    "bullets": ["碰撞", "倾覆"],
+                    "diagram_label": "代价链",
+                    "diagram_height": 260,
+                    "diagram": {
+                        "kind": "sequence",
+                        "items": [{"title": "动作"}, {"title": "碰撞"}, {"title": "后果"}],
+                        "highlight": 1,
+                    },
+                },
+            ],
+            "takeaway": "网格页的每个卡片都必须有独立信息，不能只换图标。",
+            "speech": "网格页适合三个并列机制，每个卡片都带一个语义示意图。",
+        },
+        {
+            "id": "06",
+            "layout": "concept",
+            "section": "diagram",
+            "eyebrow": "2.1",
+            "title": "顺序关系",
+            "lead": "顺序图适合时间、流程和因果链。",
+            "diagram_label": "顺序关系",
+            "diagram_width_ratio": 0.62,
+            "diagram": {
+                "kind": "sequence",
+                "items": [
+                    {"title": "观测", "body": "记录来源与时间"},
+                    {"title": "表征", "body": "形成可查询状态"},
+                    {"title": "候选", "body": "生成技能方案"},
+                    {"title": "执行", "body": "检查并记录"},
+                ],
+                "highlight": 2,
+                "note": "版式示例，不代表具体系统。",
+            },
+            "panels": [
+                {"heading": "读法", "body": "从左到右读。", "icon": "layers"},
+                {"heading": "用途", "body": "解释阶段和接口。", "icon": "target"},
+                {"heading": "边界", "body": "顺序不等于因果。", "icon": "alert"},
+            ],
+            "takeaway": "顺序图只表达阶段关系，不补造实验结果。",
+            "speech": "顺序图适合时间、流程和因果链。",
+        },
+        {
+            "id": "07",
+            "layout": "concept",
+            "section": "diagram",
+            "eyebrow": "2.2",
+            "title": "闭环关系",
+            "lead": "闭环图适合执行、监控、归因和更新。",
+            "diagram_label": "闭环关系",
+            "diagram_width_ratio": 0.58,
+            "diagram": {
+                "kind": "cycle",
+                "items": [
+                    {"title": "执行", "body": "调用技能"},
+                    {"title": "监控", "body": "检查异常"},
+                    {"title": "归因", "body": "区分失败"},
+                    {"title": "更新", "body": "写回经验"},
+                ],
+                "highlight": 2,
+                "note": "版式示例，不代表在线学习。",
+            },
+            "panels": [
+                {"heading": "读法", "body": "沿环读四步。", "icon": "signal"},
+                {"heading": "用途", "body": "解释反馈闭环。", "icon": "database"},
+                {"heading": "边界", "body": "闭环不等于自动试错。", "icon": "alert"},
+            ],
+            "takeaway": "闭环图要有明确的起点和失败类型。",
+            "speech": "闭环图适合执行、监控、归因和更新。",
+        },
+        {
+            "id": "08",
+            "layout": "concept",
+            "section": "diagram",
+            "eyebrow": "2.3",
+            "title": "二维取舍",
+            "lead": "矩阵图适合把两个维度的取舍放在同一张图里。",
+            "diagram_label": "二维取舍",
+            "diagram_width_ratio": 0.62,
+            "diagram": {
+                "kind": "matrix",
+                "items": [
+                    {"title": "高价值低风险", "body": "优先"},
+                    {"title": "高价值高风险", "body": "复核"},
+                    {"title": "低价值低风险", "body": "备选"},
+                    {"title": "低价值高风险", "body": "排除"},
+                ],
+                "highlight": 0,
+                "x_axis": {"low": "低风险", "high": "高风险"},
+                "y_axis": {"low": "低价值", "high": "高价值"},
+                "note": "版式示例，不代表真实评分。",
+            },
+            "panels": [
+                {"heading": "读法", "body": "横轴与纵轴同时看。", "icon": "matrix"},
+                {"heading": "用途", "body": "解释取舍和优先级。", "icon": "target"},
+                {"heading": "边界", "body": "象限不是精确测量。", "icon": "alert"},
+            ],
+            "takeaway": "矩阵图要有明确的两个轴和四个象限。",
+            "speech": "矩阵图适合把两个维度的取舍放在同一张图里。",
+        },
+        {
+            "id": "09",
+            "layout": "concept",
+            "section": "diagram",
+            "eyebrow": "2.4",
+            "title": "区间关系",
+            "lead": "刻度图适合阈值、区间和时间轴。",
+            "diagram_label": "区间关系",
+            "diagram_width_ratio": 0.62,
+            "diagram": {
+                "kind": "ruler",
+                "items": [
+                    {"label": "阈值 A", "value": 0.2, "body": "低"},
+                    {"label": "阈值 B", "value": 0.4, "body": "中低"},
+                    {"label": "阈值 C", "value": 0.6, "body": "中高"},
+                    {"label": "阈值 D", "value": 0.8, "body": "高"},
+                ],
+                "highlight": 2,
+                "note": "版式示例，刻度不代表真实数据。",
+            },
+            "panels": [
+                {"heading": "读法", "body": "沿轴看位置和距离。", "icon": "signal"},
+                {"heading": "用途", "body": "解释阈值或区间。", "icon": "clock"},
+                {"heading": "边界", "body": "刻度必须有单位。", "icon": "alert"},
+            ],
+            "takeaway": "刻度图的数值必须来自 deck.json。",
+            "speech": "刻度图适合阈值、区间和时间轴。",
+        },
+        {
+            "id": "10",
+            "layout": "formula",
+            "section": "content",
+            "eyebrow": "2.3",
+            "title": "公式页",
+            "lead": "公式页必须同时给出符号定义和适用条件。",
+            "formula_label": "版式示例公式",
+            "formula": "J(π)=Σ_(g,a)∈π [w_v V(g,a) − w_r R(g,a)]",
+            "formula_latex": "J(\\pi)=\\sum_{(g,a)\\in\\pi}\\left[w_v V(g,a)-w_r R(g,a)\\right]",
+            "formula_condition": "成立条件：符号可定义，权重可校准",
+            "variables": [
+                {"symbol": "V(g,a)", "meaning": "任务价值"},
+                {"symbol": "R(g,a)", "meaning": "风险代价"},
+                {"symbol": "w_v, w_r", "meaning": "校准权重"},
+                {"symbol": "π", "meaning": "执行序列"},
+            ],
+            "panels": [
+                {"heading": "读法", "body": "先看符号，再看条件。", "icon": "formula"},
+                {"heading": "边界", "body": "公式不是实测结果。", "icon": "alert"},
+                {"heading": "验证", "body": "用敏感性分析检验。", "icon": "check"},
+            ],
+            "takeaway": "公式页是可检验的建模假设，不是证据本身。",
+            "speech": "公式页要同时给出符号定义和适用条件。",
+        },
+        {
+            "id": "11",
+            "layout": "quote",
+            "section": "content",
+            "eyebrow": "2.4",
+            "title": "引文页",
+            "lead": "引文页适合人文学科的细读与论证。",
+            "variant": "centered",
+            "quote": "学而不思则罔，思而不学则殆。",
+            "attribution": "《论语·为政》",
+            "quote_note": "版本：通行本《论语》",
+            "commentary": "引文不是装饰，要和本页的判断直接相关。",
+            "takeaway": "先给读法，再让引文承担证据。",
+            "speech": "引文页适合人文学科的细读与论证。",
+        },
+        {
+            "id": "12",
+            "layout": "pipeline",
+            "section": "structure",
+            "eyebrow": "3.1",
+            "title": "流程页",
+            "lead": "五步流程适合展示从输入到输出的完整链路。",
+            "steps": [
+                {"title": "输入", "body": "读取材料", "bullets": ["统一格式"]},
+                {"title": "解析", "body": "形成结构", "bullets": ["抽取字段"]},
+                {"title": "生成", "body": "写入 deck", "bullets": ["保持可编辑"]},
+                {"title": "渲染", "body": "输出预览", "bullets": ["检查溢出"]},
+                {"title": "验证", "body": "交付门禁", "bullets": ["报告问题"]},
+            ],
+            "takeaway": "流程页的每一步都要有输入、输出和验收物。",
+            "speech": "五步流程适合展示从输入到输出的完整链路。",
+        },
+        {
+            "id": "12",
+            "layout": "compare",
+            "section": "structure",
+            "eyebrow": "3.2",
+            "title": "对比页",
+            "lead": "对比页适合把多条路线放在同一组维度下。",
+            "columns": ["维度", "路线 A", "路线 B", "路线 C"],
+            "column_weights": [1.1, 1.2, 1.2, 1.2],
+            "rows": [
+                ["输入", "示例输入 A", "示例输入 B", "示例输入 C"],
+                ["优势", "示例优势 A", "示例优势 B", "示例优势 C"],
+                ["代价", "示例代价 A", "示例代价 B", "示例代价 C"],
+                ["边界", "示例边界 A", "示例边界 B", "示例边界 C"],
+            ],
+            "highlight_rows": [0],
+            "notes": ["版式示例，不比较真实性能。"],
+            "takeaway": "对比页只做结构对照，不做无条件的性能排名。",
+            "speech": "对比页适合把多条路线放在同一组维度下。",
+        },
+        {
+            "id": "13",
+            "layout": "hub",
+            "section": "structure",
+            "eyebrow": "3.3",
+            "title": "全景页",
+            "lead": "全景图适合一个核心对象加四到六个分支。",
+            "center": {"label": "核心对象", "value": "S", "note": "被共享的对象"},
+            "items": [
+                {"heading": "分支一", "body": "示例说明。", "icon": "layers", "visual": "nodes"},
+                {"heading": "分支二", "body": "示例说明。", "icon": "target", "visual": "target"},
+                {"heading": "分支三", "body": "示例说明。", "icon": "signal", "visual": "events", "tone": "pale"},
+                {"heading": "分支四", "body": "示例说明。", "icon": "database", "visual": "timeline"},
+                {"heading": "分支五", "body": "示例说明。", "icon": "atom", "visual": "pulse"},
+            ],
+            "takeaway": "中心必须是真实共享对象，不能只是装饰圆点。",
+            "speech": "全景图适合一个核心对象加四到六个分支。",
+        },
+        {
+            "id": "14",
+            "layout": "metrics",
+            "section": "data",
+            "eyebrow": "4.1",
+            "title": "指标页",
+            "lead": "指标卡必须绑定条件，示例值不能当成实测结果。",
+            "metrics": [
+                {"value": "01", "label": "指标卡 A", "note": "版式示例"},
+                {"value": "02", "label": "指标卡 B", "note": "版式示例"},
+                {"value": "03", "label": "指标卡 C", "note": "版式示例"},
+            ],
+            "image": "assets/layout_demo.png",
+            "image_label": "版式示例图",
+            "image_badge": "示例",
+            "image_role": "版式示例图，非论文插图",
+            "image_boundary": "仅展示图文版式，不代表实验数据。",
+            "conditions_title": "条件",
+            "conditions": [{"label": "场景", "value": "版式示例"}, {"label": "口径", "value": "非实测"}],
+            "conditions_note": "真实指标必须绑定平台、场景集和失败定义。",
+            "takeaway": "指标页先写条件，再写数字。",
+            "speech": "指标页必须绑定条件，示例值不能当成实测结果。",
+        },
+        {
+            "id": "15",
+            "layout": "figure",
+            "section": "data",
+            "eyebrow": "4.2",
+            "title": "图表页",
+            "lead": "图表页把数据、单位、样本量和条件放在同一张卡里。",
+            "chart": {
+                "type": "column",
+                "values": [12, 18, 26, 34, 42, 36, 24],
+                "highlight": 4,
+                "x_label": "类别",
+                "y_label": "示例值",
+                "annotation": "峰值",
+                "unit": "示例单位",
+                "condition": "版式示例，非实测数据",
+                "source": "版式示例",
+            },
+            "image_label": "图表示例",
+            "image_caption": "仅展示图表版式，不代表实测结果。",
+            "image_badge": "示例",
+            "image_role": "版式示例图表",
+            "image_boundary": "仅展示图表版式，不代表实测结果。",
+            "panels": [
+                {"heading": "读图", "body": "单位和条件已经写在图表内。"},
+                {"heading": "边界", "body": "示意数据不能当成实测。"},
+            ],
+            "takeaway": "图表页不允许数字与条件分离。",
+            "speech": "图表页把数据、单位、样本量和条件放在同一张卡里。",
+        },
+        {
+            "id": "16",
+            "layout": "figure",
+            "section": "data",
+            "eyebrow": "4.3",
+            "title": "图文页",
+            "lead": "图文变体把主图放在右侧，适合先给判断再读图。",
+            "variant": "image_right",
+            "image": "assets/layout_demo.png",
+            "image_label": "版式示例图",
+            "image_badge": "示例",
+            "image_role": "版式示例图，非论文插图",
+            "image_boundary": "仅展示图文版式，不代表实验数据。",
+            "panels": [
+                {"heading": "观察", "body": "先看流程结构。"},
+                {"heading": "解释", "body": "再说证据支持什么。"},
+                {"heading": "边界", "body": "图是版式示意。"},
+            ],
+            "takeaway": "变体改变构图，不改变证据口径。",
+            "speech": "图文变体把主图放在右侧，适合先给判断再读图。",
+        },
+        {
+            "id": "17",
+            "layout": "figure_flow",
+            "section": "data",
+            "eyebrow": "4.3",
+            "title": "图组页",
+            "lead": "图组页把流程和图放在同一页，适合系统链路。",
+            "image": "assets/layout_demo.png",
+            "image_label": "版式示例图",
+            "image_badge": "示例",
+            "image_role": "版式示例图，非论文插图",
+            "image_boundary": "仅展示图文版式，不代表实验数据。",
+            "flow": [
+                {"title": "输入", "body": "材料"},
+                {"title": "解析", "body": "结构"},
+                {"title": "生成", "body": "页面"},
+                {"title": "验证", "body": "门禁"},
+            ],
+            "panels": [
+                {"heading": "读图", "body": "先看流程再看图。"},
+                {"heading": "用途", "body": "解释系统链路。"},
+                {"heading": "边界", "body": "图是示意。"},
+            ],
+            "takeaway": "图组页必须让流程和图互相解释。",
+            "speech": "图组页把流程和图放在同一页，适合系统链路。",
+        },
+        {
+            "id": "18",
+            "layout": "balance",
+            "section": "data",
+            "eyebrow": "4.4",
+            "title": "平衡页",
+            "lead": "平衡页把收益和代价放在同一个中心对象两侧。",
+            "image": "assets/layout_demo.png",
+            "image_label": "版式示例图",
+            "image_badge": "示例",
+            "image_role": "版式示例图，非论文插图",
+            "image_boundary": "仅展示平衡版式，不代表实验数据。",
+            "left": {
+                "heading": "左侧示例",
+                "icon": "check",
+                "items": [
+                    {"heading": "收益 A", "body": "示例说明。", "icon": "check"},
+                    {"heading": "收益 B", "body": "示例说明。", "icon": "target"},
+                ],
+            },
+            "right": {
+                "heading": "右侧示例",
+                "icon": "alert",
+                "items": [
+                    {"heading": "代价 A", "body": "示例说明。", "icon": "alert"},
+                    {"heading": "代价 B", "body": "示例说明。", "icon": "clock"},
+                ],
+            },
+            "takeaway": "平衡页必须有真实取舍，不能两栏都写优点。",
+            "speech": "平衡页把收益和代价放在同一个中心对象两侧。",
+        },
+        {
+            "id": "19",
+            "layout": "timeline",
+            "section": "structure",
+            "eyebrow": "5.1",
+            "title": "时间线",
+            "lead": "时间线适合把计划拆成可检查的里程碑。",
+            "period_note": "2026 — 2028",
+            "card_height": 420,
+            "timeline_note": "版式示例，时间仅用于展示。",
+            "phases": [
+                {"period": "阶段 01", "title": "规范", "body": "建立口径。", "bullets": ["字段", "词典"], "milestone": "规范 v1"},
+                {"period": "阶段 02", "title": "基线", "body": "复现基线。", "bullets": ["脚本", "报告"], "milestone": "基线报告"},
+                {"period": "阶段 03", "title": "闭环", "body": "验证闭环。", "bullets": ["演示", "消融"], "milestone": "闭环 demo"},
+                {"period": "阶段 04", "title": "论文", "body": "整理证据。", "bullets": ["外场", "初稿"], "milestone": "论文初稿"},
+            ],
+            "takeaway": "时间线的可信度来自中间产物。",
+            "speech": "时间线适合把计划拆成可检查的里程碑。",
+        },
+        {
+            "id": "20",
+            "layout": "closing",
+            "section": "closing",
+            "eyebrow": "5.2",
+            "title": "结束页",
+            "lead": "结束页要带着结论、边界和下一步离开。",
+            "points": ["版式由数据结构决定", "证据与条件绑定", "边界必须显式"],
+            "boundary": "版式示例不构成任何研究结论。",
+            "boundary_points": ["不替代真实材料", "不伪造实验数据"],
+            "next": "下一步：用真实材料替换示例内容。",
+            "next_points": ["替换 deck.json", "重新渲染验证"],
+            "closing": "谢谢",
+            "speech": "结束页要带着结论、边界和下一步离开。",
+        },
+        {
+            "id": "21",
+            "layout": "references",
+            "section": "closing",
+            "eyebrow": "5.3",
+            "title": "参考文献",
+            "lead": "画廊引用的版式研究与方法来源。",
+            "references": [
+                {"authors": "Brohan A, et al.", "title": "RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control", "venue": "arXiv, 2023", "doi": "arXiv:2307.15818"},
+                {"authors": "Kim M J, et al.", "title": "OpenVLA: An Open-Source Vision-Language-Action Model", "venue": "arXiv, 2024", "doi": "arXiv:2406.09246"},
+                {"authors": "Ahn M, et al.", "title": "Do As I Can, Not As I Say: Grounding Language in Robotic Affordances", "venue": "arXiv, 2022", "doi": "arXiv:2204.01691"},
+                {"authors": "Chi C, et al.", "title": "Diffusion Policy: Visuomotor Policy Learning via Action Diffusion", "venue": "arXiv, 2023", "doi": "arXiv:2303.04137"},
+            ],
+            "speech": "这些都是公开论文，用来展示参考文献版式。",
+        },
+    ]
+    for index, slide in enumerate(slides, start=1):
+        slide["id"] = f"{index:02d}"
+    return {
+        "schema_version": 1,
+        "meta": {
+            "title": "学术版式画廊",
+            "subtitle": "layout · diagram · chart 速查",
+            "presenter": "academic-ppt-skill",
+            "advisor": "",
+            "institution": "",
+            "department": "版式示例",
+            "report_type": "版式画廊",
+            "date": "2026.11",
+            "duration_min": 6,
+            "deck_mode": "full",
+            "title_mode": "topic",
+            "title_max_chars": 10,
+            "genre": "general",
+            "source_policy": "off",
+            "language": "zh-CN",
+            "cover_line": "先选版式，再填内容。",
+            "source_note": "版式示例，不含真实实验数据；图表与指标均为示意。",
+        },
+        "sections": sections,
+        "slides": slides,
+    }
+
+
+def main() -> None:
+    args = parse_args()
+    output_path = Path(args.out).resolve()
+    ensure_demo_image(output_path.parent / "assets/layout_demo.png")
+    deck = build_deck()
+    write_json(output_path, deck)
+    print(json.dumps({"deck": str(output_path), "slides": len(deck["slides"])}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

@@ -20,6 +20,7 @@ PROJECTION_TYPE_SCALE = {
     "lead": 38,
     "lead_label": 24,
     "takeaway": 34,
+    "quote_text": 48,
     "sidebar": 32,
     "block_title": 32,
     "body": 28,
@@ -28,6 +29,26 @@ PROJECTION_TYPE_SCALE = {
     "micro": 16,
     "metric_value": 78,
     "metric_label": 28,
+}
+LECTURE_TYPE_SCALE = {
+    "cover_kicker": 34,
+    "cover_title": 104,
+    "cover_subtitle": 42,
+    "cover_info": 36,
+    "header_title": 68,
+    "eyebrow": 68,
+    "lead": 48,
+    "lead_label": 28,
+    "takeaway": 42,
+    "quote_text": 56,
+    "sidebar": 38,
+    "block_title": 42,
+    "body": 40,
+    "bullet": 40,
+    "small": 30,
+    "micro": 24,
+    "metric_value": 96,
+    "metric_label": 34,
 }
 PUNCTUATION = set("，。；：？！、）》」』】”’%）")
 CLOSING_PUNCTUATION = set(".,;:!?)]}%\"'")
@@ -226,6 +247,8 @@ def apply_type_profile(theme: dict, profile: str | None = None) -> dict:
         scale = {}
     if not scale and name == "projection":
         scale = PROJECTION_TYPE_SCALE
+    elif not scale and name == "lecture":
+        scale = LECTURE_TYPE_SCALE
     if isinstance(scale, dict) and scale:
         theme.setdefault("type_scale", {}).update(scale)
     theme["active_type_profile"] = name

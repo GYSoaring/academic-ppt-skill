@@ -29,6 +29,10 @@
 - **完整版 / 纯内容版**：`deck_mode: full` 生成封面与目录；`deck_mode: content_only` 从正文页开始，适合作品集嵌入、长图预览和已有封面的场合。
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
 - **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
+- **题材驱动叙事**：`meta.genre` 支持 experiment / systems / theory / empirical / survey / design / humanities / clinical，并按题材给出叙事弧和证据页提醒，而不是固定每页格式。
+- **版式变体**：同一内容契约可用不同构图，例如 `figure` 的 `image_left` / `image_right` / `chart`，`quote` 的 `centered` / `split`。
+- **人文学科引文页**：`quote` 版式承载引文、出处、版本说明和解读，不再把人文论证硬塞进三卡网格。
+- **论文图优先**：用户提供论文时先从 `figures.json` 选图；没有论文时用 `find_figures.py` 检索 arXiv 公开论文，按 caption 渲染完整 figure 区域，并保留来源、caption 和边界。
 - **语义示意图**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle` 六种图理由内容驱动，渲染器只负责几何与排版；PPTX 中仍是原生形状和文本。
 - **短标题与幽灵稿**：默认页眉只写 10 字以内的主题词，完整判断放在 lead；`title_mode: assertion` 是可选模式。`build_ghost_deck.py` 输出一条可在五分钟内读完的标题主张链。
 - **引用与来源可追溯**：deck 级 `citations` + 页级 `cites` / `source`，页脚自动生成来源行；`source_policy` 可把缺来源的图表和借用图片升级为错误。
@@ -38,6 +42,8 @@
 - **原生可编辑 PPTX**：文字、形状、表格、图表和 OMML 公式均为可编辑对象，而不是整页截图。
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
 - **投影/文档双字号档**：`document` 保留高密度阅读版；`projection` 提高实际 PPTX 字号，并通过溢出门禁要求拆页，而不是把字压小。
+- **lecture 字号档**：面向现场讲解，正文目标约 18 pt；配合 `validate_pptx --lecture-audit` 检查正文、标题和脚注的物理字号。
+- **版式画廊**：`scripts/build_gallery.py` 生成 20+ 页 layout / diagram / chart 画廊，覆盖六种关系图、引文页和图文变体。
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。
 - **真实成品质检**：`render_pptx_preview.py` 通过 PowerPoint COM 或 LibreOffice 渲染 PPTX，并与 PIL 预览做差异比较，避免“预览能过、交付跑版”。
@@ -105,6 +111,16 @@ python scripts/build_brand_lockup.py \
   --lockup path/to/official_lockup.png \
   --lockup-crop "0,0,236,88" \
   --recolor-lockup
+
+python scripts/find_figures.py \
+  --query "vision language action robot" \
+  --out outputs/figure-pack
+
+python scripts/suggest_figures.py \
+  --deck examples/tsinghua_embodied_ai/deck.json \
+  --figures outputs/figure-pack/figures.json \
+  --out outputs/figure-suggestions \
+  --query "vision language action robot"
 
 python scripts/render_deck.py \
   --deck examples/zju_proposal/deck.json \

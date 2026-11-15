@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--columns", type=int, default=3)
-    parser.add_argument("--profile", choices=["document", "projection"], default=None)
+    parser.add_argument("--profile", choices=["document", "projection", "lecture"], default=None)
     parser.add_argument("--sample", type=int, default=None, help="Render only the first N slides as a visual sample.")
     parser.add_argument("--pages", default=None, help="Comma-separated 1-based slide numbers, e.g. 1,4,7.")
     return parser.parse_args()
@@ -1732,6 +1732,7 @@ class DeckRenderer:
             panels = [{"heading": "图示", "body": slide.get("image_role", "请结合原图讲解。")}]
         gap = 14
         panel_height = (bottom - top - gap * (len(panels) - 1)) // len(panels)
+        header_height = max(46, int(self.type_size("block_title", 26) * 1.55))
         for index, panel in enumerate(panels):
             panel_top = top + index * (panel_height + gap)
             panel_box = (left, panel_top, right, panel_top + panel_height)
@@ -1754,9 +1755,9 @@ class DeckRenderer:
                 str(panel.get("heading", "")),
                 index=f"{index + 1:02d}",
                 icon=str(panel.get("icon", "")),
-                height=46,
+                height=header_height,
             )
-            content_top = panel_top + 60
+            content_top = panel_top + header_height + 14
             body = str(panel.get("body", "")).strip()
             bullets = panel.get("bullets") or []
             if body:
@@ -1765,11 +1766,11 @@ class DeckRenderer:
                     body,
                     (left + 16, content_top),
                     right - left - 32,
-                    max(30, bottom - content_top - 10),
+                    max(30, panel_top + panel_height - content_top - 10),
                     self.fonts,
                     self.colors,
-                    18,
-                    self.type_size("micro", 14),
+                    self.type_size("body", 18),
+                    self.type_size("small", 14),
                     max_lines=2 if bullets else 3,
                     line_ratio=1.25,
                 )
@@ -1797,6 +1798,11 @@ class DeckRenderer:
         body_top = self.draw_lead(image, slide.get("lead", ""), top, str(slide.get("id", "")))
         image_path = resolve_path(slide.get("image"), self.deck_path.parent)
         side = str(slide.get("image_side", "left"))
+        variant = str(slide.get("variant", "")).strip().lower()
+        if variant == "image_right":
+            side = "right"
+        elif variant == "image_left":
+            side = "left"
         total_width = right - left
         gap = 20
         image_width = round(total_width * 0.66)
@@ -2709,6 +2715,141 @@ class DeckRenderer:
             fill=self.color("muted"),
         )
 
+    def draw_quote(self, slide: dict, page_number: int) -> Image.Image:
+        image, draw = self.draw_frame(slide, page_number)
+        left, top, right, bottom = self.content_bounds(slide)
+        body_top = self.draw_lead(image, slide.get("lead", ""), top, str(slide.get("id", "")))
+        quote = str(slide.get("quote", "")).strip()
+        attribution = str(slide.get("attribution", "")).strip()
+        commentary = str(slide.get("commentary", "")).strip()
+        quote_note = str(slide.get("quote_note", "")).strip()
+        variant = str(slide.get("variant", "centered")).strip().lower()
+        if not quote:
+            self.warn(str(slide.get("id", "")), "Quote layout has no quotation.")
+            quote = "引文待补充"
+        if variant == "split":
+            quote_box = (left, body_top, left + round((right - left) * 0.64), bottom)
+            rail_box = (quote_box[2] + 20, body_top, right, bottom)
+        else:
+            quote_height = round((bottom - body_top) * 0.66)
+            quote_box = (left, body_top, right, body_top + quote_height)
+            rail_box = (left, quote_box[3] + 16, right, bottom)
+        draw_shadowed_panel(
+            image,
+            draw,
+            quote_box,
+            self.color("white"),
+            self.color("line"),
+            radius=8,
+            width=2,
+            shadow_offset=(0, 4),
+            shadow_blur=8,
+            shadow_alpha=18,
+        )
+        draw.rectangle(
+            (quote_box[0], quote_box[1], quote_box[0] + 8, quote_box[3]),
+            fill=self.color("blue"),
+        )
+        mark_font = self.fonts.get(TextStyle(), 92)
+        draw.text((quote_box[0] + 26, quote_box[1] + 2), "“", font=mark_font, fill=self.color("blue_pale"))
+        text_left = quote_box[0] + 82
+        quote_width = quote_box[2] - text_left - 42
+        text_top = quote_box[1] + 46
+        text_bottom = quote_box[3] - 76
+        quote_font, quote_lines, _, quote_fits = fit_text_block(
+            draw,
+            quote,
+            self.theme["fonts"]["serif"],
+            quote_width,
+            max(40, text_bottom - text_top),
+            self.type_size("quote_text", 42),
+            24,
+            max_lines=7,
+            line_ratio=1.45,
+        )
+        if not quote_fits:
+            self.warn(str(slide.get("id", "")), "Quotation overflowed.")
+        draw_lines(draw, quote_lines, (text_left, text_top), quote_font, self.color("ink"), 1.45)
+        if attribution:
+            attr_text = f"— {attribution}"
+            attr_font, attr_lines, _, attr_fits = fit_text_block(
+                draw,
+                attr_text,
+                self.theme["fonts"]["body"],
+                quote_width,
+                32,
+                self.type_size("small", 20),
+                14,
+                max_lines=1,
+            )
+            if not attr_fits:
+                self.warn(str(slide.get("id", "")), "Quote attribution overflowed.")
+            attr_width = text_width(draw, attr_lines[0] if attr_lines else attr_text, attr_font)
+            draw.text(
+                (quote_box[2] - 40 - attr_width, quote_box[3] - 46),
+                attr_lines[0] if attr_lines else attr_text,
+                font=attr_font,
+                fill=self.color("muted"),
+            )
+        draw_shadowed_panel(
+            image,
+            draw,
+            rail_box,
+            self.color("blue_wash"),
+            self.color("line"),
+            radius=8,
+            width=2,
+            shadow_offset=(0, 4),
+            shadow_blur=8,
+            shadow_alpha=16,
+        )
+        header_height = max(46, int(self.type_size("block_title", 26) * 1.55))
+        self.draw_module_header(
+            image,
+            draw,
+            rail_box,
+            "解读",
+            icon="target",
+            height=header_height,
+        )
+        rail_left = rail_box[0] + 18
+        rail_top = rail_box[1] + header_height + 16
+        rail_width = rail_box[2] - rail_left - 18
+        if commentary:
+            fits, used = draw_rich_block(
+                draw,
+                commentary,
+                (rail_left, rail_top),
+                rail_width,
+                max(40, rail_box[3] - rail_top - (54 if quote_note else 18)),
+                self.fonts,
+                self.colors,
+                self.type_size("body", 22),
+                self.type_size("small", 15),
+                max_lines=6,
+                line_ratio=1.28,
+            )
+            if not fits:
+                self.warn(str(slide.get("id", "")), "Quote commentary overflowed.")
+            rail_top += used + 10
+        if quote_note:
+            note_font, note_lines, _, note_fits = fit_text_block(
+                draw,
+                quote_note,
+                self.theme["fonts"]["body"],
+                rail_width,
+                max(24, rail_box[3] - rail_top - 12),
+                self.type_size("micro", 14),
+                11,
+                max_lines=2,
+            )
+            if not note_fits:
+                self.warn(str(slide.get("id", "")), "Quote note overflowed.")
+            draw_lines(draw, note_lines, (rail_left, rail_top), note_font, self.color("muted"), 1.2)
+        self.draw_takeaway(image, slide, str(slide.get("id", "")))
+        self.draw_footnote(image, slide.get("footnote", ""))
+        return image
+
     def draw_closing(self, slide: dict, page_number: int) -> Image.Image:
         image, draw = self.draw_frame(slide, page_number)
         left, top, right, bottom = self.content_bounds(slide)
@@ -3283,6 +3424,8 @@ class DeckRenderer:
                 image = self.draw_timeline(slide, index)
             elif layout == "references":
                 image = self.draw_references(slide, index)
+            elif layout == "quote":
+                image = self.draw_quote(slide, index)
             else:
                 raise ValueError(f"Unsupported layout {layout!r} on slide {index}")
             output_path = self.render_dir / f"slide_{index:02d}.png"

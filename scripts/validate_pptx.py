@@ -5,7 +5,6 @@ import json
 import re
 import statistics
 from pathlib import Path
-from pathlib import Path
 
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
@@ -19,6 +18,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pptx", required=True)
     parser.add_argument("--deck", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--lecture-audit", action="store_true", help="Check body >=18pt, heading >=24pt, footnote >=10pt.")
+    parser.add_argument("--min-body-pt", type=float, default=None)
+    parser.add_argument("--min-heading-pt", type=float, default=None)
+    parser.add_argument("--min-footnote-pt", type=float, default=None)
     return parser.parse_args()
 
 
@@ -37,12 +40,37 @@ def count_formula_shapes(slide) -> int:
     return count
 
 
+def classify_shape(shape) -> str:
+    name = str(getattr(shape, "name", "")).lower()
+    if any(token in name for token in ("footnote", "footer", "source", "caption", "chart_x", "chart_y", "chart_badge")):
+        return "footnote"
+    if any(token in name for token in ("title", "header", "eyebrow", "kicker")):
+        return "heading"
+    return "body"
+
+
+def summarize_sizes(values: list[float]) -> dict:
+    if not values:
+        return {"count": 0, "min": None, "median": None, "max": None}
+    return {
+        "count": len(values),
+        "min": round(min(values), 1),
+        "median": round(statistics.median(values), 1),
+        "max": round(max(values), 1),
+    }
+
+
 def main() -> None:
     args = parse_args()
     pptx_path = Path(args.pptx).resolve()
     deck_path = Path(args.deck).resolve()
     output_dir = Path(args.out).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    thresholds = {
+        "body": args.min_body_pt if args.min_body_pt is not None else (18.0 if args.lecture_audit else None),
+        "heading": args.min_heading_pt if args.min_heading_pt is not None else (22.0 if args.lecture_audit else None),
+        "footnote": args.min_footnote_pt if args.min_footnote_pt is not None else (10.0 if args.lecture_audit else None),
+    }
     deck = load_json(deck_path)
     presentation = Presentation(str(pptx_path))
     slides = deck.get("slides", [])
@@ -69,6 +97,9 @@ def main() -> None:
     total_tables = 0
     total_charts = 0
     total_native_formula = 0
+    role_sizes_all: dict[str, list[float]] = {"heading": [], "body": [], "footnote": []}
+    below_threshold_pages: list[dict] = []
+    role_violations: dict[str, list[dict]] = {"heading": [], "body": [], "footnote": []}
     for index, (slide, source) in enumerate(zip(presentation.slides, slides), start=1):
         page = str(source.get("id", f"{index:02d}"))
         text_shapes = [shape for shape in slide.shapes if shape.has_text_frame and shape.text.strip()]
@@ -94,6 +125,23 @@ def main() -> None:
             for run in paragraph.runs
             if run.font.size
         ]
+        role_sizes: dict[str, list[float]] = {"heading": [], "body": [], "footnote": []}
+        for shape in text_shapes:
+            shape_role = classify_shape(shape)
+            for paragraph in shape.text_frame.paragraphs:
+                for run in paragraph.runs:
+                    if run.font.size:
+                        size = round(run.font.size.pt, 1)
+                        role = "footnote" if size < 10 else shape_role
+                        role_sizes[role].append(size)
+        role_summary = {role: summarize_sizes(values) for role, values in role_sizes.items()}
+        for role, values in role_sizes.items():
+            role_sizes_all[role].extend(values)
+            limit = thresholds.get(role)
+            if limit is not None and values and min(values) < limit:
+                violation = {"page": page, "role": role, "min_pt": min(values), "limit_pt": limit}
+                below_threshold_pages.append(violation)
+                role_violations[role].append(violation)
 
         if len(text_shapes) < (3 if layout == "cover" else 5):
             add_issue(issues, "error", page, f"Only {len(text_shapes)} editable text shapes; page is likely still an image.")
@@ -158,6 +206,7 @@ def main() -> None:
                 "font_size_median_pt": round(statistics.median(font_sizes), 1) if font_sizes else None,
                 "font_size_max_pt": max(font_sizes) if font_sizes else None,
                 "text_runs_below_9pt": sum(1 for size in font_sizes if size < 9),
+                "font_size_by_role": role_summary,
             }
         )
 
@@ -170,6 +219,25 @@ def main() -> None:
         )
     if total_text < len(slides) * 5:
         add_issue(issues, "error", "pptx", "Too few editable text shapes across the deck.")
+
+    for role, violations in role_violations.items():
+        if not violations:
+            continue
+        limit = thresholds.get(role)
+        summary = summarize_sizes(role_sizes_all.get(role, []))
+        values = role_sizes_all.get(role, [])
+        below_ratio = sum(1 for value in values if value < limit) / max(1, len(values))
+        median = summary.get("median")
+        if median is not None and median >= limit and not (role == "body" and below_ratio > 0.35):
+            continue
+        page_count = len({item["page"] for item in violations})
+        add_issue(
+            issues,
+            "warning",
+            "font",
+            f"{role.capitalize()} text median is {median} pt with {below_ratio:.0%} of runs below {limit:.1f} pt "
+            f"across {page_count} page(s); see font_audit.below_threshold_pages for the detail.",
+        )
 
     error_count = sum(1 for issue in issues if issue["severity"] == "error")
     warning_count = sum(1 for issue in issues if issue["severity"] == "warning")
@@ -184,6 +252,11 @@ def main() -> None:
         "expected_formulas": expected_formula_count,
         "error_count": error_count,
         "warning_count": warning_count,
+        "font_audit": {
+            "thresholds": thresholds,
+            "roles": {role: summarize_sizes(values) for role, values in role_sizes_all.items()},
+            "below_threshold_pages": below_threshold_pages,
+        },
         "slides": stats,
         "issues": issues,
     }

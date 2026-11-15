@@ -1264,10 +1264,15 @@ class EditableDeckExporter:
             ew = text_width(draw, eyebrow, font)
             eyebrow_size = title_size
             if ew > eyebrow_width_available:
-                self.warn(str(s.get("id", "")), f"Header eyebrow is too long at title size: {eyebrow}")
-                eyebrow_size = max(18, int(title_size * eyebrow_width_available / max(1, ew)))
+                title_size = max(18, int(title_size * eyebrow_width_available / max(1, ew)))
+                eyebrow_size = title_size
                 font = self.renderer.fonts.get(TextStyle(bold=True), eyebrow_size)
                 ew = text_width(draw, eyebrow, font)
+                if title_size < 34:
+                    self.warn(
+                        str(s.get("id", "")),
+                        f"Header title and eyebrow shrank to {title_size}px to fit the chapter column.",
+                    )
             self.add_text(
                 slide,
                 (chapter_x, float(self.layout["title_y"]) - 4, eyebrow_width_available, 62),
@@ -2714,6 +2719,99 @@ class EditableDeckExporter:
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
         self.add_footnote(slide, s.get("footnote", ""))
 
+    def draw_quote(self, slide, s: dict) -> None:
+        left, top, right, bottom = self.content_bounds(s)
+        body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
+        self.add_sidebar(slide, s.get("section"))
+        quote = str(s.get("quote", "")).strip() or "引文待补充"
+        attribution = str(s.get("attribution", "")).strip()
+        commentary = str(s.get("commentary", "")).strip()
+        quote_note = str(s.get("quote_note", "")).strip()
+        variant = str(s.get("variant", "centered")).strip().lower()
+        if variant == "split":
+            quote_box = (left, body_top, left + round((right - left) * 0.64), bottom)
+            rail_box = (quote_box[2] + 20, body_top, right, bottom)
+        else:
+            quote_height = round((bottom - body_top) * 0.66)
+            quote_box = (left, body_top, right, body_top + quote_height)
+            rail_box = (left, quote_box[3] + 16, right, bottom)
+        self.add_panel(slide, quote_box, "white", "line", radius_px=8, line_width_px=1.5, shadow=True)
+        self.add_rect(slide, (quote_box[0], quote_box[1], 8, quote_box[3] - quote_box[1]), "blue")
+        self.add_text(
+            slide,
+            (quote_box[0] + 24, quote_box[1], 80, 100),
+            "“",
+            92,
+            "blue_pale",
+            line_ratio=1.0,
+            name="quote_mark",
+        )
+        text_left = quote_box[0] + 82
+        text_width = quote_box[2] - text_left - 42
+        text_top = quote_box[1] + 46
+        text_height = quote_box[3] - text_top - 76
+        self.add_fit_text(
+            slide,
+            (text_left, text_top, text_width, text_height),
+            quote,
+            "display",
+            self.type_size("quote_text", 40),
+            24,
+            "ink",
+            max_lines=7,
+            line_ratio=1.35,
+            family=self.fonts["display"],
+            name="quote_text",
+        )
+        if attribution:
+            self.add_fit_text(
+                slide,
+                (text_left, quote_box[3] - 50, text_width, 32),
+                f"— {attribution}",
+                "body",
+                self.type_size("small", 20),
+                14,
+                "muted",
+                align="right",
+                max_lines=1,
+                line_ratio=1.0,
+                name="quote_attribution",
+            )
+        self.add_panel(slide, rail_box, "blue_wash", "line", radius_px=8, line_width_px=1.4, shadow=True)
+        header_height = max(46, int(self.type_size("block_title", 26) * 1.55))
+        self.add_module_header(slide, rail_box, "解读", icon="target", height=header_height)
+        rail_left = rail_box[0] + 18
+        rail_top = rail_box[1] + header_height + 16
+        rail_width = rail_box[2] - rail_left - 18
+        if commentary:
+            self.add_fit_text(
+                slide,
+                (rail_left, rail_top, rail_width, max(30, rail_box[3] - rail_top - (54 if quote_note else 18))),
+                commentary,
+                "body",
+                self.type_size("body", 22),
+                self.type_size("small", 15),
+                "ink",
+                max_lines=6,
+                line_ratio=1.22,
+                name="quote_commentary",
+            )
+        if quote_note:
+            self.add_fit_text(
+                slide,
+                (rail_left, rail_box[3] - 52, rail_width, 36),
+                quote_note,
+                "body",
+                self.type_size("micro", 14),
+                11,
+                "muted",
+                max_lines=2,
+                line_ratio=1.15,
+                name="quote_note",
+            )
+        self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
+        self.add_footnote(slide, s.get("footnote", ""))
+
     def draw_closing(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
@@ -2793,6 +2891,11 @@ class EditableDeckExporter:
         self.add_sidebar(slide, s.get("section"))
         image_path = resolve_path(s.get("image"), self.deck_path.parent)
         side = str(s.get("image_side", "left"))
+        variant = str(s.get("variant", "")).strip().lower()
+        if variant == "image_right":
+            side = "right"
+        elif variant == "image_left":
+            side = "left"
         gap = 20
         total_width = right - left
         image_width = round(total_width * 0.66)
@@ -3122,6 +3225,8 @@ class EditableDeckExporter:
                 self.draw_hub(slide, s)
             elif layout == "references":
                 self.draw_references(slide, s)
+            elif layout == "quote":
+                self.draw_quote(slide, s)
             elif layout == "closing":
                 self.draw_closing(slide, s)
             elif layout == "bullets":
@@ -3197,7 +3302,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--pptx-name", default="defense_deck.pptx")
-    parser.add_argument("--profile", choices=["document", "projection"], default=None)
+    parser.add_argument("--profile", choices=["document", "projection", "lecture"], default=None)
     parser.add_argument("--sample", type=int, default=None, help="Export only the first N slides as a visual sample.")
     parser.add_argument("--pages", default=None, help="Comma-separated 1-based slide numbers, e.g. 1,4,7.")
     return parser.parse_args()

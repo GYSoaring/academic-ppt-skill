@@ -40,12 +40,27 @@ SUPPORTED_LAYOUTS = {
     "hub",
     "timeline",
     "references",
+    "quote",
 }
 
 REQUIRES_IMAGE_OR_CHART = {"figure", "figure_flow", "metrics", "balance"}
 DIAGRAM_KINDS = {"sequence", "branch", "stack", "ruler", "matrix", "cycle"}
 IMAGE_ORIGINS = {"own", "generated", "template", "borrowed", "public"}
 SOURCE_POLICIES = {"off", "advisory", "strict"}
+GENRES = {"general", "experiment", "systems", "theory", "empirical", "survey", "design", "humanities", "clinical"}
+NARRATIVES = {
+    "problem-method-result",
+    "and-but-therefore",
+    "result-first",
+    "close-reading",
+    "taxonomy",
+    "design-rationale",
+    "chronological",
+}
+LAYOUT_VARIANTS = {
+    "figure": {"image_left", "image_right", "chart"},
+    "quote": {"centered", "split"},
+}
 
 
 def title_units(text: str) -> int:
@@ -58,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--render-dir", required=True)
     parser.add_argument("--out", required=True)
-    parser.add_argument("--profile", choices=["document", "projection"], default=None)
+    parser.add_argument("--profile", choices=["document", "projection", "lecture"], default=None)
     return parser.parse_args()
 
 
@@ -99,6 +114,8 @@ def content_units(slide: dict) -> int:
         return len(slide.get("phases") or [])
     if layout == "references":
         return len(slide.get("references") or [])
+    if layout == "quote":
+        return 1 + int(bool(str(slide.get("commentary", "")).strip()))
     return 0
 
 
@@ -221,6 +238,12 @@ def main() -> None:
     title_mode = str(deck.get("meta", {}).get("title_mode", "topic")).strip().lower()
     if title_mode not in {"topic", "assertion"}:
         add_issue(issues, "error", "meta", "meta.title_mode must be 'topic' or 'assertion'.")
+    genre = str(deck.get("meta", {}).get("genre", "general")).strip().lower()
+    if genre not in GENRES:
+        add_issue(issues, "error", "meta", f"meta.genre must be one of {sorted(GENRES)}.")
+    narrative = str(deck.get("meta", {}).get("narrative", "")).strip().lower()
+    if narrative and narrative not in NARRATIVES:
+        add_issue(issues, "error", "meta", f"meta.narrative must be one of {sorted(NARRATIVES)}.")
     source_policy = str(deck.get("meta", {}).get("source_policy", "off")).strip().lower()
     if source_policy not in SOURCE_POLICIES:
         add_issue(issues, "error", "meta", "meta.source_policy must be 'off', 'advisory', or 'strict'.")
@@ -273,6 +296,13 @@ def main() -> None:
                 )
         if not str(slide.get("speech", "")).strip():
             add_issue(issues, "error", page_id, "Missing speech text.")
+        variant = str(slide.get("variant", "")).strip().lower()
+        if variant:
+            allowed = LAYOUT_VARIANTS.get(str(layout), set())
+            if allowed and variant not in allowed:
+                add_issue(issues, "warning", page_id, f"Unknown variant '{variant}' for layout '{layout}'.")
+            elif not allowed:
+                add_issue(issues, "warning", page_id, f"Layout '{layout}' does not declare variants.")
         raw_cites = slide.get("cites")
         if raw_cites is not None and not isinstance(raw_cites, (str, list, tuple)):
             add_issue(issues, "error", page_id, "cites must be a string or a list of citation ids.")
@@ -515,6 +545,13 @@ def main() -> None:
                 add_issue(issues, "warning", page_id, "Closing slide has no summary points.")
             if len(slide.get("points") or []) > 4:
                 add_issue(issues, "warning", page_id, "Closing slide should keep at most four summary points.")
+        if layout == "quote":
+            if not str(slide.get("quote", "")).strip():
+                add_issue(issues, "error", page_id, "Quote layout needs quote text.")
+            if not str(slide.get("attribution", "")).strip():
+                add_issue(issues, "warning", page_id, "Quote layout should include an attribution.")
+            if not str(slide.get("commentary", "")).strip():
+                add_issue(issues, "warning", page_id, "Quote layout should include commentary tying the quote to the argument.")
         if layout not in {"cover", "outline", "section", "closing"}:
             if not str(slide.get("lead", "")).strip():
                 add_issue(issues, "warning", page_id, "Content page has no lead claim.")
@@ -540,6 +577,38 @@ def main() -> None:
                         page_id,
                         "Image has no source. Set image_origin to own/generated/template or add source/cites.",
                     )
+
+    content_layouts = [
+        str(slide.get("layout", ""))
+        for slide in slides
+        if slide.get("layout") not in {"cover", "outline", "section", "closing", "references"}
+    ]
+    layout_set = set(content_layouts)
+    genre_requirements = {
+        "experiment": ({"figure", "figure_flow", "metrics", "compare"}, "a measured figure, metric, or comparison page"),
+        "systems": ({"pipeline", "figure_flow", "concept", "balance"}, "an architecture/flow or system-boundary page"),
+        "theory": ({"formula", "concept", "compare"}, "a formula, proof sketch, or formal comparison page"),
+        "empirical": ({"compare", "metrics", "figure"}, "a data/identification/robustness page"),
+        "survey": ({"hub", "compare", "timeline"}, "a taxonomy, comparison, or coverage page"),
+        "design": ({"concept", "figure_flow", "pipeline", "balance"}, "a design-space or artifact-evaluation page"),
+        "clinical": ({"figure", "metrics", "compare", "timeline"}, "an endpoint, safety, or participant-flow page"),
+    }
+    if genre in genre_requirements:
+        required, description = genre_requirements[genre]
+        if not layout_set & required:
+            add_issue(issues, "warning", "genre", f"Genre '{genre}' usually needs {description}.")
+    if genre == "humanities":
+        if not layout_set & {"quote", "figure"}:
+            add_issue(issues, "warning", "genre", "Humanities decks usually need a quotation or close-reading figure page.")
+        if content_layouts:
+            text_heavy = sum(1 for layout in content_layouts if layout in {"bullets", "grid", "compare"})
+            if text_heavy / len(content_layouts) > 0.5:
+                add_issue(
+                    issues,
+                    "warning",
+                    "genre",
+                    "More than half of the content pages are bullet/grid/table pages; humanities decks often rely more on quotations and images.",
+                )
 
     expected_size = (int(theme["canvas"]["width"]), int(theme["canvas"]["height"]))
     rendered_paths = sorted(render_dir.glob("slide_*.png"))
@@ -611,6 +680,8 @@ def main() -> None:
         "deck": str(deck_path),
         "theme": theme["name"],
         "type_profile": profile,
+        "genre": genre,
+        "narrative": narrative,
         "deck_mode": deck_mode,
         "slide_count": len(slides),
         "rendered_count": len(rendered_paths),

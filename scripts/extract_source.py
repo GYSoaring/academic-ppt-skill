@@ -47,6 +47,32 @@ def clean_context(text: str, limit: int = 180) -> str:
     return value[:limit]
 
 
+FIGURE_CAPTION_RE = re.compile(r"^\s*(?:Figure|Fig\.?|图)\s*\d+", re.IGNORECASE)
+
+
+def nearest_caption(blocks: list, bbox: list[float] | None) -> str:
+    if not bbox:
+        return ""
+    candidates: list[tuple[float, str]] = []
+    for block in blocks:
+        if len(block) < 5:
+            continue
+        x0, y0, x1, y1, text = block[:5]
+        value = str(text).strip()
+        if not value or not FIGURE_CAPTION_RE.match(value):
+            continue
+        if y0 >= bbox[3] - 4:
+            distance = y0 - bbox[3]
+        elif y1 <= bbox[1] + 4:
+            distance = bbox[1] - y1
+        else:
+            distance = 0.0
+        candidates.append((distance, value))
+    if not candidates:
+        return ""
+    return min(candidates, key=lambda item: item[0])[1]
+
+
 def iter_inputs(values: Iterable[str]) -> list[Path]:
     paths: list[Path] = []
     for value in values:
@@ -75,6 +101,7 @@ def save_image_bytes(
     min_size: int,
     max_figures: int,
     bbox: list[float] | None = None,
+    caption: str = "",
 ) -> dict | None:
     if len(figure_records) >= max_figures:
         return None
@@ -105,6 +132,8 @@ def save_image_bytes(
         "sha256": digest,
         "alt_hint": clean_context(context),
     }
+    if caption:
+        record["caption"] = clean_context(caption)
     if bbox:
         record["bbox"] = bbox
     figure_records.append(record)
@@ -127,6 +156,7 @@ def extract_pdf(
         title = str(document.metadata.get("title") or path.stem)
         for page_number, page in enumerate(document, start=1):
             text = page.get_text("text")
+            blocks = page.get_text("blocks")
             pages.append({"page": page_number, "text": text})
             for image_info in page.get_images(full=True):
                 xref = image_info[0]
@@ -136,6 +166,7 @@ def extract_pdf(
                     continue
                 rects = page.get_image_rects(xref)
                 bbox = [rects[0].x0, rects[0].y0, rects[0].x1, rects[0].y1] if rects else None
+                caption = nearest_caption(blocks, bbox)
                 save_image_bytes(
                     data,
                     figures_dir,
@@ -144,10 +175,11 @@ def extract_pdf(
                     source=str(path),
                     page=page_number,
                     kind="pdf_page",
-                    context=text or "PDF figure",
+                    context=caption or text or "PDF figure",
                     min_size=min_size,
                     max_figures=max_figures,
                     bbox=bbox,
+                    caption=caption,
                 )
     finally:
         document.close()
@@ -327,7 +359,8 @@ def build_markdown(source_records: list[dict], figures: list[dict]) -> str:
     if figures:
         lines.extend(["## Figure Manifest", ""])
         for figure in figures:
-            lines.append(f"- `{figure['id']}` — {figure['path']} — page {figure['page']} — {figure['alt_hint']}")
+            caption = figure.get("caption") or figure["alt_hint"]
+            lines.append(f"- `{figure['id']}` — {figure['path']} — page {figure['page']} — {caption}")
         lines.append("")
     return "\n".join(lines)
 

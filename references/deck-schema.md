@@ -30,6 +30,9 @@ The model writes content; the renderer owns layout. Use one slide object per pag
   "deck_mode": "full",
   "title_mode": "topic",
   "title_max_chars": 10,
+  "genre": "general",
+  "narrative": "problem-method-result",
+  "figure_query": "英文检索词，可选",
   "source_policy": "off",
   "language": "zh-CN",
   "cover_line": "封面底部的一句边界或判断，可选",
@@ -50,6 +53,12 @@ Use `content_only` only when the user explicitly asks for a content-only deck or
 - `assertion`: optional. The header itself is a complete claim, but it still counts against a deliberately raised `title_max_chars`. Use it only when the user asks for assertion-driven headers.
 
 `title_max_chars` defaults to 10. The validator measures CJK characters as two units and Latin characters as one, then warns when a header exceeds `title_max_chars × 2` units. The header is an orientation label; a 20–30 character sentence belongs in `lead`, not in the fixed header.
+
+`genre` selects a narrative playbook. Supported values are `general` (default), `experiment`, `systems`, `theory`, `empirical`, `survey`, `design`, `humanities`, and `clinical`. The validator emits soft warnings when a genre's expected evidence page is missing. See [genre-playbooks.md](genre-playbooks.md); these are recommendations, not a fixed page order.
+
+`narrative` is optional: `problem-method-result`, `and-but-therefore`, `result-first`, `close-reading`, `taxonomy`, `design-rationale`, or `chronological`.
+
+`figure_query` is an optional English query used by `suggest_figures.py` when the deck is in Chinese. It lets the figure finder rank English captions without pretending that Chinese-to-English token overlap is reliable.
 
 `source_policy` controls how strictly borrowed evidence must be traceable:
 
@@ -113,6 +122,7 @@ Use a deck-level citation map plus per-slide keys. Keep every borrowed number, f
   "source": "本页来源的自由文本，可选；与 cites 二选一。",
   "cites": ["zhang2024"],
   "image_origin": "own",
+  "variant": "image_right",
   "speech": "本页的口头讲解，45 至 90 秒。"
 }
 ```
@@ -122,6 +132,8 @@ Use a deck-level citation map plus per-slide keys. Keep every borrowed number, f
 `content_type` is an optional authoring label such as `mechanism`, `route_taxonomy`, `measured_result`, or `limitation`. Use it to make layout choice auditable; see [layout-catalog.md](layout-catalog.md).
 
 `image_origin` must be one of `own`, `generated`, `template`, `borrowed`, or `public`. It records what the image actually is, so a generated illustration never gets presented as a measured result. In `source_policy: strict` mode, `borrowed` and `public` images require `source` or `cites`.
+
+`variant` is optional and layout-specific. Current variants: `figure` → `image_left`, `image_right`, `chart`; `quote` → `centered`, `split`. A variant changes composition, not the content contract.
 
 ## Layout: cover
 
@@ -564,6 +576,30 @@ Use when one shared object or question has four to six parallel branches. The ce
 ```
 
 Use two to four metrics. `conditions` can be a list of `{label, value}` objects or short strings. `conditions_note` is the mandatory boundary when the numbers do not generalize.
+
+## Layout: quote
+
+Use for humanities close reading, textual evidence, and any argument that rests on a passage or artifact.
+
+```json
+{
+  "id": "09",
+  "layout": "quote",
+  "section": "content",
+  "eyebrow": "2.3",
+  "title": "核心引文",
+  "lead": "这段引文如何改变既有解释？",
+  "variant": "centered",
+  "quote": "学而不思则罔，思而不学则殆。",
+  "attribution": "《论语·为政》",
+  "quote_note": "版本：通行本《论语》",
+  "commentary": "引文不是装饰；它必须和本页的判断直接相关，并说明你如何读它。",
+  "takeaway": "先给出读法，再让引文承担证据。",
+  "speech": "本页讲解。"
+}
+```
+
+`quote` and `attribution` are required; `commentary` is strongly recommended. `variant` is `centered` (default) or `split`. Quotations need an edition/source note when the edition matters. Do not use a quotation as decoration, and do not paraphrase it while presenting it as a direct quotation.
 
 ## Layout: closing
 

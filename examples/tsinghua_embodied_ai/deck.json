@@ -12,6 +12,9 @@
     "duration_min": 15,
     "title_mode": "topic",
     "title_max_chars": 10,
+    "genre": "systems",
+    "narrative": "design-rationale",
+    "figure_query": "vision language action robot skill execution verification",
     "source_policy": "advisory",
     "language": "zh-CN",
     "cover_line": "把“能生成动作”推进到“能判断动作何时可以执行”。",
@@ -242,6 +245,32 @@
       "boundary": "表格是研究定位，不是对具体论文性能的复现实验。",
       "takeaway": "因此本课题把“技能契约与可验证执行”作为核心问题，而不是再堆一个端到端模型。",
       "speech": "已有研究大致可以分成几条线。端到端 VLA，例如 RT-2 和 OpenVLA，把视觉语言和动作联合建模，证明了大规模预训练可以迁移到机器人控制，但执行前提和失败边界通常不显式。语言规划与技能库，例如 SayCan 和 Voyager，把语言目标落到可调用技能，擅长任务组合，但技能效果缺少统一校准。扩散策略擅长建模多模态动作分布，长程任务和在线恢复仍然不足。代码即策略用程序组合感知与控制原语，可解释性好，但真实执行约束和验证不足。Octo 提供了跨本体、跨任务的策略预训练参考。这张表只做研究定位，不比较不同论文的绝对成功率，因为机器人平台、数据和任务条件并不可比。从这张表可以看出，本课题应该站在“技能契约与可验证执行”这一层，而不是继续堆一个端到端模型。"
+    },
+    {
+      "id": "05A",
+      "layout": "figure",
+      "section": "status",
+      "eyebrow": "2.1",
+      "title": "VLA 架构",
+      "lead": "端到端 VLA 提供通用策略底座，但执行前提仍不在模型内部。",
+      "image": "assets/openvla_architecture.png",
+      "image_label": "OpenVLA 架构",
+      "image_badge": "公开论文",
+      "image_caption": "视觉编码器、投影层与 Llama 2 主干将图像和指令映射为 7 维机器人动作。",
+      "image_role": "公开论文中的 VLA 架构图，用于说明端到端策略的组成。",
+      "image_boundary": "只说明 OpenVLA 的架构，不代表本课题的实现、性能或执行边界。",
+      "image_origin": "public",
+      "source": "Kim et al., OpenVLA, arXiv:2406.09246, Figure 2",
+      "panels": [
+        {"heading": "视觉编码", "body": "DinoV2 与 SigLIP 特征拼接。"},
+        {"heading": "动作解码", "body": "语言主干输出离散动作 token。"},
+        {"heading": "边界", "body": "架构图不回答何时可以执行。"}
+      ],
+      "claim": "VLA 是策略底座，不是执行前提的检查器。",
+      "evidence": "公开架构图展示了视觉、语言和动作的联合建模路径。",
+      "boundary": "架构图不支持对本课题方法的性能推断。",
+      "takeaway": "因此本课题在 VLA 之上补技能契约、风险约束和失败归因。",
+      "speech": "这一页用公开的 OpenVLA 架构图说明端到端 VLA 的基本组成：视觉编码器、投影层、语言主干和动作解码。它把图像和指令映射成机器人动作，是很有价值的通用策略底座。但架构图本身不回答三个问题：技能的前提是否满足、执行风险是否可接受、失败之后如何归因。所以本课题不是替代 VLA，而是在它之上补一层可验证执行的接口。这里使用的图片来自公开论文，图源和边界都写在本页，避免把架构图当成实验结果。"
     },
     {
       "id": "06",

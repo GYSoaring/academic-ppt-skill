@@ -164,6 +164,8 @@ Use real, traceable sources only. Each entry needs `authors`, `title`, and `venu
 
 The renderer keeps the source aspect ratio and uses a white mount. Never redraw a measured curve, axes, legend, or hardware photo.
 
+Use `variant: "image_right"` or `variant: "image_left"` when the same evidence contract needs a different composition. `image_side` remains supported as an alias. Use `variant: "chart"` only when the page is chart-led rather than image-led.
+
 For `figure`, `figure_flow`, `balance`, and `metrics`, supply either `image` or `chart`. Use `chart` only for a small dataset that you can state directly; use `image` for a user-supplied paper figure, measured plot, or real system image. The native PPTX path exports `histogram`, `bar`, `column`, `line`, and `curve` charts as editable PowerPoint chart objects. If neither field is supplied, the missing-asset notice remains visible; do not fill the space with an unrelated schematic.
 
 ## `balance`
@@ -223,6 +225,23 @@ Each rail should have two to four items. Write a two- or three-line `body` for e
 ```
 
 Use four to six items. The center should be a shared object, question, or bottleneck, not a decorative circle. Each branch should answer “where does the extra information come from?”
+
+## `quote`
+
+Use for humanities close reading, textual evidence, and passages that carry the argument. Required fields are `quote` and `attribution`; `commentary` is strongly recommended. `variant` is `centered` (default) or `split`.
+
+```json
+{
+  "layout": "quote",
+  "variant": "centered",
+  "quote": "学而不思则罔，思而不学则殆。",
+  "attribution": "《论语·为政》",
+  "quote_note": "版本：通行本《论语》",
+  "commentary": "这段引文如何支撑本页的判断？"
+}
+```
+
+Do not use a quotation as decoration. State the edition when it matters, and keep the commentary tied to the page's claim.
 
 ## `closing`
 
