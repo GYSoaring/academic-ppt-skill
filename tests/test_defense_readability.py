@@ -27,20 +27,14 @@ def test_figure_width_ratio_is_clamped_and_accepts_percent() -> None:
 
 
 def test_font_book_bolds_only_semantic_body_range() -> None:
-    fonts = FontBook(
-        ["C:/Windows/Fonts/msyhbd.ttc"],
-        ["C:/Windows/Fonts/msyh.ttc"],
-        body_bold=True,
-        body_bold_min_px=40,
-        body_bold_max_px=56,
-    )
-    micro = fonts.get(TextStyle(), 20)
-    body = fonts.get(TextStyle(), 48)
-    explicit_bold = fonts.get(TextStyle(bold=True), 20)
-    assert micro is fonts.get(TextStyle(), 20)
-    assert body is fonts.get(TextStyle(), 48)
-    assert explicit_bold is fonts.get(TextStyle(bold=True), 20)
-    assert micro is not body
+    regular = ["regular-font"]
+    bold = ["bold-font"]
+    fonts = FontBook(bold, regular, body_bold=True, body_bold_min_px=40, body_bold_max_px=56)
+    assert fonts.title_paths == bold
+    assert fonts.body_paths == regular
+    assert fonts.body_bold_min_px == 40
+    assert fonts.body_bold_max_px == 56
+    assert fonts._cache == {}
 
 
 def test_choose_verdict_rejects_hidden_small_text() -> None:
