@@ -46,15 +46,30 @@ TOKEN_RE = re.compile(r"[A-Za-z0-9]+(?:[\.\-+/×%][A-Za-z0-9]+)*|[\u4e00-\u9fff]
 
 
 class FontBook:
-    def __init__(self, title_paths: Sequence[str], body_paths: Sequence[str]) -> None:
+    def __init__(
+        self,
+        title_paths: Sequence[str],
+        body_paths: Sequence[str],
+        body_bold: bool = False,
+        body_bold_min_px: float = 40,
+        body_bold_max_px: float = 56,
+    ) -> None:
         self.title_paths = list(title_paths)
         self.body_paths = list(body_paths)
+        self.body_bold = body_bold
+        self.body_bold_min_px = body_bold_min_px
+        self.body_bold_max_px = body_bold_max_px
         self._cache: dict[tuple[bool, int], ImageFont.FreeTypeFont] = {}
 
     def get(self, style: TextStyle, size: int) -> ImageFont.FreeTypeFont:
         key = (bool(style.bold), int(size))
         if key not in self._cache:
-            paths = self.title_paths if style.bold else self.body_paths
+            semantic_body_bold = (
+                self.body_bold
+                and not style.bold
+                and self.body_bold_min_px <= int(size) <= self.body_bold_max_px
+            )
+            paths = self.title_paths if (style.bold or semantic_body_bold) else self.body_paths
             self._cache[key] = resolve_font(paths, int(size))
         return self._cache[key]
 

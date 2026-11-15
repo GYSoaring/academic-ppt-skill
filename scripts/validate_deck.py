@@ -73,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--render-dir", required=True)
     parser.add_argument("--out", required=True)
-    parser.add_argument("--profile", choices=["document", "projection", "lecture"], default=None)
+    parser.add_argument("--profile", choices=["document", "projection", "lecture", "defense"], default=None)
     return parser.parse_args()
 
 
@@ -117,6 +117,42 @@ def content_units(slide: dict) -> int:
     if layout == "quote":
         return 1 + int(bool(str(slide.get("commentary", "")).strip()))
     return 0
+
+
+def slide_text_volume(slide: dict) -> int:
+    total = sum(
+        len(str(slide.get(key, "")).strip())
+        for key in ("lead", "takeaway", "claim", "evidence", "boundary", "quote", "commentary")
+    )
+    for key in ("blocks", "steps", "panels", "rows", "items", "metrics", "phases", "points"):
+        for item in slide.get(key) or []:
+            if isinstance(item, str):
+                total += len(item.strip())
+                continue
+            if not isinstance(item, dict):
+                continue
+            for field in ("heading", "title", "body", "text", "footer", "output", "note", "period"):
+                total += len(str(item.get(field, "")).strip())
+            for field in ("bullets", "items", "conditions"):
+                for value in item.get(field) or []:
+                    total += len(str(value).strip())
+    return total
+
+
+def visual_anchor(slide: dict) -> bool:
+    return any(
+        (
+            slide.get("image"),
+            slide.get("chart"),
+            slide.get("image_width_ratio"),
+            slide.get("diagram"),
+            slide.get("formula"),
+            slide.get("formula_latex"),
+            slide.get("layout") in {"figure", "figure_flow", "hub", "concept", "formula"},
+            any(str(block.get("span", 1)).isdigit() and int(block.get("span", 1)) > 1 for block in slide.get("blocks") or [] if isinstance(block, dict)),
+            any(block.get("footer") or block.get("output") or block.get("stat") for block in slide.get("blocks") or [] if isinstance(block, dict)),
+        )
+    )
 
 
 def validate_diagram(diagram: dict, page_id: str, issues: list[dict], label: str = "Diagram") -> None:
@@ -558,6 +594,13 @@ def main() -> None:
             units = content_units(slide)
             if units < 2:
                 add_issue(issues, "warning", page_id, "Content density is low; add a second evidence or explanation unit.")
+            if profile in {"lecture", "defense"} and slide_text_volume(slide) < 70 and not visual_anchor(slide):
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    "Projected content is sparse; add evidence, a content-derived footer, or a dominant figure.",
+                )
             if layout in REQUIRES_IMAGE_OR_CHART:
                 image_path = resolve_path(slide.get("image"), deck_path.parent)
                 if not slide.get("chart") and (image_path is None or not image_path.exists()):
@@ -583,6 +626,28 @@ def main() -> None:
         for slide in slides
         if slide.get("layout") not in {"cover", "outline", "section", "closing", "references"}
     ]
+    if profile in {"lecture", "defense"}:
+        longest_run = 0
+        current_run = 0
+        previous_layout = None
+        for layout_name in content_layouts:
+            current_run = current_run + 1 if layout_name == previous_layout else 1
+            longest_run = max(longest_run, current_run)
+            previous_layout = layout_name
+        if longest_run >= 4:
+            add_issue(
+                issues,
+                "warning",
+                "rhythm",
+                f"Projected deck repeats {previous_layout} for {longest_run} consecutive pages; vary the evidence composition.",
+            )
+        anchor_pages = [
+            slide for slide in slides
+            if slide.get("layout") not in {"cover", "outline", "section", "closing"}
+            and (slide.get("image") or slide.get("chart") or slide.get("formula") or slide.get("formula_latex"))
+        ]
+        if not anchor_pages:
+            add_issue(issues, "warning", "rhythm", "Projected deck has no hero figure, chart, or formula page.")
     layout_set = set(content_layouts)
     genre_requirements = {
         "experiment": ({"figure", "figure_flow", "metrics", "compare"}, "a measured figure, metric, or comparison page"),

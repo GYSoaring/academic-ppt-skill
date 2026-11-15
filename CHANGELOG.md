@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Defense readability now includes density-aware validation and a stricter PPTX rebuild workflow.
+- Added the `defense` type profile, semantic body-bold range, Nanjing University official-wordmark theme, 16-page optics example, and `audit_pptx.py` physical PPTX readability audit.
+- Made hero-figure geometry configurable through `image_width_ratio` / `rail_ratio`, and added projected-deck density, visual-anchor, and layout-rhythm warnings.
 - Header titles are short topic labels by default; `title_max_chars` and the validator warn when a header becomes a sentence.
 - Brand asset builder supports official horizontal lockups (`--lockup`) with crop and theme-color recoloring, so the school name uses its official calligraphic wordmark instead of a typeset substitute.
 - Genre playbooks (`experiment`, `systems`, `theory`, `empirical`, `survey`, `design`, `humanities`, `clinical`) with narrative and evidence-page guidance.

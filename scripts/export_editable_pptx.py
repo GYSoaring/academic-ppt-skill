@@ -26,6 +26,7 @@ from pptx.util import Emu, Pt
 
 from common import (
     apply_type_profile,
+    figure_width_ratio,
     fit_text_block,
     load_json,
     load_theme,
@@ -182,6 +183,9 @@ class EditableDeckExporter:
         self.colors = self.theme["_colors"]
         self.layout = self.theme["layout"]
         self.type_scale = self.theme.get("type_scale", {})
+        self.body_bold = bool(self.theme.get("text", {}).get("body_bold", False))
+        self.body_bold_min_px = float(self.theme.get("text", {}).get("body_bold_min_px", 40))
+        self.body_bold_max_px = float(self.theme.get("text", {}).get("body_bold_max_px", 56))
         self.panel_radius = int(self.layout.get("panel_radius", 8))
         self.panel_shadow_alpha = int(self.layout.get("panel_shadow_alpha", 20))
         self.formula_cache: dict[str, etree._Element] = {}
@@ -303,6 +307,12 @@ class EditableDeckExporter:
         transparent: bool = True,
     ):
         left, top, width, height = box
+        if (
+            self.body_bold
+            and not bold
+            and self.body_bold_min_px <= float(size_px) <= self.body_bold_max_px
+        ):
+            bold = True
         shape = slide.shapes.add_textbox(px(left), px(top), px(width), px(height))
         if name:
             shape.name = name
@@ -1102,7 +1112,17 @@ class EditableDeckExporter:
             self.apply_font(marker, self.fonts["body"], chosen, self.rgb("blue_mid"), bold=True)
             run = paragraph.add_run()
             run.text = strip_markup(str(bullet))
-            self.apply_font(run, self.fonts["body"], chosen, self.rgb("ink"))
+            bullet_bold = (
+                self.body_bold
+                and self.body_bold_min_px <= float(chosen) <= self.body_bold_max_px
+            )
+            self.apply_font(
+                run,
+                self.fonts["title"] if bullet_bold else self.fonts["body"],
+                chosen,
+                self.rgb("ink"),
+                bold=bullet_bold,
+            )
 
     def add_output_strip(self, slide, box: tuple[float, float, float, float], label: str, text: str) -> None:
         left, top, width, height = box
@@ -1247,31 +1267,31 @@ class EditableDeckExporter:
         title_left = float(self.layout["title_x"])
         title = str(s.get("title", "")).strip()
         title_width = float(self.theme["brand"]["header_box"][0] - title_left - 54)
+        header_height = max(62, self.type_size("header_title", 48) * 1.25)
         title_size, _ = self.measure(
             title,
             "title",
             int(title_width),
-            62,
+            header_height,
             self.type_size("header_title", 48),
-            34,
+            max(34, int(self.type_size("header_title", 48) * 0.72)),
             max_lines=1,
             line_ratio=1.0,
         )
         if eyebrow:
             eyebrow_width_available = max(24.0, title_left - chapter_x - 18)
             draw = ImageDraw.Draw(Image.new("RGB", (4, 4)))
-            font = self.renderer.fonts.get(TextStyle(bold=True), title_size)
+            eyebrow_size = min(title_size, self.type_size("eyebrow", title_size))
+            font = self.renderer.fonts.get(TextStyle(bold=True), eyebrow_size)
             ew = text_width(draw, eyebrow, font)
-            eyebrow_size = title_size
             if ew > eyebrow_width_available:
-                title_size = max(18, int(title_size * eyebrow_width_available / max(1, ew)))
-                eyebrow_size = title_size
+                eyebrow_size = max(18, int(eyebrow_size * eyebrow_width_available / max(1, ew)))
                 font = self.renderer.fonts.get(TextStyle(bold=True), eyebrow_size)
                 ew = text_width(draw, eyebrow, font)
-                if title_size < 34:
+                if eyebrow_size < 24:
                     self.warn(
                         str(s.get("id", "")),
-                        f"Header title and eyebrow shrank to {title_size}px to fit the chapter column.",
+                        f"Header eyebrow shrank to {eyebrow_size}px to fit the chapter column.",
                     )
             self.add_text(
                 slide,
@@ -2465,8 +2485,16 @@ class EditableDeckExporter:
             self.warn(str(s.get("id", "")), "Compare table has no columns.")
             return
         table_theme = self.theme["table"]
-        header_height = int(table_theme.get("header_height", 66))
-        row_height = min(112, max(80, (bottom - body_top - header_height - 4) // max(1, len(rows))))
+        table_header_size = self.type_size("table_header", 25)
+        table_cell_size = self.type_size("table_cell", 24)
+        header_height = max(
+            int(table_theme.get("header_height", 66)),
+            int(table_header_size * 1.7),
+        )
+        row_height = min(
+            max(112, int(table_cell_size * 2.1)),
+            max(80, (bottom - body_top - header_height - 4) // max(1, len(rows))),
+        )
         weights = s.get("column_weights") or ([1.4] + [1.0] * (len(columns) - 1))
         if len(weights) != len(columns):
             weights = [1.4] + [1.0] * (len(columns) - 1)
@@ -2494,7 +2522,7 @@ class EditableDeckExporter:
             cell.margin_top = px(4)
             cell.margin_bottom = px(4)
             cell.vertical_anchor = MSO_ANCHOR.MIDDLE
-            self.add_cell_text(cell, str(column), 25, "white", bold=True, align="center")
+            self.add_cell_text(cell, str(column), table_header_size, "white", bold=True, align="center")
             set_cell_border(cell, self.rgb("white"), 0.7)
         highlight_rows = set(int(value) for value in s.get("highlight_rows", []))
         for row_index, row in enumerate(rows):
@@ -2511,7 +2539,7 @@ class EditableDeckExporter:
                 self.add_cell_text(
                     cell,
                     str(value),
-                    23 if column_index == 0 else 22,
+                    table_cell_size,
                     "blue_dark" if column_index == 0 else "ink",
                     bold=column_index == 0,
                     align="left",
@@ -2526,8 +2554,9 @@ class EditableDeckExporter:
             note_top = table_bottom + 16
             note_width = (right - left - 14) / 2
             half = math.ceil(len(notes) / 2)
-            self.add_bullets(slide, notes[:half], (left, note_top, note_width, 54), max_size=17, min_size=12, gap_px=3)
-            self.add_bullets(slide, notes[half:], (left + note_width + 14, note_top, note_width, 54), max_size=17, min_size=12, gap_px=3)
+            note_size = self.type_size("micro", 17)
+            self.add_bullets(slide, notes[:half], (left, note_top, note_width, 54), max_size=note_size, min_size=12, gap_px=3)
+            self.add_bullets(slide, notes[half:], (left + note_width + 14, note_top, note_width, 54), max_size=note_size, min_size=12, gap_px=3)
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
         self.add_footnote(slide, s.get("footnote", ""))
 
@@ -2683,37 +2712,42 @@ class EditableDeckExporter:
         columns = [(references[:split], left), (references[split:], left + column_width + column_gap)]
         divider_x = left + column_width + column_gap / 2
         self.add_line(slide, (divider_x, body_top + 6), (divider_x, bottom - 6), "line", 1)
+        meta_size = self.type_size("reference_meta", 16)
+        title_max_size = self.type_size("reference_title", 22)
         for column_index, (items, x) in enumerate(columns):
             if not items:
                 continue
             start_number = 1 + (0 if column_index == 0 else split)
-            self.add_text(slide, (x, body_top, column_width, 24), f"{s.get('reference_label', '参考文献')}  {start_number:02d}–{start_number + len(items) - 1:02d}", 16, "muted", line_ratio=1.0)
-            self.add_line(slide, (x, body_top + 26), (x + column_width, body_top + 26), "line", 1)
-            list_top = body_top + 40
+            self.add_text(slide, (x, body_top, column_width, meta_size * 1.5), f"{s.get('reference_label', '参考文献')}  {start_number:02d}–{start_number + len(items) - 1:02d}", meta_size, "muted", line_ratio=1.0)
+            label_line_y = body_top + meta_size * 1.7
+            self.add_line(slide, (x, label_line_y), (x + column_width, label_line_y), "line", 1)
+            list_top = body_top + meta_size * 2.5
             item_gap = 16
             item_height = (bottom - list_top - item_gap * (len(items) - 1)) / len(items)
             for item_index, reference in enumerate(items):
                 item_top = list_top + item_index * (item_height + item_gap)
                 number = start_number + item_index
-                self.add_text(slide, (x, item_top + 2, 44, 32), f"{number:02d}", 28, "blue_pale", bold=True, line_ratio=1.0)
-                text_left = x + 52
-                text_width_available = column_width - 52
+                number_size = max(28, int(title_max_size * 0.8))
+                self.add_text(slide, (x, item_top + 2, number_size * 1.6, number_size * 1.15), f"{number:02d}", number_size, "blue_pale", bold=True, line_ratio=1.0)
+                number_gap = max(52, int(number_size * 1.6))
+                text_left = x + number_gap
+                text_width_available = column_width - number_gap
                 authors = str(reference.get("authors", "")).strip()
                 cursor = item_top
                 if authors:
-                    self.add_text(slide, (text_left, cursor, text_width_available, 24), authors, 18, "muted", line_ratio=1.0)
-                    cursor += 24
+                    self.add_text(slide, (text_left, cursor, text_width_available, meta_size * 1.35), authors, meta_size, "muted", line_ratio=1.0)
+                    cursor += meta_size * 1.3
                 title = str(reference.get("title", "")).strip()
-                title_size, _ = self.measure(title, "title", int(text_width_available), 58, 20, 14, max_lines=2, line_ratio=1.12)
-                self.add_text(slide, (text_left, cursor, text_width_available, 58), title, title_size, "blue_dark", bold=False, line_ratio=1.12)
-                cursor += min(58, title_size * 1.12 * max(1, math.ceil(len(title) / max(14, text_width_available / max(1, title_size))))) + 4
+                title_size, _ = self.measure(title, "title", int(text_width_available), int(title_max_size * 2.6), title_max_size, 16, max_lines=2, line_ratio=1.12)
+                self.add_text(slide, (text_left, cursor, text_width_available, title_max_size * 2.6), title, title_size, "blue_dark", bold=False, line_ratio=1.12)
+                cursor += min(title_max_size * 2.6, title_size * 1.12 * max(1, math.ceil(len(title) / max(14, text_width_available / max(1, title_size))))) + 4
                 venue = str(reference.get("venue", "")).strip()
                 if venue:
-                    self.add_text(slide, (text_left, cursor, text_width_available, 22), venue, 17, "ink", line_ratio=1.0)
-                    cursor += 23
+                    self.add_text(slide, (text_left, cursor, text_width_available, meta_size * 1.25), venue, meta_size, "ink", line_ratio=1.0)
+                    cursor += meta_size * 1.2
                 doi = str(reference.get("doi", "")).strip()
                 if doi:
-                    self.add_text(slide, (text_left, cursor, text_width_available, 20), doi, 15, "muted", line_ratio=1.0)
+                    self.add_text(slide, (text_left, cursor, text_width_available, meta_size * 1.15), doi, max(16, int(meta_size * 0.9)), "muted", line_ratio=1.0)
                 if item_index < len(items) - 1:
                     self.add_line(slide, (x, item_top + item_height - 4), (x + column_width, item_top + item_height - 4), "line", 1)
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
@@ -2898,7 +2932,7 @@ class EditableDeckExporter:
             side = "left"
         gap = 20
         total_width = right - left
-        image_width = round(total_width * 0.66)
+        image_width = round(total_width * figure_width_ratio(s))
         text_width_available = total_width - image_width - gap
         if side == "right":
             image_box = (right - image_width, body_top, image_width, bottom - body_top)
@@ -3031,7 +3065,7 @@ class EditableDeckExporter:
                 self.add_chevrons(slide, x + flow_width + 1, body_top + 46, 22, "blue_mid", count=1)
 
         lower_top = body_top + flow_height + 16
-        image_width = round((right - left) * 0.60)
+        image_width = round((right - left) * figure_width_ratio(s, 0.60))
         figure_box = (left, lower_top, image_width, bottom - lower_top)
         chart_data = s.get("chart")
         image_path = resolve_path(s.get("image"), self.deck_path.parent)
@@ -3302,7 +3336,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--pptx-name", default="defense_deck.pptx")
-    parser.add_argument("--profile", choices=["document", "projection", "lecture"], default=None)
+    parser.add_argument("--profile", choices=["document", "projection", "lecture", "defense"], default=None)
     parser.add_argument("--sample", type=int, default=None, help="Export only the first N slides as a visual sample.")
     parser.add_argument("--pages", default=None, help="Comma-separated 1-based slide numbers, e.g. 1,4,7.")
     return parser.parse_args()

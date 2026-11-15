@@ -43,8 +43,9 @@ The source line occupies the muted strip between the takeaway band and the foote
 - Chinese headings: bold sans or display serif according to the theme; body: regular CJK sans.
 - Formulas and Latin symbols: serif or the theme's formula font; do not set a whole Chinese paragraph in a math font.
 - Body text should normally be 18–22 px at the 2048 × 1152 canvas. Do not shrink below 14 px to force more text onto a page.
-- Provide two physical type profiles: `document` for dense handouts and `projection` for lecture rooms. `projection` must be validated against actual PPTX export, not only the PIL preview.
+- Provide physical type profiles: `document` for dense handouts, `projection` / `lecture` for teaching, and `defense` for defense rooms. `defense` targets 24 pt body text and 32–40 pt headings, with semantic body bold only; footnotes, captions, reference metadata, and micro-labels stay regular. Projected profiles must be validated against actual PPTX export, not only the PIL preview.
 - Use red bold text for at most two emphasis points per page. Do not underline every claim.
+- Use `text.body_bold_min_px` / `body_bold_max_px` to limit theme-level bolding to semantic body sizes. A body-bold switch must not turn every small run bold.
 - `**text**` means red bold emphasis only; it must not draw an underline. Use `__text__` only for a deliberate underline.
 - Keep line length readable: 22–36 Chinese characters per line in a panel; break long claims into a lead plus two or three short notes.
 - Formulas use math typesetting: italic variables, upright function names, proper superscripts, fractions, sums, and operator spacing. Store the LaTeX source in `formula_latex` and a readable fallback in `formula`.

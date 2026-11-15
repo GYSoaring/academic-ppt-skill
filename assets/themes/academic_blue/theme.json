@@ -88,7 +88,12 @@
     "small": 18,
     "micro": 15,
     "metric_value": 58,
-    "metric_label": 24
+    "metric_label": 24,
+    "table_header": 26,
+    "table_cell": 24,
+    "reference_title": 22,
+    "reference_meta": 16,
+    "footnote": 15
   },
   "brand": {
     "lockup": null,

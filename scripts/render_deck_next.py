@@ -12,6 +12,7 @@ from pptx.util import Inches
 
 from common import (
     apply_type_profile,
+    figure_width_ratio,
     draw_lines,
     fit_text_block,
     line_height,
@@ -50,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--theme", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--columns", type=int, default=3)
-    parser.add_argument("--profile", choices=["document", "projection", "lecture"], default=None)
+    parser.add_argument("--profile", choices=["document", "projection", "lecture", "defense"], default=None)
     parser.add_argument("--sample", type=int, default=None, help="Render only the first N slides as a visual sample.")
     parser.add_argument("--pages", default=None, help="Comma-separated 1-based slide numbers, e.g. 1,4,7.")
     return parser.parse_args()
@@ -86,7 +87,13 @@ class DeckRenderer:
         self.colors = self.theme["_colors"]
         self.layout = self.theme["layout"]
         self.type_scale = self.theme.get("type_scale", {})
-        self.fonts = FontBook(self.theme["fonts"]["title"], self.theme["fonts"]["body"])
+        self.fonts = FontBook(
+            self.theme["fonts"]["title"],
+            self.theme["fonts"]["body"],
+            body_bold=bool(self.theme.get("text", {}).get("body_bold", False)),
+            body_bold_min_px=float(self.theme.get("text", {}).get("body_bold_min_px", 40)),
+            body_bold_max_px=float(self.theme.get("text", {}).get("body_bold_max_px", 56)),
+        )
         self.serif_fonts = self.theme["fonts"]["serif"]
         self.display_fonts = self.theme["fonts"].get("display", self.serif_fonts)
         self.formula_fonts = self.theme["fonts"].get("formula", self.serif_fonts)
@@ -214,25 +221,26 @@ class DeckRenderer:
         title_left = int(self.layout["title_x"])
         title = str(slide.get("title", "")).strip()
         title_width = int(self.theme["brand"]["header_box"][0] - title_left - 54)
+        header_height = max(56, int(self.type_size("header_title", 48) * 1.25))
         font, lines, _, fits = fit_text_block(
             draw,
             title,
             self.theme["fonts"]["title"],
             title_width,
-            56,
+            header_height,
             self.type_size("header_title", 48),
-            34,
+            max(34, int(self.type_size("header_title", 48) * 0.72)),
             max_lines=1,
         )
         if not fits:
             self.warn(str(slide.get("id", "")), f"Header title shrank or overflowed: {title}")
         if eyebrow:
             eyebrow_width_available = max(24, title_left - chapter_x - 18)
-            eyebrow_font = self.fonts.get(TextStyle(bold=True), font.size)
+            eyebrow_size = min(font.size, self.type_size("eyebrow", font.size))
+            eyebrow_font = self.fonts.get(TextStyle(bold=True), eyebrow_size)
             eyebrow_width = text_width(draw, eyebrow, eyebrow_font)
             if eyebrow_width > eyebrow_width_available:
-                self.warn(str(slide.get("id", "")), f"Header eyebrow is too long at title size: {eyebrow}")
-                eyebrow_size = max(18, int(font.size * eyebrow_width_available / max(1, eyebrow_width)))
+                eyebrow_size = max(18, int(eyebrow_size * eyebrow_width_available / max(1, eyebrow_width)))
                 eyebrow_font = self.fonts.get(TextStyle(bold=True), eyebrow_size)
                 eyebrow_width = text_width(draw, eyebrow, eyebrow_font)
             title_y = int(self.layout["title_y"])
@@ -1805,7 +1813,7 @@ class DeckRenderer:
             side = "left"
         total_width = right - left
         gap = 20
-        image_width = round(total_width * 0.66)
+        image_width = round(total_width * figure_width_ratio(slide))
         text_width_available = total_width - image_width - gap
         if side == "right":
             image_box = (right - image_width, body_top, right, bottom)
@@ -1895,7 +1903,7 @@ class DeckRenderer:
                 draw_chevrons(draw, x + flow_width + 3, body_top + 46, 20, self.color("blue_mid"), count=1, width=3, gap=8)
         lower_top = body_top + flow_height + 16
         lower_bottom = bottom
-        image_width = round((right - left) * 0.60)
+        image_width = round((right - left) * figure_width_ratio(slide, 0.60))
         text_left = left + image_width + 20
         draw_figure_card(
             image,
@@ -2097,7 +2105,7 @@ class DeckRenderer:
                 condition_box[3] - condition_box[1] - 8,
                 self.fonts,
                 self.colors,
-                14,
+                self.type_size("micro", 14),
                 10,
                 max_lines=1,
                 line_ratio=1.08,
@@ -2106,20 +2114,25 @@ class DeckRenderer:
         variables_top = formula_box[3] + 18
         variables = [item for item in (slide.get("variables") or []) if isinstance(item, dict)]
         variable_title = str(slide.get("variables_title", "符号与条件"))
-        title_font = self.fonts.get(TextStyle(bold=True), 18)
+        variable_title_size = self.type_size("small", 18)
+        title_font = self.fonts.get(TextStyle(bold=True), variable_title_size)
+        title_height = max(30, int(variable_title_size * 1.6))
         draw.text((left, variables_top), variable_title, font=title_font, fill=self.color("blue_dark"))
-        draw.line((left, variables_top + 30, left_right, variables_top + 30), fill=self.color("line"), width=2)
+        draw.line((left, variables_top + title_height, left_right, variables_top + title_height), fill=self.color("line"), width=2)
         if variables:
             columns = 2 if len(variables) > 2 else 1
             column_gap = 18
             column_width = (left_right - left - column_gap * (columns - 1)) // columns
             rows = math.ceil(len(variables) / columns)
-            row_height = max(54, min(74, (bottom - variables_top - 50) // max(1, rows)))
+            symbol_height = max(38, int(self.type_size("body", 22) * 0.72))
+            meaning_size = self.type_size("small", 16)
+            min_row_height = symbol_height + meaning_size + 22
+            row_height = max(min_row_height, (bottom - variables_top - title_height - 18) // max(1, rows))
             for index, item in enumerate(variables):
                 column = index % columns
                 row = index // columns
                 x = left + column * (column_width + column_gap)
-                y = variables_top + 42 + row * row_height
+                y = variables_top + title_height + 10 + row * row_height
                 draw.line((x, y + row_height - 6, x + column_width, y + row_height - 6), fill=mix_color(self.color("line"), self.color("white"), 0.35), width=1)
                 symbol = str(item.get("symbol", "")).strip()
                 meaning = str(item.get("meaning", "")).strip()
@@ -2128,7 +2141,7 @@ class DeckRenderer:
                     symbol,
                     self.formula_fonts,
                     column_width - 10,
-                    38,
+                    symbol_height,
                     26,
                     13,
                     max_lines=1,
@@ -2136,17 +2149,17 @@ class DeckRenderer:
                 if not symbol_fits:
                     self.warn(str(slide.get("id", "")), f"Formula symbol overflowed: {symbol}")
                 draw.text((x, y), symbol_lines[0] if symbol_lines else symbol, font=symbol_font, fill=self.color("blue"))
-                meaning_top = y + 32
+                meaning_top = y + symbol_height + 2
                 fits, _ = draw_rich_block(
                     draw,
                     meaning,
                     (x, meaning_top),
                     column_width - 10,
-                    max(20, row_height - 42),
+                    max(24, row_height - symbol_height - 10),
                     self.fonts,
                     self.colors,
-                    self.type_size("small", 16),
-                    self.type_size("micro", 11),
+                    meaning_size,
+                    max(20, int(meaning_size * 0.72)),
                     max_lines=2,
                     line_ratio=1.16,
                 )
@@ -2379,8 +2392,16 @@ class DeckRenderer:
             self.warn(str(slide.get("id", "")), "Compare table has no columns.")
             return image
         table = self.theme["table"]
-        header_height = int(table.get("header_height", 66))
-        row_height = min(112, max(80, (bottom - body_top - header_height - 4) // max(1, len(rows))))
+        table_header_size = self.type_size("table_header", 25)
+        table_cell_size = self.type_size("table_cell", 24)
+        header_height = max(
+            int(table.get("header_height", 66)),
+            int(table_header_size * 1.7),
+        )
+        row_height = min(
+            max(112, int(table_cell_size * 2.1)),
+            max(80, (bottom - body_top - header_height - 4) // max(1, len(rows))),
+        )
         weights = slide.get("column_weights") or ([1.4] + [1.0] * (len(columns) - 1))
         if len(weights) != len(columns):
             weights = [1.4] + [1.0] * (len(columns) - 1)
@@ -2411,7 +2432,7 @@ class DeckRenderer:
                 self.theme["fonts"]["title"],
                 widths[index] - 20,
                 header_height - 12,
-                25,
+                table_header_size,
                 16,
                 max_lines=1,
             )
@@ -2441,7 +2462,7 @@ class DeckRenderer:
                     font_paths,
                     widths[column_index] - 26,
                     row_height - 16,
-                24 if column_index else 23,
+                table_cell_size,
                     14,
                     max_lines=3,
                     line_ratio=1.2,
@@ -2467,8 +2488,9 @@ class DeckRenderer:
             columns_notes = 2
             note_width = (right - left - 14) // 2
             half = math.ceil(len(notes) / columns_notes)
-            self.draw_compact_bullets(draw, notes[:half], left, note_top, note_width, note_height, max_size=17, min_size=12, gap=4)
-            self.draw_compact_bullets(draw, notes[half:], left + note_width + 14, note_top, note_width, note_height, max_size=17, min_size=12, gap=4)
+            note_size = self.type_size("micro", 17)
+            self.draw_compact_bullets(draw, notes[:half], left, note_top, note_width, note_height, max_size=note_size, min_size=12, gap=4)
+            self.draw_compact_bullets(draw, notes[half:], left + note_width + 14, note_top, note_width, note_height, max_size=note_size, min_size=12, gap=4)
         self.draw_takeaway(image, slide, str(slide.get("id", "")))
         self.draw_footnote(image, slide.get("footnote", ""))
         return image
@@ -3255,13 +3277,15 @@ class DeckRenderer:
         columns = [(references[:split], left), (references[split:], left + column_width + column_gap)]
         divider_x = left + column_width + column_gap // 2
         draw.line((divider_x, body_top + 6, divider_x, bottom - 6), fill=mix_color(self.color("line"), self.color("white"), 0.25), width=1)
+        reference_meta_size = self.type_size("reference_meta", 16)
+        reference_title_size = self.type_size("reference_title", 22)
 
         for column_index, (items, x) in enumerate(columns):
             if not items:
                 continue
             start_number = 1 + (0 if column_index == 0 else split)
             end_number = start_number + len(items) - 1
-            label_font = self.fonts.get(TextStyle(bold=True), 16)
+            label_font = self.fonts.get(TextStyle(bold=True), reference_meta_size)
             label = str(slide.get("reference_label", "参考文献"))
             draw.text(
                 (x, body_top),
@@ -3269,17 +3293,20 @@ class DeckRenderer:
                 font=label_font,
                 fill=self.color("muted"),
             )
-            draw.line((x, body_top + 26, x + column_width, body_top + 26), fill=self.color("line"), width=1)
-            list_top = body_top + 40
+            label_line_y = body_top + int(reference_meta_size * 1.7)
+            draw.line((x, label_line_y, x + column_width, label_line_y), fill=self.color("line"), width=1)
+            list_top = body_top + int(reference_meta_size * 2.5)
             item_gap = 16
             item_height = (bottom - list_top - item_gap * (len(items) - 1)) // len(items)
             for item_index, reference in enumerate(items):
                 item_top = list_top + item_index * (item_height + item_gap)
                 number = start_number + item_index
-                number_font = self.fonts.get(TextStyle(bold=True), 28)
+                number_size = max(28, int(reference_title_size * 0.8))
+                number_font = self.fonts.get(TextStyle(bold=True), number_size)
                 draw.text((x, item_top + 2), f"{number:02d}", font=number_font, fill=self.color("blue_pale"))
-                text_left = x + 52
-                text_width_available = column_width - 52
+                number_gap = max(52, int(number_size * 1.6))
+                text_left = x + number_gap
+                text_width_available = column_width - number_gap
                 cursor = item_top
                 authors = str(reference.get("authors", "")).strip()
                 if authors:
@@ -3288,8 +3315,8 @@ class DeckRenderer:
                         authors,
                         self.theme["fonts"]["body"] if self.has_cjk(authors) else self.latin_fonts,
                         text_width_available,
-                        26,
-                        18,
+                        reference_meta_size,
+                        12,
                         12,
                         max_lines=1,
                         line_ratio=1.15,
@@ -3302,7 +3329,7 @@ class DeckRenderer:
                         font=authors_font,
                         fill=self.color("muted"),
                     )
-                    cursor += 24
+                    cursor += int(line_height(authors_font, 1.15) * 1.05)
 
                 title_text = str(reference.get("title", "")).strip()
                 title_font, title_lines, _, title_fits = fit_text_block(
@@ -3310,9 +3337,9 @@ class DeckRenderer:
                     title_text,
                     self.theme["fonts"]["title"] if self.has_cjk(title_text) else self.latin_fonts,
                     text_width_available,
-                    58,
-                    20,
-                    14,
+                    reference_title_size * 2.4,
+                    reference_title_size,
+                    16,
                     max_lines=2,
                     line_ratio=1.2,
                 )
@@ -3335,8 +3362,8 @@ class DeckRenderer:
                         venue,
                         self.theme["fonts"]["body"] if self.has_cjk(venue) else self.latin_fonts,
                         text_width_available,
-                        26,
-                        17,
+                        reference_meta_size * 1.6,
+                        reference_meta_size,
                         13,
                         max_lines=1,
                         line_ratio=1.15,
@@ -3349,7 +3376,7 @@ class DeckRenderer:
                         font=venue_font,
                         fill=self.color("ink"),
                     )
-                    cursor += 23
+                    cursor += int(line_height(venue_font, 1.15) * 1.05)
 
                 doi = str(reference.get("doi", "")).strip()
                 if doi:
@@ -3358,8 +3385,9 @@ class DeckRenderer:
                         doi,
                         self.theme["fonts"]["body"] if self.has_cjk(doi) else self.latin_fonts,
                         text_width_available,
-                        22,
-                        15,
+                        reference_meta_size * 1.4,
+                        max(16, int(reference_meta_size * 0.9)),
+                        11,
                         11,
                         max_lines=1,
                         line_ratio=1.1,

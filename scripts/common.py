@@ -29,6 +29,11 @@ PROJECTION_TYPE_SCALE = {
     "micro": 16,
     "metric_value": 78,
     "metric_label": 28,
+    "table_header": 32,
+    "table_cell": 30,
+    "reference_title": 28,
+    "reference_meta": 20,
+    "footnote": 20,
 }
 LECTURE_TYPE_SCALE = {
     "cover_kicker": 34,
@@ -49,6 +54,36 @@ LECTURE_TYPE_SCALE = {
     "micro": 24,
     "metric_value": 96,
     "metric_label": 34,
+    "table_header": 38,
+    "table_cell": 36,
+    "reference_title": 32,
+    "reference_meta": 24,
+    "footnote": 24,
+}
+DEFENSE_TYPE_SCALE = {
+    "cover_kicker": 36,
+    "cover_title": 112,
+    "cover_subtitle": 42,
+    "cover_info": 38,
+    "header_title": 72,
+    "eyebrow": 42,
+    "lead": 56,
+    "lead_label": 30,
+    "takeaway": 48,
+    "sidebar": 44,
+    "block_title": 48,
+    "body": 52,
+    "bullet": 48,
+    "small": 36,
+    "micro": 30,
+    "metric_value": 104,
+    "metric_label": 40,
+    "quote_text": 60,
+    "table_header": 44,
+    "table_cell": 40,
+    "reference_title": 38,
+    "reference_meta": 28,
+    "footnote": 30,
 }
 PUNCTUATION = set("，。；：？！、）》」』】”’%）")
 CLOSING_PUNCTUATION = set(".,;:!?)]}%\"'")
@@ -249,10 +284,25 @@ def apply_type_profile(theme: dict, profile: str | None = None) -> dict:
         scale = PROJECTION_TYPE_SCALE
     elif not scale and name == "lecture":
         scale = LECTURE_TYPE_SCALE
+    elif not scale and name == "defense":
+        scale = DEFENSE_TYPE_SCALE
     if isinstance(scale, dict) and scale:
         theme.setdefault("type_scale", {}).update(scale)
     theme["active_type_profile"] = name
     return theme
+
+
+def figure_width_ratio(slide: dict, default: float = 0.66) -> float:
+    raw = slide.get("image_width_ratio", slide.get("rail_ratio"))
+    if raw is None:
+        return default
+    try:
+        ratio = float(raw)
+    except (TypeError, ValueError):
+        return default
+    if ratio > 1:
+        ratio /= 100.0
+    return max(0.45, min(0.82, ratio))
 
 
 def resolve_font(candidates: Iterable[str], size: int) -> ImageFont.FreeTypeFont:

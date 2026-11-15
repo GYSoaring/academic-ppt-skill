@@ -7,7 +7,9 @@ The skill produces two PowerPoint files from the same `deck.json`:
 
 The native version deliberately reuses the preview renderer's theme coordinates and type scale. It does not redesign the page while exporting.
 
-Use `--profile document` for dense handout decks. Use `--profile projection` when the deck will be projected; it raises the physical PowerPoint type scale and intentionally fails on overflow instead of silently shrinking text.
+Use `--profile document` for dense handout decks, `--profile projection` or `lecture` for teaching, and `--profile defense` for a defense-room deck with 24 pt body text and 32–40 pt headings. Projected profiles raise the physical PowerPoint type scale and intentionally fail on overflow instead of silently shrinking text. Use `scripts/audit_pptx.py` to check the exported PPTX's actual text runs; a good body median does not excuse a large fraction of sub-18 pt labels.
+
+The theme's `text.body_bold_min_px` / `body_bold_max_px` bound semantic body bolding to readable body sizes. Footnotes, captions, reference metadata, and micro-labels remain regular so the slide keeps a hierarchy instead of becoming one uniform bold wall. See [defense-readability.md](defense-readability.md) for the audit thresholds.
 
 ## What Is Native
 

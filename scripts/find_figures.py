@@ -119,6 +119,12 @@ def page_figure_regions(page) -> list[tuple[object, str]]:
         for rect in page.get_image_rects(image_info[0]):
             if rect.width >= 60 and rect.height >= 60:
                 image_rects.append(rect)
+    drawing_rects = []
+    for drawing in page.get_drawings():
+        rect = drawing.get("rect")
+        if rect is not None and rect.width >= 20 and rect.height >= 20:
+            drawing_rects.append(rect)
+    figure_rects = image_rects + drawing_rects
     regions: list[tuple[object, str]] = []
     for block in blocks:
         if len(block) < 5:
@@ -127,34 +133,43 @@ def page_figure_regions(page) -> list[tuple[object, str]]:
         if not caption or not FIGURE_CAPTION_RE.match(caption):
             continue
         caption_rect = fitz.Rect(block[:4])
-        above = [
-            rect
-            for rect in image_rects
-            if rect.y1 <= caption_rect.y0 + 30 and rect.y0 >= caption_rect.y0 - 900
-        ]
-        below = [
-            rect
-            for rect in image_rects
-            if rect.y0 >= caption_rect.y1 - 20 and rect.y1 <= caption_rect.y1 + 900
-        ]
-        candidates = above or below
-        if candidates:
-            clip = fitz.Rect(
-                min(rect.x0 for rect in candidates),
-                min(rect.y0 for rect in candidates),
-                max(rect.x1 for rect in candidates),
-                max(rect.y1 for rect in candidates),
-            )
-            clip.x0 = max(0, clip.x0 - 6)
-            clip.x1 = min(page.rect.width, clip.x1 + 6)
-            if candidates is above or (above and not below):
-                clip.y0 = max(0, clip.y0 - 6)
-                clip.y1 = min(clip.y1 + 6, caption_rect.y0 - 4)
-            else:
-                clip.y0 = max(clip.y0 - 6, caption_rect.y1 + 4)
-                clip.y1 = min(page.rect.height, clip.y1 + 6)
+        above = [rect for rect in figure_rects if rect.y1 <= caption_rect.y0 - 2]
+        below = [rect for rect in figure_rects if rect.y0 >= caption_rect.y1 + 2]
+        candidates: list = []
+        if above:
+            nearest = max(above, key=lambda rect: rect.y1)
+            candidates = [
+                rect
+                for rect in above
+                if rect.y1 >= nearest.y1 - 140
+                and min(rect.x1, nearest.x1) > max(rect.x0, nearest.x0)
+            ]
+            direction = "above"
+        elif below:
+            nearest = min(below, key=lambda rect: rect.y0)
+            candidates = [
+                rect
+                for rect in below
+                if rect.y0 <= nearest.y0 + 140
+                and min(rect.x1, nearest.x1) > max(rect.x0, nearest.x0)
+            ]
+            direction = "below"
         else:
-            clip = fitz.Rect(36, max(0, caption_rect.y0 - 440), page.rect.width - 36, caption_rect.y0 - 4)
+            continue
+        clip = fitz.Rect(
+            min(rect.x0 for rect in candidates),
+            min(rect.y0 for rect in candidates),
+            max(rect.x1 for rect in candidates),
+            max(rect.y1 for rect in candidates),
+        )
+        clip.x0 = max(0, clip.x0 - 6)
+        clip.x1 = min(page.rect.width, clip.x1 + 6)
+        if direction == "above":
+            clip.y0 = max(0, clip.y0 - 6)
+            clip.y1 = min(clip.y1 + 6, caption_rect.y0 - 4)
+        else:
+            clip.y0 = max(clip.y0 - 6, caption_rect.y1 + 4)
+            clip.y1 = min(page.rect.height, clip.y1 + 6)
         if clip.width < 120 or clip.height < 80:
             continue
         regions.append((clip, caption))

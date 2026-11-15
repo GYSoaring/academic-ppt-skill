@@ -44,6 +44,8 @@
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
 - **投影/文档双字号档**：`document` 保留高密度阅读版；`projection` 提高实际 PPTX 字号，并通过溢出门禁要求拆页，而不是把字压小。
 - **lecture 字号档**：面向现场讲解，正文目标约 18 pt；配合 `validate_pptx --lecture-audit` 检查正文、标题和脚注的物理字号。
+- **defense 字号档与可读性体检**：答辩投影正文目标 24 pt、标题 32–40 pt；`scripts/audit_pptx.py` 按 PPTX 实际 run 检查全篇字号、表格和参考文献，正文达标但大量小字仍会判定 `font_upgrade`。
+- **南京大学紫色主题与 16 页样例**：`assets/themes/nanjing_purple/` 使用官方书法字标与校徽（来源见 `SOURCE.md`），`examples/nanjing_optics/` 演示官方字标、真实论文图、`defense` 档与语义加粗。
 - **版式画廊**：`scripts/build_gallery.py` 生成 20+ 页 layout / diagram / chart 画廊，覆盖六种关系图、引文页和图文变体。
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。
@@ -240,7 +242,9 @@ outputs/<project>/
 - 一个页面只承担一个主要论证任务；真实图片优先于装饰性占位图。
 - 没有实测图但确有机制关系时，使用带标签的 `concept` 示意图；没有关系时用 `footer` / `output` 或文字结构，不塞无关占位图。
 - 公式页必须同时给出公式、符号说明、适用条件和边界；`tₑ` 这类真实下标不能被写成代码式 `t_e`。
-- `projection` 模式如果触发溢出，必须拆页或删减次要文本；不得用更小字号强行塞入。
+- `projection` / `lecture` / `defense` 模式如果触发溢出，必须拆页或删减次要文本；不得用更小字号强行塞入。
+- `defense` 档只对语义正文区间加粗；脚注、参考文献元数据、caption 和微标签保持常规字重。`text.body_bold_min_px` / `body_bold_max_px` 控制加粗区间。
+- 图文页可用 `image_width_ratio` 或 `rail_ratio` 把主图区调到 45%–82%；源图始终 contain，不裁切、不拉伸。`grid` 用 `span` / `footer` / `output` 打破等宽空卡。
 - 每页必须有真实 title placeholder；内容图必须有语义 alt；装饰背景必须标记 decorative；对比表必须有 header row。
 - 论文曲线、硬件照片、实验场景和实测数据不得重绘。
 - 未提供的指标、引用、排名和实验结论不得生成或补造。
@@ -273,6 +277,7 @@ python scripts/validate_pptx.py --pptx work/smoke/defense_deck.pptx --deck examp
 python scripts/check_accessibility.py --pptx work/smoke/defense_deck.pptx --out work/smoke
 python scripts/render_pptx_preview.py --pptx work/smoke/defense_deck.pptx --out work/smoke/pptx_preview --compare-dir work/smoke/rendered --strict
 python scripts/package_skill.py --out dist/academic-ppt-skill-v0.1.0.zip --version 0.1.0
+python scripts/audit_pptx.py --pptx work/nanjing_defense/nanjing_optics_defense.pptx --out work/nanjing_defense
 ```
 
 `work/`、`outputs/`、PPTX、渲染图和报告都被 `.gitignore` 排除。

@@ -1,0 +1,32 @@
+{
+  "kind": "url",
+  "source_page": "https://historymuseum.nju.edu.cn/info/3061/69011.htm",
+  "path": "/__local/8/D1/36/80BA42FDEAF0EFC33128F2704AE_A8B786CF_3D81E.jpg",
+  "retrieved_at": "2026-11-15",
+  "lockup": {
+    "kind": "url",
+    "source_page": "https://historymuseum.nju.edu.cn/info/3061/69011.htm",
+    "path": "/__local/3/EA/E5/0217EB822396457731B80ABECFF_99B235CD_EA525.jpg",
+    "retrieved_at": "2026-11-15",
+    "mode": "official_lockup",
+    "crop": null,
+    "recolor": false,
+    "size": [
+      2048,
+      850
+    ]
+  },
+  "typographic_fallback": false,
+  "name": "南京大学",
+  "latin": "NANJING UNIVERSITY",
+  "font": "STZhongsong",
+  "latin_font": "Arial",
+  "emblem_size": [
+    1723,
+    2160
+  ],
+  "lockup_size": [
+    2048,
+    850
+  ]
+}

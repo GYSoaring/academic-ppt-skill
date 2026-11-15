@@ -1,0 +1,705 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "title": "光学超晶格与准相位匹配",
+    "subtitle": "从非线性频率转换到集成量子光源",
+    "presenter": "管欣瑶",
+    "advisor": "（待定）",
+    "institution": "南京大学",
+    "department": "南京大学  非线性光子学专题",
+    "report_type": "专题学术汇报",
+    "date": "2026.11",
+    "duration_min": 10,
+    "title_mode": "topic",
+    "title_max_chars": 10,
+    "genre": "theory",
+    "narrative": "problem-method-result",
+    "figure_query": "periodically poled lithium niobate quasi-phase matching",
+    "source_policy": "advisory",
+    "language": "zh-CN",
+    "cover_line": "把「效率上不去」拆成相位失配、极化工艺与集成度三件事。",
+    "source_note": "专题汇报示例，只使用公开论文与教科书信息；不含未完成的实测数据。"
+  },
+  "sections": [
+    {
+      "id": "background",
+      "title": "研究背景"
+    },
+    {
+      "id": "mechanism",
+      "title": "相位匹配机理"
+    },
+    {
+      "id": "device",
+      "title": "器件设计"
+    },
+    {
+      "id": "evidence",
+      "title": "指标与验证"
+    },
+    {
+      "id": "outlook",
+      "title": "总结展望"
+    }
+  ],
+  "slides": [
+    {
+      "id": "01",
+      "layout": "cover",
+      "title": "光学超晶格与准相位匹配",
+      "subtitle": "从非线性频率转换到集成量子光源",
+      "title_lines": [
+        "光学超晶格",
+        "与准相位匹配"
+      ],
+      "speech": "各位老师好，我是管欣瑶，今天汇报的题目是《光学超晶格与准相位匹配》。这次不按材料、器件、应用的顺序平铺，而是抓住一个结构性问题：二阶非线性过程里，基频和倍频的传播速度天生不一致，相位差会随距离累积，转换效率在两段距离之后就开始下降。准相位匹配的全部内容，就是用一块被人为排好周期的晶体，把这个累积过程按段清零。"
+    },
+    {
+      "id": "02",
+      "layout": "outline",
+      "title": "汇报提纲",
+      "speech": "汇报分五段：先说清楚效率为什么上不去，再讲准相位匹配怎样把相位差变成可设计的周期，然后讲从周期到器件中间有多少工艺环节，接着给出评价指标和表征手段，最后讨论三条集成路径和它们各自还没解决的问题。"
+    },
+    {
+      "id": "03",
+      "layout": "grid",
+      "section": "background",
+      "eyebrow": "1.1",
+      "title": "效率瓶颈",
+      "lead": "相位失配持续累积，晶体再长也难以换来有效增益。",
+      "columns": 3,
+      "blocks": [
+        {
+          "heading": "相位失配",
+          "body": "基频与倍频速度不同。",
+          "bullets": [
+            "Δk 随距离累积",
+            "效率两次掉头"
+          ],
+          "footer_label": "判断",
+          "footer": "长度不是增益的保证",
+          "tone": "pale"
+        },
+        {
+          "heading": "相干长度",
+          "body": "相位差到 π 就开始相消。",
+          "bullets": [
+            "l_c = π/Δk",
+            "量级为微米"
+          ],
+          "footer_label": "再看",
+          "footer": "长度",
+          "tone": "pale"
+        },
+        {
+          "heading": "双折射",
+          "body": "只能覆盖少数波长。",
+          "bullets": [
+            "存在走离",
+            "温度角度敏感"
+          ],
+          "footer_label": "最后看",
+          "footer": "替代"
+        }
+      ],
+      "claim": "相位失配是效率的结构性瓶颈。",
+      "evidence": "三个约束分别对应失配、相干长度和双折射匹配。",
+      "boundary": "本页只界定问题，不给具体材料参数。",
+      "takeaway": "相位问题一旦变成几何问题，就有了工程解。",
+      "speech": "先看约束。倍频效率最直观的直觉是晶体越长效率越高，但真正限制它的是相位失配。基频和倍频折射率不同，两列波跑得不一样快，相位差随距离累积；到 π 的时候，新产生的倍频光开始和已有的光相消，效率掉头向下。这段距离叫相干长度，量级只有微米。常见的双折射匹配只能落在少数波长和温度点上，还伴随走离。于是另一条思路是：不改折射率，改非线性系数，让相位差按周期清零。"
+    },
+    {
+      "id": "04",
+      "layout": "formula",
+      "section": "mechanism",
+      "eyebrow": "2.1",
+      "title": "QPM 条件",
+      "lead": "把非线性系数按周期反转，等于给相位差一个周期性的清零。",
+      "formula_label": "准相位匹配条件",
+      "formula": "Λ = 2l_c = 2π/Δk",
+      "formula_latex": "\\Lambda=2l_c=\\frac{2\\pi}{\\Delta k}",
+      "formula_condition": "缓变振幅近似、忽略损耗与走离、占空比 50%",
+      "variables": [
+        {
+          "symbol": "Λ",
+          "meaning": "极化周期"
+        },
+        {
+          "symbol": "Δk",
+          "meaning": "波矢失配"
+        }
+      ],
+      "panels": [
+        {
+          "heading": "读法",
+          "body": "周期由失配算出。",
+          "icon": "formula"
+        },
+        {
+          "heading": "边界",
+          "body": "只给包络，不给实测效率。",
+          "icon": "alert"
+        }
+      ],
+      "claim": "极化周期由波矢失配直接算出。",
+      "evidence": "公式把周期、相干长度和失配绑定。",
+      "boundary": "公式不包含材料损耗和走离。",
+      "takeaway": "周期是可算的，不是试出来的。",
+      "speech": "准相位匹配的核心只有一个式子：极化周期等于两倍相干长度，也等于 2π 除以波矢失配。它最有用的地方是把周期算出来——知道波长和色散，就能算出该做多长的周期，而不是一片片试。要注意两个边界：公式在缓变振幅近似下成立，忽略损耗和走离；这里的一维周期结构，二维构型和级联过程要另外推。"
+    },
+    {
+      "id": "05",
+      "layout": "concept",
+      "section": "mechanism",
+      "eyebrow": "2.2",
+      "title": "相位重置",
+      "lead": "每段畴都取相干长度，累积到 π 就翻一次符号。",
+      "diagram_label": "机制示意",
+      "diagram_width_ratio": 0.7,
+      "diagram": {
+        "kind": "sequence",
+        "items": [
+          {
+            "title": "同相",
+            "body": "开始增长"
+          },
+          {
+            "title": "累积",
+            "body": "到 π 转相消"
+          },
+          {
+            "title": "反转",
+            "body": "符号翻一次"
+          },
+          {
+            "title": "再累加",
+            "body": "振幅继续叠"
+          }
+        ],
+        "highlight": 2,
+        "note": "机制示意，不是实测曲线。"
+      },
+      "panels": [
+        {
+          "heading": "机制",
+          "body": "反转的是非线性系数，不是光相位。",
+          "icon": "target"
+        },
+        {
+          "heading": "代价",
+          "body": "有效系数打 2/π 折扣。",
+          "icon": "alert"
+        }
+      ],
+      "claim": "QPM 的收益是让每段都不白走。",
+      "evidence": "四步循环把相位差按段清零。",
+      "boundary": "只解释一维周期结构。",
+      "takeaway": "QPM 把每段贡献都留在相干增长里。",
+      "speech": "把上一页的式子落到结构上，就是这四步。第一段同相出发，倍频光随距离增长；走了一个相干长度，相位差到 π，新产生的光开始抵消已有的光；这时如果非线性系数刚好反号，等效于给相位差补了一个 π，累积被扳回零；下一段又从同相开始，振幅继续往上叠。所以 QPM 的收益在于让每一段都不白走。代价也很明确：有效非线性系数要打 2/π 的折扣。"
+    },
+    {
+      "id": "06",
+      "layout": "pipeline",
+      "section": "device",
+      "eyebrow": "3.1",
+      "title": "器件流程",
+      "lead": "周期算得准只是开始，极化质量决定器件能不能用。",
+      "steps": [
+        {
+          "title": "设计",
+          "body": "解出周期",
+          "bullets": [
+            "色散曲线"
+          ]
+        },
+        {
+          "title": "极化",
+          "body": "反转铁电畴",
+          "bullets": [
+            "高压脉冲"
+          ]
+        },
+        {
+          "title": "表征",
+          "body": "看周期与占空比",
+          "bullets": [
+            "蚀刻/压电"
+          ]
+        },
+        {
+          "title": "封装",
+          "body": "抛光与耦合",
+          "bullets": [
+            "端面质量"
+          ]
+        },
+        {
+          "title": "标定",
+          "body": "测效率与带宽",
+          "bullets": [
+            "回填设计"
+          ]
+        }
+      ],
+      "claim": "五步流程每一步都有可检验的中间产物。",
+      "evidence": "周期、畴形貌和效率曲线分别对应设计、极化和标定。",
+      "boundary": "流程是通用路径，不绑定具体材料。",
+      "takeaway": "真正决定器件能不能用的是极化和表征。",
+      "speech": "把公式变成器件，中间有五步。第一步是设计，按目标波长解出失配，周期取两倍相干长度，同时把波长和温度容差算进去。第二步是极化，光刻电极、加高压脉冲，在铌酸锂上反转铁电畴，这一步决定畴核怎么长、长得多均匀。第三步是表征，用选择性蚀刻或压电响应显微看周期和占空比。第四步是封装，端面抛光、波导耦合、温控底座。第五步才是标定，测效率、带宽和损伤阈值，再回填给设计。"
+    },
+    {
+      "id": "07",
+      "layout": "compare",
+      "section": "device",
+      "eyebrow": "3.2",
+      "title": "三条路线",
+      "lead": "差别不在能不能补偿相位，而在带宽与工艺代价。",
+      "columns": [
+        "路线",
+        "优势",
+        "主要代价"
+      ],
+      "column_weights": [
+        1.1,
+        1.3,
+        1.3
+      ],
+      "rows": [
+        [
+          "双折射",
+          "工艺简单",
+          "波长少、走离"
+        ],
+        [
+          "周期极化",
+          "带宽可设计",
+          "高压极化工艺"
+        ],
+        [
+          "啁啾结构",
+          "带宽更宽",
+          "设计与制备复杂"
+        ],
+        [
+          "波导 QPM",
+          "功率密度高",
+          "耦合损耗与损伤"
+        ]
+      ],
+      "highlight_rows": [
+        1
+      ],
+      "notes": [
+        "比较重点是可用带宽与工艺可行性，不是单一效率数字。"
+      ],
+      "claim": "路线选择取决于波长、功率和集成度。",
+      "evidence": "四类路线在带宽和工艺代价上各有取舍。",
+      "boundary": "本页只做定性比较，不比较绝对效率。",
+      "takeaway": "没有普适最优，只有与系统匹配的选择。",
+      "speech": "路线可以归成四类。双折射匹配靠晶体天然双折射，工艺简单，但只能落在少数波长点，还有走离。周期极化也就是标准 QPM，带宽可以设计，代价是有效系数打折，还要做高压极化。啁啾结构让周期沿长度渐变，用效率换带宽。波导 QPM 把光约束在微米尺度，功率密度和效率上去了，但耦合损耗和损伤成了瓶颈。所以比较的重点是带宽、功率和集成度哪个更匹配你的系统。"
+    },
+    {
+      "id": "08",
+      "layout": "hub",
+      "section": "device",
+      "eyebrow": "3.3",
+      "title": "设计自由度",
+      "lead": "真正可调的不只是周期，还有占空比、级联和载体。",
+      "center": {
+        "label": "设计自由度",
+        "value": "4",
+        "note": "每加一维，工艺难度上一档"
+      },
+      "items": [
+        {
+          "heading": "周期",
+          "body": "决定匹配波长。",
+          "icon": "signal",
+          "visual": "pulse"
+        },
+        {
+          "heading": "占空比",
+          "body": "改变有效系数。",
+          "icon": "layers",
+          "visual": "nodes"
+        },
+        {
+          "heading": "级联",
+          "body": "同时满足多组失配。",
+          "icon": "histogram",
+          "visual": "peak",
+          "tone": "pale"
+        },
+        {
+          "heading": "载体",
+          "body": "体块、波导、薄膜。",
+          "icon": "target",
+          "visual": "target"
+        }
+      ],
+      "claim": "四个自由度分别换带宽、效率、功能和集成度。",
+      "evidence": "周期、占空比、级联和载体共同决定器件表现。",
+      "boundary": "自由度越多，制备难度越高。",
+      "takeaway": "每加一维，都是在换工艺难度。",
+      "speech": "设计空间比想象的大。周期决定匹配波长，也决定温度敏感度。占空比偏离一半，会引入附加相位，同时把有效系数拉低。级联把几段不同周期的结构串起来，可以同时满足两组失配，比如先倍频再和频。载体从体块到波导、薄膜，效率和功耗差别很大。这些自由度不是白送的，每加一维，制备难度就上一档。"
+    },
+    {
+      "id": "09",
+      "layout": "grid",
+      "section": "device",
+      "eyebrow": "3.4",
+      "title": "应用全景",
+      "lead": "同一套周期结构，撑起从可见光到中红外的多类光源。",
+      "columns": 2,
+      "blocks": [
+        {
+          "heading": "可见光倍频",
+          "body": "近红外倍到绿光。",
+          "bullets": [
+            "显示、探测"
+          ],
+          "footer_label": "波段",
+          "footer": "可见光"
+        },
+        {
+          "heading": "参量过程",
+          "body": "参量放大与振荡。",
+          "bullets": [
+            "近中红外"
+          ],
+          "footer_label": "波段",
+          "footer": "近中红外"
+        },
+        {
+          "heading": "量子光源",
+          "body": "自发参量下转换。",
+          "bullets": [
+            "光子对输出"
+          ],
+          "footer_label": "接口",
+          "footer": "光子对"
+        },
+        {
+          "heading": "差频太赫兹",
+          "body": "近红外分量差频。",
+          "bullets": [
+            "成像、光谱"
+          ],
+          "footer_label": "波段",
+          "footer": "太赫兹"
+        }
+      ],
+      "claim": "应用的分野在波段和功率，不在机理。",
+      "evidence": "四类应用共享同一套 QPM 结构。",
+      "boundary": "本页只列应用方向，不比较器件指标。",
+      "takeaway": "先定波段和功率，再谈器件设计。",
+      "speech": "同一套周期结构，能撑起四类应用。可见光倍频把近红外基频倍到绿光，用于显示、探测和泵浦。参量过程用 QPM 晶体做参量放大和振荡，覆盖近中红外。量子光源靠自发参量下转换产生光子对，周期直接决定输出波长，波导结构能把效率提上去。差频与太赫兹则用两个近红外分量差频，得到太赫兹辐射。这四类的分野不在机理，而在你需要哪个波段、多大功率。"
+    },
+    {
+      "id": "09A",
+      "layout": "figure",
+      "section": "device",
+      "eyebrow": "3.5",
+      "title": "量子光源",
+      "lead": "PPLN 波导把周期、泵浦和光子对收集放在同一条器件链路里。",
+      "image": "assets/ppln_photon_pair.png",
+      "image_label": "PPLN 光子对源",
+      "image_badge": "公开论文",
+      "image_caption": "PPLN 波导、滤波、探测与符合测量示意。",
+      "image_role": "公开论文中的 PPLN 波导光子对源示意，用于说明量子光源的器件链路。",
+      "image_boundary": "只说明器件链路，不代表本课题的实验结果或效率。",
+      "image_origin": "public",
+      "source": "Highly efficient photon-pair source using a PPLN waveguide, arXiv:0012053, Figure 1",
+      "panels": [
+        {
+          "heading": "读图",
+          "body": "波导、滤波、探测与符合。"
+        },
+        {
+          "heading": "边界",
+          "body": "示意图不是实测计数。"
+        }
+      ],
+      "claim": "PPLN 波导把 QPM 结构变成可集成的光子对源。",
+      "evidence": "图中给出泵浦、周期结构、滤波和符合测量的完整链路。",
+      "boundary": "示意图不支持对本课题器件效率的推断。",
+      "takeaway": "量子光源的波长由周期决定，效率由波导和探测链路共同决定。",
+      "speech": "这一页用公开论文里的 PPLN 波导示意图说明量子光源的器件链路。泵浦进入周期极化波导，自发参量下转换产生光子对，滤波后分别送到两个探测器做符合测量。周期决定输出波长，波导把光约束在微米尺度提高效率，滤波和探测链路决定最终能收集到什么。这里要强调边界：这是器件示意图，不是本课题的实测计数，也不能用它推断效率。",
+      "image_width_ratio": 0.75
+    },
+    {
+      "id": "10",
+      "layout": "grid",
+      "section": "evidence",
+      "eyebrow": "4.1",
+      "title": "关键指标",
+      "lead": "评价一块 QPM 晶体，不能只看一个效率数字。",
+      "columns": 3,
+      "blocks": [
+        {
+          "heading": "效率",
+          "body": "单位长度归一化。",
+          "bullets": [
+            "随长度平方增长",
+            "与光斑相关"
+          ],
+          "footer_label": "口径",
+          "footer": "η/L²"
+        },
+        {
+          "heading": "带宽",
+          "body": "匹配对温度敏感。",
+          "bullets": [
+            "带宽与温漂",
+            "一起报"
+          ],
+          "footer_label": "口径",
+          "footer": "带宽+温漂"
+        },
+        {
+          "heading": "损伤",
+          "body": "高功率先到极限。",
+          "bullets": [
+            "光折变",
+            "端面击穿"
+          ],
+          "footer_label": "边界",
+          "footer": "峰值功率"
+        }
+      ],
+      "claim": "效率、带宽和损伤阈值必须一起报。",
+      "evidence": "三个指标分别对应长度、温控和功率上限。",
+      "boundary": "本页不给出具体材料或器件的实测值。",
+      "takeaway": "只报效率而不报带宽与功率上限，等于没报。",
+      "speech": "评价一块 QPM 晶体，我不会只看一个效率数字。转换效率是单位长度归一化后的量，和光斑约束强相关。带宽和温控必须一起报，因为匹配对温度很敏感，效率数字没有可比性。畴质量决定周期均匀性和旁瓣。损伤阈值限制峰值功率，高功率下光折变和端面击穿会先到极限。集成度则把耦合损耗和模场匹配带进来。"
+    },
+    {
+      "id": "11",
+      "layout": "compare",
+      "section": "evidence",
+      "eyebrow": "4.2",
+      "title": "容差与工艺",
+      "lead": "器件做不做得成，取决于几个百分点的周期误差与温漂。",
+      "columns": [
+        "环节",
+        "典型偏差",
+        "常用对策"
+      ],
+      "column_weights": [
+        1.0,
+        1.3,
+        1.3
+      ],
+      "rows": [
+        [
+          "周期",
+          "局部偏离设计值",
+          "光刻精度与分段校正"
+        ],
+        [
+          "占空比",
+          "偏离一半",
+          "电极宽度优化"
+        ],
+        [
+          "温度",
+          "匹配波长偏移",
+          "温控与预补偿"
+        ],
+        [
+          "端面",
+          "粗糙、模场失配",
+          "抛光与模场设计"
+        ]
+      ],
+      "highlight_rows": [
+        0
+      ],
+      "notes": [
+        "偏差量级随材料与工艺不同，本页只给定性关系。"
+      ],
+      "claim": "工程难点集中在结构精度，而不是光学方案本身。",
+      "evidence": "周期、占空比、温度和端面误差都会压低效率。",
+      "boundary": "本页不提供具体容差数值。",
+      "takeaway": "结构精度决定这块晶体能不能进入系统。",
+      "speech": "工程上真正难的是精度。周期误差会让失配一路累积，效率掉的同时旁瓣抬起来，对策是提高光刻精度或做分段校正。占空比偏离一半，不仅降低有效系数，还会引入附加相位。温度漂移会让匹配波长偏移，靠温控底座和预补偿。端面粗糙、模场失配，会让插入损耗上升，损伤提前。所以 QPM 的工程难点集中在结构精度，而不是光学设计本身。"
+    },
+    {
+      "id": "12",
+      "layout": "grid",
+      "section": "evidence",
+      "eyebrow": "4.3",
+      "title": "怎么测",
+      "lead": "畴结构看不见，只能通过间接量反推。",
+      "columns": 3,
+      "blocks": [
+        {
+          "heading": "选择性蚀刻",
+          "body": "看周期条纹。",
+          "bullets": [
+            "化学蚀刻",
+            "光学显微"
+          ],
+          "footer_label": "判据",
+          "footer": "形貌"
+        },
+        {
+          "heading": "压电响应",
+          "body": "直接读极化方向。",
+          "bullets": [
+            "相位成像",
+            "纳米分辨"
+          ],
+          "footer_label": "判据",
+          "footer": "畴壁"
+        },
+        {
+          "heading": "非线性成像",
+          "body": "看非线性响应分布。",
+          "bullets": [
+            "倍频显微",
+            "远场衍射"
+          ],
+          "footer_label": "判据",
+          "footer": "光学"
+        }
+      ],
+      "claim": "形貌证据和光学证据必须互相印证。",
+      "evidence": "三种表征分别给出周期、畴壁和非线性响应。",
+      "boundary": "形貌对不上，效率曲线再好也不能当真。",
+      "takeaway": "最终判据仍是效率包络与温度调谐曲线。",
+      "speech": "畴结构看不见，只能靠间接量。选择性蚀刻利用反转面和非反转面的蚀刻速率差，在显微镜下看到周期条纹，这是最便宜也最常用的方法。压电响应显微直接用探针读极化方向，能到纳米分辨率，适合看畴壁和局部缺陷。非线性光学成像用倍频显微或远场衍射，看畴的非线性响应分布，更接近器件实际工作方式。最后还是要回到效率包络和温度调谐曲线，形貌和光学必须互相印证。"
+    },
+    {
+      "id": "13",
+      "layout": "compare",
+      "section": "outlook",
+      "eyebrow": "5.1",
+      "title": "集成路径",
+      "lead": "从体块到薄膜，四条路各自解决不同的问题。",
+      "columns": [
+        "载体",
+        "优势",
+        "主要瓶颈"
+      ],
+      "column_weights": [
+        1.1,
+        1.3,
+        1.3
+      ],
+      "rows": [
+        [
+          "体块晶体",
+          "工艺成熟、功率大",
+          "体积大、功率密度低"
+        ],
+        [
+          "周期极化波导",
+          "效率高、功耗低",
+          "耦合损耗与损伤"
+        ],
+        [
+          "薄膜与二维",
+          "集成度高、设计自由",
+          "制备与传输损耗"
+        ],
+        [
+          "混合集成",
+          "兼顾功率与效率",
+          "系统复杂度上升"
+        ]
+      ],
+      "highlight_rows": [
+        1
+      ],
+      "notes": [
+        "路线特征为定性归纳，不含任何器件实测指标与成本数据。"
+      ],
+      "claim": "四条路径在功率、效率和集成度之间取舍。",
+      "evidence": "体块、波导、薄膜和混合集成分别把损耗放在不同位置。",
+      "boundary": "本页不比较具体器件的效率或成本。",
+      "takeaway": "先定载体，再谈效率上限。",
+      "speech": "往前看，准相位匹配器件有几条集成路径。体块晶体工艺最成熟，功率容量大，但体积大、功率密度低。周期极化波导把光约束在微米尺度，效率高、功耗低，代价是耦合损耗和损伤阈值。薄膜和二维构型集成度最高、设计自由度也最大，但制备工艺和传输损耗还在攻关。混合集成让体块负责功率、波导负责转换，兼顾两边，但系统复杂度上升。它们其实是在回答同一个问题：你愿意把损耗放在哪一段。"
+    },
+    {
+      "id": "14",
+      "layout": "closing",
+      "section": "outlook",
+      "eyebrow": "5.2",
+      "title": "总结与讨论",
+      "lead": "结论必须带着条件和边界离开。",
+      "points": [
+        "相位失配是效率的结构性瓶颈",
+        "QPM 用 2/π 折扣换可设计性",
+        "工程难点在极化精度与温漂"
+      ],
+      "boundary": "本报告只讨论二阶非线性过程，未涉及三阶效应与任何器件实测。",
+      "boundary_points": [
+        "没有实测效率数据",
+        "二维构型只作机理说明"
+      ],
+      "next": "下一步：把周期容差与温控写成可检验指标。",
+      "next_points": [
+        "容差分析",
+        "薄膜集成评估"
+      ],
+      "closing": "谢谢各位老师",
+      "speech": "最后收一下。第一，相位失配是二阶非线性的结构性瓶颈，准相位匹配用一块周期结构把它从材料的限制变成设计的变量。第二，这个转换不是免费的：有效非线性系数要打 2/π 的折扣，换来的是波长和带宽的可设计性。第三，真正的工程难点在极化精度和温漂，不在光学方案本身。需要说明边界：这次只讲二阶过程，没有三阶效应，也没有任何实测效率数据，二维构型也只是机理说明。下一步我会把周期容差和温控写成可检验的指标，再评估薄膜集成的可行性。"
+    },
+    {
+      "id": "15",
+      "layout": "references",
+      "section": "outlook",
+      "eyebrow": "5.3",
+      "title": "参考文献",
+      "lead": "参考文献以公开论文与教科书为主，覆盖机理、工艺与器件三条线。",
+      "references": [
+        {
+          "authors": "Armstrong J A, et al.",
+          "title": "Interactions between light waves in a nonlinear dielectric",
+          "venue": "Physical Review, 1962"
+        },
+        {
+          "authors": "Fejer M M, et al.",
+          "title": "Quasi-phase-matched second harmonic generation: tuning and tolerances",
+          "venue": "IEEE Journal of Quantum Electronics, 1992"
+        },
+        {
+          "authors": "Yamada M, et al.",
+          "title": "First-order quasi-phase matched LiNbO3 waveguide periodically poled by applying an external field",
+          "venue": "Applied Physics Letters, 1993"
+        },
+        {
+          "authors": "Boyd R W",
+          "title": "Nonlinear Optics, 3rd edition",
+          "venue": "Academic Press, 2008"
+        },
+        {
+          "authors": "Zhu S N, et al.",
+          "title": "Quasi-phase-matched third-harmonic generation in a quasi-periodic optical superlattice",
+          "venue": "Science, 1997"
+        },
+        {
+          "authors": "Arie A, Voloch N",
+          "title": "Periodic, quasi-periodic, and random quadratic nonlinear photonic crystals",
+          "venue": "Laser & Photonics Reviews, 2010"
+        },
+        {
+          "authors": "Tanzilli S, et al.",
+          "title": "Highly efficient photon-pair source using periodically poled lithium niobate waveguide",
+          "venue": "Electronics Letters, 2001"
+        },
+        {
+          "authors": "Canalias C, Pasiskevicius V",
+          "title": "Mirrorless optical parametric oscillator",
+          "venue": "Nature Photonics, 2007"
+        }
+      ],
+      "claim": "参考文献均为公开论文或教科书。",
+      "evidence": "八篇文献覆盖机理、工艺和器件三条线。",
+      "boundary": "本页只列汇报所需的代表性文献，不作为穷尽综述。",
+      "takeaway": "引用可追溯，未复现的实验不作性能结论。",
+      "speech": "文献分三条线：机理上以 1962 年那篇奠基工作和 Fejer 的容差综述为主；工艺上参考周期极化的早期实现和后来的二维构型综述；器件与应用上包括准周期超晶格的三倍频、无腔参量振荡和波导光子对源。所有结论都能回到这几篇公开文献，本报告没有引入未发表的数据。"
+    }
+  ]
+}
