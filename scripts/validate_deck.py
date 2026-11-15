@@ -48,6 +48,10 @@ IMAGE_ORIGINS = {"own", "generated", "template", "borrowed", "public"}
 SOURCE_POLICIES = {"off", "advisory", "strict"}
 
 
+def title_units(text: str) -> int:
+    return sum(2 if ord(character) > 0x2E80 else 1 for character in str(text or ""))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate a defense deck and its rendered images.")
     parser.add_argument("--deck", required=True)
@@ -249,11 +253,24 @@ def main() -> None:
     for index, slide in enumerate(slides, start=1):
         page_id = str(slide.get("id", f"{index:02d}"))
         layout = slide.get("layout")
+        title_text = str(slide.get("title", "")).strip()
+        title_limit = int(deck.get("meta", {}).get("title_max_chars", 10))
+        if title_mode == "assertion":
+            title_limit += 8
         if layout not in SUPPORTED_LAYOUTS:
             add_issue(issues, "error", page_id, f"Unsupported layout: {layout}")
             continue
         if not slide.get("title"):
             add_issue(issues, "error", page_id, "Missing slide title.")
+        elif layout not in {"cover", "outline", "section", "closing", "references"}:
+            if title_units(title_text) > title_limit * 2:
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    f"Header title is too long ({title_units(title_text)} units > {title_limit * 2}); "
+                    "use a short topic label and move the claim to lead.",
+                )
         if not str(slide.get("speech", "")).strip():
             add_issue(issues, "error", page_id, "Missing speech text.")
         raw_cites = slide.get("cites")

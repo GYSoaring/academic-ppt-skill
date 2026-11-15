@@ -1,6 +1,23 @@
 {
   "kind": "url",
   "url": "https://www.urongda.com/images/normal/medium/tsinghua-university-logo-1024px.png",
+  "lockup": {
+    "kind": "file",
+    "path": "C:\\Users\\gxy25\\.codex\\skills\\academic-ppt-skill\\work\\thu_vi\\logo296.png",
+    "mode": "official_lockup",
+    "crop": [
+      0,
+      0,
+      236,
+      88
+    ],
+    "recolor": true,
+    "size": [
+      222,
+      70
+    ]
+  },
+  "typographic_fallback": false,
   "name": "清华大学",
   "latin": "TSINGHUA UNIVERSITY",
   "font": "C:\\Windows\\Fonts\\STZHONGS.TTF",
@@ -10,7 +27,7 @@
     1026
   ],
   "lockup_size": [
-    495,
-    162
+    222,
+    70
   ]
 }

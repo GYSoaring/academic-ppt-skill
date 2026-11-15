@@ -62,6 +62,26 @@ The script:
 
 The search uses Wikimedia Commons and prints the candidate list plus the selected URL. Review the selected file before delivery. Keep the source in `SOURCE.md` or `BRAND_SOURCE.json`, and follow the institution's visual identity rules.
 
+### Prefer The Official Wordmark
+
+Many universities use a calligraphic or custom-drawn wordmark, not a standard font. If an official horizontal lockup exists, use it directly:
+
+```bash
+python scripts/build_brand_lockup.py \
+  --theme assets/themes/tsinghua_purple/theme.json \
+  --name "清华大学" \
+  --lockup path/to/official_lockup.png \
+  --lockup-crop "0,0,236,88" \
+  --recolor-lockup
+```
+
+- `--lockup` accepts a local path or a direct image URL.
+- `--lockup-crop` removes adjacent text such as a VI-system title.
+- `--recolor-lockup` uses the theme primary color while preserving the alpha mask. Use it only for monochrome official artwork; skip it for a full-color logo.
+- `BRAND_SOURCE.json` records `mode: official_lockup` and `typographic_fallback: false`.
+
+The typeset path is a fallback. It records `typographic_fallback: true`; do not present it as the official school wordmark.
+
 ## Minimum Theme Contract
 
 - `canvas.width` and `canvas.height`

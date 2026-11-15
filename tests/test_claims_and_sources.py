@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from build_ghost_deck import build
 from common import is_assertion_title, normalize_cites, source_line_for_slide
-from validate_deck import validate_citation_entry
+from validate_deck import title_units, validate_citation_entry
 
 
 def test_normalize_cites_dedupes_and_keeps_order() -> None:
@@ -35,6 +35,12 @@ def test_assertion_title_heuristic() -> None:
     assert is_assertion_title("研究背景") is False
     assert is_assertion_title("证据接口决定通行判断能否复核") is True
     assert is_assertion_title("所以本课题不再堆叠分割网络。") is True
+
+
+def test_title_units_counts_cjk_as_two() -> None:
+    assert title_units("研究背景") == 8
+    assert title_units("VLA") == 3
+    assert title_units("研究 VLA") == 8
 
 
 def test_citation_entry_rejects_bad_doi() -> None:

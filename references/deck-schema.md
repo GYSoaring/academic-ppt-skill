@@ -29,6 +29,7 @@ The model writes content; the renderer owns layout. Use one slide object per pag
   "duration_min": 20,
   "deck_mode": "full",
   "title_mode": "topic",
+  "title_max_chars": 10,
   "source_policy": "off",
   "language": "zh-CN",
   "cover_line": "封面底部的一句边界或判断，可选",
@@ -46,7 +47,9 @@ Use `content_only` only when the user explicitly asks for a content-only deck or
 `title_mode` controls how the header title is read:
 
 - `topic`: default. The header stays a short topic label and the lead band carries the full claim.
-- `assertion`: the header itself is a complete claim. `build_ghost_deck.py` and the validator flag topic-like titles such as `研究背景` or `技术路线`.
+- `assertion`: optional. The header itself is a complete claim, but it still counts against a deliberately raised `title_max_chars`. Use it only when the user asks for assertion-driven headers.
+
+`title_max_chars` defaults to 10. The validator measures CJK characters as two units and Latin characters as one, then warns when a header exceeds `title_max_chars × 2` units. The header is an orientation label; a 20–30 character sentence belongs in `lead`, not in the fixed header.
 
 `source_policy` controls how strictly borrowed evidence must be traceable:
 

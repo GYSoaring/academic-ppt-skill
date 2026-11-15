@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Header titles are short topic labels by default; `title_max_chars` and the validator warn when a header becomes a sentence.
+- Brand asset builder supports official horizontal lockups (`--lockup`) with crop and theme-color recoloring, so the school name uses its official calligraphic wordmark instead of a typeset substitute.
+
 ## v0.1.0 — 2026-11-15
 
 First public release.

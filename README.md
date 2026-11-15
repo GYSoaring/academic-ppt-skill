@@ -25,12 +25,12 @@
 - **结构化内容输入**：`deck.json` 分别记录章节、页面主张、证据、边界、图片来源和逐页讲稿。
 - **源材料抽取**：PDF / DOCX / PPTX / Markdown / 图片文件夹 → `source.md`、`source_manifest.json`、`figures/`，让图片和来源可追溯。
 - **PPTX 主题导入**：从用户现有 `.pptx` 读取 theme colors、major/minor fonts 和 slide size，生成可审查的 `theme.json` 草稿。
-- **院校品牌资产**：`build_brand_lockup.py` 支持本地图、直链或 Wikimedia Commons 搜索，自动去白底、裁切、合成“校徽 + 校名”字标并写回主题。
+- **院校品牌资产**：`build_brand_lockup.py` 支持本地图、直链或 Wikimedia Commons 搜索；可直用官方横式字标（`--lockup`），也可自动去白底、裁切、合成“校徽 + 校名”字标并写回主题。
 - **完整版 / 纯内容版**：`deck_mode: full` 生成封面与目录；`deck_mode: content_only` 从正文页开始，适合作品集嵌入、长图预览和已有封面的场合。
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
 - **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
 - **语义示意图**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle` 六种图理由内容驱动，渲染器只负责几何与排版；PPTX 中仍是原生形状和文本。
-- **断言标题与幽灵稿**：`title_mode: assertion` 让页标题直接写成判断句；`build_ghost_deck.py` 输出一条可在五分钟内读完的标题主张链。
+- **短标题与幽灵稿**：默认页眉只写 10 字以内的主题词，完整判断放在 lead；`title_mode: assertion` 是可选模式。`build_ghost_deck.py` 输出一条可在五分钟内读完的标题主张链。
 - **引用与来源可追溯**：deck 级 `citations` + 页级 `cites` / `source`，页脚自动生成来源行；`source_policy` 可把缺来源的图表和借用图片升级为错误。
 - **图表口径齐全**：`unit`、`sample_size`、`condition`、`source`、`error_bar` 与图表绑定，避免数字脱离实验条件。
 - **样板先行**：`--sample 5` 或 `--pages 1,4,7` 先出视觉样板，确认后再生成全套，避免一次性返工。
@@ -97,6 +97,14 @@ python scripts/build_brand_lockup.py \
   --name "学校名称" \
   --latin "UNIVERSITY NAME" \
   --search-query "你的学校英文名 logo"
+
+# 已有官方横式字标时，直接使用，不再用字体排版
+python scripts/build_brand_lockup.py \
+  --theme assets/themes/tsinghua_purple/theme.json \
+  --name "清华大学" \
+  --lockup path/to/official_lockup.png \
+  --lockup-crop "0,0,236,88" \
+  --recolor-lockup
 
 python scripts/render_deck.py \
   --deck examples/zju_proposal/deck.json \

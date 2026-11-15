@@ -24,6 +24,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--name", required=True, help="Institution name shown in the lockup.")
     parser.add_argument("--latin", default="", help="Optional Latin subtitle.")
     parser.add_argument("--emblem", default=None, help="Local image path or direct image URL.")
+    parser.add_argument("--lockup", default=None, help="Official horizontal lockup image path or URL.")
+    parser.add_argument("--lockup-crop", default=None, help="Crop the official lockup: left,top,right,bottom.")
+    parser.add_argument("--recolor-lockup", action="store_true", help="Recolor the lockup using the theme primary color.")
     parser.add_argument("--search-query", default=None, help="Search Wikimedia Commons for an emblem.")
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--font", default=None, help="Override the display font path.")
@@ -117,6 +120,24 @@ def crop_transparent(image: Image.Image, padding: int = 2) -> Image.Image:
     return image.crop((left, top, right, bottom))
 
 
+def recolor_by_alpha(image: Image.Image, color: tuple[int, int, int]) -> Image.Image:
+    array = np.array(image.convert("RGBA"))
+    mask = array[:, :, 3] > 0
+    array[mask, 0] = color[0]
+    array[mask, 1] = color[1]
+    array[mask, 2] = color[2]
+    return Image.fromarray(array.astype(np.uint8), "RGBA")
+
+
+def parse_crop(value: str | None) -> tuple[int, int, int, int] | None:
+    if not value:
+        return None
+    parts = [int(part.strip()) for part in value.replace("，", ",").split(",")]
+    if len(parts) != 4:
+        raise ValueError("--lockup-crop expects left,top,right,bottom")
+    return tuple(parts)  # type: ignore[return-value]
+
+
 def pick_font(theme: dict, explicit: str | None) -> Path:
     candidates = [explicit] if explicit else []
     fonts = theme.get("fonts") or {}
@@ -183,47 +204,82 @@ def compose_lockup(
 def build(
     theme_path: Path,
     name: str,
-    emblem_source: str,
+    emblem_source: str | None,
     latin: str = "",
     out_dir: Path | None = None,
     font: str | None = None,
     emblem_height: int = 132,
     remove_white: bool = True,
     update_theme: bool = True,
+    lockup_source: str | None = None,
+    lockup_crop: tuple[int, int, int, int] | None = None,
+    recolor_lockup: bool = False,
 ) -> dict:
     theme_path = theme_path.resolve()
     theme = load_json(theme_path)
     target_dir = (out_dir or theme_path.parent).resolve()
     target_dir.mkdir(parents=True, exist_ok=True)
-    emblem, source_meta = read_image(emblem_source)
-    if remove_white:
-        emblem = white_to_alpha(emblem)
-    emblem = crop_transparent(emblem)
+    source_meta: dict = {}
     emblem_path = target_dir / "emblem_mark.png"
-    emblem.save(emblem_path)
+    if emblem_source:
+        emblem, source_meta = read_image(emblem_source)
+        if remove_white:
+            emblem = white_to_alpha(emblem)
+        emblem = crop_transparent(emblem)
+        emblem.save(emblem_path)
+    elif not lockup_source and not emblem_path.exists():
+        raise FileNotFoundError("Provide --emblem or keep an existing emblem_mark.png.")
+    elif emblem_path.exists():
+        emblem = Image.open(emblem_path).convert("RGBA")
     font_path = pick_font(theme, font)
     latin_font_path = pick_latin_font(theme, font_path)
     primary = hex_rgb(theme["colors"]["blue"])
     accent = hex_rgb(theme["colors"]["blue_mid"])
-    lockup = compose_lockup(
-        emblem,
-        name,
-        latin,
-        font_path,
-        primary,
-        accent,
-        emblem_height,
-        latin_font_path=latin_font_path,
-    )
     lockup_path = target_dir / "brand_lockup.png"
-    lockup.save(lockup_path)
+    if lockup_source:
+        lockup, lockup_meta = read_image(lockup_source)
+        if lockup_crop:
+            lockup = lockup.crop(lockup_crop)
+        if lockup.getchannel("A").getextrema()[0] == 255:
+            lockup = white_to_alpha(lockup)
+        if recolor_lockup:
+            lockup = recolor_by_alpha(lockup, primary)
+        lockup = crop_transparent(lockup)
+        lockup.save(lockup_path)
+        source_meta["lockup"] = {
+            **lockup_meta,
+            "mode": "official_lockup",
+            "crop": list(lockup_crop) if lockup_crop else None,
+            "recolor": recolor_lockup,
+            "size": list(lockup.size),
+        }
+        source_meta["typographic_fallback"] = False
+    else:
+        lockup = compose_lockup(
+            emblem,
+            name,
+            latin,
+            font_path,
+            primary,
+            accent,
+            emblem_height,
+            latin_font_path=latin_font_path,
+        )
+        lockup.save(lockup_path)
+        source_meta["lockup"] = {
+            "mode": "typographic_fallback",
+            "font": str(font_path),
+            "latin_font": str(latin_font_path),
+            "size": list(lockup.size),
+        }
+        source_meta["typographic_fallback"] = True
     source_meta.update(
         {
             "name": name,
             "latin": latin,
             "font": str(font_path),
             "latin_font": str(latin_font_path),
-            "emblem_size": list(emblem.size),
+            "emblem_size": list(emblem.size) if emblem_source else None,
             "lockup_size": list(lockup.size),
         }
     )
@@ -246,14 +302,15 @@ def build(
 def main() -> None:
     args = parse_args()
     emblem_source = args.emblem
-    if not emblem_source:
+    if not emblem_source and not args.lockup:
         if not args.search_query:
-            raise SystemExit("Provide --emblem or --search-query.")
+            raise SystemExit("Provide --emblem, --lockup, or --search-query.")
         results = search_commons(args.search_query)
         if not results:
             raise SystemExit("No emblem found. Provide --emblem with a direct image URL.")
         emblem_source = results[0]["url"]
         print(json.dumps({"candidates": results, "selected": emblem_source}, ensure_ascii=False, indent=2))
+    lockup_crop = parse_crop(args.lockup_crop)
     report = build(
         Path(args.theme),
         args.name,
@@ -264,6 +321,9 @@ def main() -> None:
         emblem_height=args.emblem_height,
         remove_white=not args.keep_white,
         update_theme=not args.no_update_theme,
+        lockup_source=args.lockup,
+        lockup_crop=lockup_crop,
+        recolor_lockup=args.recolor_lockup,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

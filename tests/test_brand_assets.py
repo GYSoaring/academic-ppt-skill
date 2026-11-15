@@ -63,3 +63,37 @@ def test_build_generates_emblem_and_lockup(work_tmp: Path) -> None:
     assert updated["brand"]["lockup"] == "brand_lockup.png"
     assert updated["brand"]["emblem"] == "emblem_mark.png"
     assert updated["brand"]["fallback_text"] == "Test University"
+
+
+def test_build_uses_official_lockup_and_recolors(work_tmp: Path) -> None:
+    font = find_test_font()
+    if not font:
+        pytest.skip("No test font available.")
+    theme_source = Path(__file__).resolve().parents[1] / "assets" / "themes" / "academic_blue" / "theme.json"
+    theme = json.loads(theme_source.read_text(encoding="utf-8"))
+    theme_path = work_tmp / "theme.json"
+    theme_path.write_text(json.dumps(theme, ensure_ascii=False), encoding="utf-8")
+    emblem_path = work_tmp / "emblem.png"
+    make_emblem(emblem_path)
+    lockup_path = work_tmp / "official_lockup.png"
+    lockup = Image.new("RGBA", (100, 40), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(lockup)
+    draw.rectangle((10, 10, 40, 30), fill=(255, 255, 255, 255))
+    draw.rectangle((50, 10, 90, 30), fill=(255, 255, 255, 255))
+    lockup.save(lockup_path)
+    report = build(
+        theme_path,
+        "Test University",
+        str(emblem_path),
+        font=font,
+        remove_white=True,
+        update_theme=True,
+        lockup_source=str(lockup_path),
+        recolor_lockup=True,
+    )
+    assert report["source"]["lockup"]["mode"] == "official_lockup"
+    assert report["source"]["typographic_fallback"] is False
+    result = Image.open(report["lockup"]).convert("RGBA")
+    pixel = result.getpixel((result.width // 4, result.height // 2))
+    assert pixel[:3] == (23, 74, 126)
+    assert pixel[3] == 255
