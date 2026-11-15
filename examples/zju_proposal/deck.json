@@ -152,6 +152,7 @@
       ],
       "highlight_rows": [4],
       "notes": ["表内按“已解决 / 仍缺少”归纳，不比较不同论文的绝对精度。", "不同数据集、城市和传感器条件下的结果不作严格排名。"],
+      "source": "公开综述与数据集信息归纳；不作跨论文性能比较",
       "claim": "研究空白不在单点识别精度，而在跨视角证据到路网边权的转换。",
       "evidence": "五类代表性方向的能力与缺口对照。",
       "boundary": "表格是研究定位，不是对具体论文性能的复现实验。",
@@ -592,8 +593,7 @@
         {
           "authors": "Bonafilia D, et al.",
           "title": "Sen1Floods11: a georeferenced dataset to train and test deep learning flood algorithms for Sentinel-1",
-          "venue": "CVPR Workshops, 2020",
-          "doi": "CVPRW 2020"
+          "venue": "CVPR Workshops, 2020"
         },
         {
           "authors": "Rambour C, et al.",

@@ -29,6 +29,9 @@
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
 - **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
 - **语义示意图**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle` 六种图理由内容驱动，渲染器只负责几何与排版；PPTX 中仍是原生形状和文本。
+- **断言标题与幽灵稿**：`title_mode: assertion` 让页标题直接写成判断句；`build_ghost_deck.py` 输出一条可在五分钟内读完的标题主张链。
+- **引用与来源可追溯**：deck 级 `citations` + 页级 `cites` / `source`，页脚自动生成来源行；`source_policy` 可把缺来源的图表和借用图片升级为错误。
+- **图表口径齐全**：`unit`、`sample_size`、`condition`、`source`、`error_bar` 与图表绑定，避免数字脱离实验条件。
 - **原生可编辑 PPTX**：文字、形状、表格、图表和 OMML 公式均为可编辑对象，而不是整页截图。
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
 - **投影/文档双字号档**：`document` 保留高密度阅读版；`projection` 提高实际 PPTX 字号，并通过溢出门禁要求拆页，而不是把字压小。
@@ -103,6 +106,10 @@ python scripts/build_speech.py \
   --deck examples/zju_proposal/deck.json \
   --out outputs/zju-proposal
 
+python scripts/build_ghost_deck.py \
+  --deck examples/zju_proposal/deck.json \
+  --out outputs/zju-proposal
+
 python scripts/validate_deck.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
@@ -143,6 +150,7 @@ outputs/<project>/
 |   `-- pptx_render_report.json # 实际渲染、空白页和预览差异
 |-- speaker_notes.md            # 逐页演讲备注
 |-- defense_script.md           # 连续答辩稿
+|-- ghost_deck.md               # 五分钟可读完的标题主张链
 |-- render_report.json          # 溢出、缺图和版面检查
 |-- pptx_validation_report.json # PPTX 原生对象与完整性检查
 |-- accessibility_report.json   # 标题、alt、表格 header、阅读顺序检查

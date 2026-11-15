@@ -35,6 +35,48 @@ LATIN_CHUNK_RE = re.compile(
     r"[A-Za-zÀ-ÖØ-öø-ÿ0-9]+(?:[.'’\-–—/+×%:][A-Za-zÀ-ÖØ-öø-ÿ0-9]+)*|\s+|.",
     re.S,
 )
+DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$", re.IGNORECASE)
+ARXIV_RE = re.compile(r"^arxiv:\d{4}\.\d{4,5}(v\d+)?$", re.IGNORECASE)
+ASSERTION_CUES = (
+    "是",
+    "不是",
+    "需要",
+    "应",
+    "必须",
+    "可以",
+    "能",
+    "无法",
+    "决定",
+    "取决",
+    "来自",
+    "转成",
+    "落入",
+    "高于",
+    "低于",
+    "达到",
+    "支持",
+    "构成",
+    "形成",
+    "成为",
+    "意味着",
+    "导致",
+    "推动",
+    "限制",
+    "缺少",
+    "缺失",
+    "多于",
+    "少于",
+    "优于",
+    "弱于",
+    "依赖",
+    "进入",
+    "回到",
+    "止于",
+    "始于",
+    "产生",
+    "禁止",
+)
+ASSERTION_ENDINGS = set("。！？")
 
 
 def load_json(path: str | Path) -> dict:
@@ -54,6 +96,87 @@ def resolve_path(value: str | None, base: Path) -> Path | None:
     if not path.is_absolute():
         path = base / path
     return path
+
+
+def normalize_cites(value) -> list[str]:
+    """Normalize a slide/block citation field into an ordered key list."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, (list, tuple)):
+        items = list(value)
+    else:
+        return []
+    keys: list[str] = []
+    for item in items:
+        key = str(item).strip()
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
+def normalize_doi(value: str) -> str:
+    """Strip common DOI/arXiv prefixes so identifiers can be validated."""
+    text = str(value or "").strip()
+    lowered = text.lower()
+    for prefix in ("https://doi.org/", "http://doi.org/", "doi:", "https://arxiv.org/abs/"):
+        if lowered.startswith(prefix):
+            text = text[len(prefix):].strip()
+            lowered = text.lower()
+            break
+    return text
+
+
+def citation_label(entry: dict, max_title: int = 42, max_venue: int = 26) -> str:
+    """Build a compact one-line citation label for a footer source line."""
+    entry = entry if isinstance(entry, dict) else {}
+    title = str(entry.get("title", "")).strip()
+    venue = str(entry.get("venue", "")).strip()
+    year = str(entry.get("year", "")).strip()
+    authors = str(entry.get("authors", "")).strip()
+    if len(title) > max_title:
+        title = title[: max_title - 1] + "…"
+    if len(venue) > max_venue:
+        venue = venue[: max_venue - 1] + "…"
+    bits = [bit for bit in (authors, title, venue, year) if bit]
+    return "，".join(bits)
+
+
+def source_line_for_slide(deck: dict, slide: dict) -> str:
+    """Return the footer source line for a slide.
+
+    Explicit `source` wins. Otherwise `cites` keys are resolved against the
+    deck-level `citations` map and compacted into one muted footer line.
+    """
+    if not isinstance(slide, dict):
+        return ""
+    explicit = str(slide.get("source", "")).strip()
+    if explicit:
+        return explicit if explicit.startswith("来源") else f"来源：{explicit}"
+    keys = normalize_cites(slide.get("cites"))
+    if not keys:
+        return ""
+    citations = deck.get("citations") if isinstance(deck, dict) else None
+    citations = citations if isinstance(citations, dict) else {}
+    labels: list[str] = []
+    for key in keys:
+        entry = citations.get(key)
+        label = citation_label(entry or {}) or key
+        labels.append(label)
+    return "来源：" + "；".join(labels)
+
+
+def is_assertion_title(text: str) -> bool:
+    """Heuristic: does this title read as a claim instead of a topic label?"""
+    value = str(text or "").strip()
+    if not value:
+        return False
+    if value[-1] in ASSERTION_ENDINGS:
+        return True
+    if len(value) < 6:
+        return False
+    return any(cue in value for cue in ASSERTION_CUES)
 
 
 def hex_rgb(value: str) -> tuple[int, int, int]:

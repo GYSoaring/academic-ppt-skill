@@ -28,6 +28,8 @@ The model writes content; the renderer owns layout. Use one slide object per pag
   "date": "2026.11.13",
   "duration_min": 20,
   "deck_mode": "full",
+  "title_mode": "topic",
+  "source_policy": "off",
   "language": "zh-CN",
   "cover_line": "封面底部的一句边界或判断，可选",
   "source_note": "材料范围与任何全局限制"
@@ -40,6 +42,40 @@ The model writes content; the renderer owns layout. Use one slide object per pag
 - `content_only`: omit both the cover and the outline. Every slide is a content or closing page, and the validator does not require the first two layouts.
 
 Use `content_only` only when the user explicitly asks for a content-only deck or says to remove the cover and table of contents.
+
+`title_mode` controls how the header title is read:
+
+- `topic`: default. The header stays a short topic label and the lead band carries the full claim.
+- `assertion`: the header itself is a complete claim. `build_ghost_deck.py` and the validator flag topic-like titles such as `研究背景` or `技术路线`.
+
+`source_policy` controls how strictly borrowed evidence must be traceable:
+
+- `off`: default. Only structural citation errors are reported.
+- `advisory`: charts and borrowed images without `source` / `cites` produce warnings.
+- `strict`: the same cases produce errors. Use this for journal-club, group meeting, or submission-bound decks.
+
+## Citations
+
+Use a deck-level citation map plus per-slide keys. Keep every borrowed number, figure, and table traceable.
+
+```json
+{
+  "citations": {
+    "zhang2024": {
+      "title": "Evidence interface for urban flood response",
+      "authors": "Zhang et al.",
+      "venue": "CVPR",
+      "year": "2024",
+      "doi": "10.1109/CVPR.2024.00123"
+    }
+  },
+  "slides": [
+    {"id": "05", "cites": ["zhang2024"], "source": "可选的自由文本来源"}
+  ]
+}
+```
+
+`source` wins over `cites` when both exist. Otherwise the renderer compacts cited entries into one muted footer line. Keep at most three citations per slide; move a longer list to the `references` layout.
 
 ## Sections
 
@@ -71,6 +107,9 @@ Use `content_only` only when the user explicitly asks for a content-only deck or
   "evidence": "支持该主张的数据、图、公式或文献。",
   "boundary": "该证据不能证明什么。",
   "footnote": "可选的来源、口径或缩写说明。",
+  "source": "本页来源的自由文本，可选；与 cites 二选一。",
+  "cites": ["zhang2024"],
+  "image_origin": "own",
   "speech": "本页的口头讲解，45 至 90 秒。"
 }
 ```
@@ -78,6 +117,8 @@ Use `content_only` only when the user explicitly asks for a content-only deck or
 `section` must match a section `id`. `eyebrow` is the short chapter label in the header, such as `1.1`. It is rendered at the same measured size as the adjacent title; keep it short enough to fit the chapter label column.
 
 `content_type` is an optional authoring label such as `mechanism`, `route_taxonomy`, `measured_result`, or `limitation`. Use it to make layout choice auditable; see [layout-catalog.md](layout-catalog.md).
+
+`image_origin` must be one of `own`, `generated`, `template`, `borrowed`, or `public`. It records what the image actually is, so a generated illustration never gets presented as a measured result. In `source_policy: strict` mode, `borrowed` and `public` images require `source` or `cites`.
 
 ## Layout: cover
 
@@ -390,7 +431,12 @@ Use when the page needs both a mechanism sequence and a main figure. The flow si
     "highlight": 4,
     "x_label": "到达时间 t",
     "y_label": "光子计数（概念示意）",
-    "annotation": "τ"
+    "annotation": "τ",
+    "unit": "counts",
+    "sample_size": 500,
+    "condition": "1064 nm · 500 kHz",
+    "source": "实验室自测",
+    "error_bar": false
   },
   "image_label": "时间直方图（概念示意）",
   "image_caption": "本图为机制示意，不是实测分布。",
@@ -405,6 +451,8 @@ Use when the page needs both a mechanism sequence and a main figure. The flow si
 ```
 
 `chart.type` may be `histogram`, `bar`, `column`, `line`, or `curve`. The native PPTX exporter keeps these as editable PowerPoint chart objects; `values`, `highlight`, `x_label`, `y_label`, and `annotation` must remain in `deck.json`, not baked into a screenshot. Use `image` instead when the evidence is a supplied paper figure or a measured plot that cannot be reduced to a small data table.
+
+Every quantitative chart should also carry `unit`, `sample_size`, `condition`, and `source` when those facts exist. They render as a muted caption under the plot, so the number is never separated from its measurement口径. Set `error_bar` only when the exported chart actually displays error information; do not claim uncertainty that was not computed.
 
 ## Layout: pipeline
 
@@ -583,7 +631,7 @@ Use real sources only. Four to ten entries are supported.
       "authors": "Author A, et al.",
       "title": "Traceable paper or dataset title",
       "venue": "Venue, Year",
-      "doi": "DOI: 10.xxxx/xxxxx"
+      "doi": "10.1109/CVPR.2024.00123"
     }
   ]
 }
@@ -603,6 +651,15 @@ The renderer keeps Latin words intact when wrapping and uses the theme's Latin f
   }
 ]
 ```
+
+## Ghost Deck
+
+Run `python scripts/build_ghost_deck.py --deck deck.json --out work/ghost` to export a five-minute read of the deck:
+
+- `ghost_deck.md`: the title chain plus each page's claim, takeaway, and boundary.
+- `ghost_deck.json`: assertion ratio, read time, and warnings.
+
+If the title chain still needs the full speech to make sense, the deck is not yet a ghost deck. Fix titles and leads before polishing layout.
 
 ## Writing Rules
 

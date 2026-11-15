@@ -18,6 +18,19 @@
 
 Do not use the fixed header for a long sentence. Header titles should normally be 4–10 Chinese characters; the action claim belongs in `lead`.
 
+### Assertion Mode
+
+When `meta.title_mode` is `assertion`, the header itself becomes the claim. The rule is not "longer titles are better"; it is "the title alone must state a judgment." Pair it with shorter interpretation panels so the page does not become a wall of text. Run `build_ghost_deck.py` and read only the titles: if the story is still unclear, the titles are not yet assertions.
+
+### Source Line
+
+The source line occupies the muted strip between the takeaway band and the footer rule. It must not compete with the takeaway:
+
+- Prefer one compact line: authors, short title, venue, year.
+- Keep at most three citations per page; a longer list belongs on the `references` page.
+- Charts add `unit`, `sample_size`, and `condition` inside the chart card, not in the source line.
+- If a number is not comparable across papers, the source line says so explicitly.
+
 ## Page Rhythm
 
 - Alternate dense evidence pages with quieter statement or section pages. Do not make ten consecutive pages with the same card rhythm.

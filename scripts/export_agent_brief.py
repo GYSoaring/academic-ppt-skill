@@ -27,6 +27,7 @@ def main() -> None:
     layout = theme["layout"]
     brand = theme["brand"]
     title = meta.get("title", "学术答辩汇报")
+    title_mode = str(meta.get("title_mode", "topic")).strip().lower() or "topic"
     output_path = Path(args.out).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -56,7 +57,11 @@ def main() -> None:
         f"- 右上校名校徽固定在约 x={brand['header_box'][0]}–{brand['header_box'][2]}、y={brand['header_box'][1]}–{brand['header_box'][3]}。",
         "- 字体：中文标题用粗黑体，正文用常规黑体；英文和公式保持清晰，不装饰化。",
         "- 图片：保持原始宽高比，用矩形白底相框放入；不要裁切或重绘论文曲线、坐标轴、图例和实验照片；图片下方不要加“论文 Fig. ×”之类标注。",
-        "- 层级：顶部标题只写 4–10 字的主题名；真正的完整判断句放在标题下方的 lead 条，不要用长标题挤压固定页眉。",
+        (
+            "- 层级：本报告使用断言型标题。顶部标题必须写成完整判断句，标题本身能独立说明结论；lead 条再补充证据口径，不要写“研究背景”一类纯主题名。"
+            if title_mode == "assertion"
+            else "- 层级：顶部标题只写 4–10 字的主题名；真正的完整判断句放在标题下方的 lead 条，不要用长标题挤压固定页眉。"
+        ),
         "- 密度：每个内容页至少 3 个内容单元（图、表、流程、指标卡、解释面板或微型机制图），不要只放一个大标题加一张空卡片。",
         "- 视觉锚点：除纯过渡页外，每页至少有一个有信息量的视觉锚点；微型机制图只作机制辅助，不能替代实测图。",
         "- 图文比例：实测图或主图占内容区约 65%–80%，解释栏控制在 20%–35%，不要把密集论文图缩成角落小图。",
@@ -262,6 +267,12 @@ def main() -> None:
                 lines.append(f"- 表下注：{'；'.join(slide['notes'])}")
         if slide.get("chart"):
             lines.append(f"- 图表结构：`{json.dumps(slide['chart'], ensure_ascii=False)}`")
+        if slide.get("source"):
+            lines.append(f"- 本页来源：{slide['source']}")
+        if slide.get("cites"):
+            lines.append(f"- 引用键：{slide['cites']}")
+        if slide.get("image_origin"):
+            lines.append(f"- 图片来源类型：{slide['image_origin']}")
         if slide.get("image_label") or slide.get("image_caption"):
             lines.append(f"- 图版标签：{slide.get('image_label', '')}｜{slide.get('image_caption', '')}｜badge={slide.get('image_badge', '')}")
         if slide.get("boundary_points"):
@@ -285,6 +296,7 @@ def main() -> None:
             "- 每页先说“这一页在回答什么”，再说“图中看到什么”，然后说“支持什么结论”，最后说“不能证明什么”并过渡到下一页。",
             "- 避免机械排比和长篇定义；首次出现的缩写要展开。",
             "- 论文图必须按图讲，不允许自己补曲线、补数值或把示意图说成实测。",
+            "- 图表和借用图片必须能追溯来源；生成图、自绘图和模板图要标 `image_origin`，不能冒充论文插图。",
             "",
             "## 幻灯片 JSON 参考",
             "",

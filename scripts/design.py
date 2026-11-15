@@ -652,10 +652,20 @@ def draw_chart(
 ) -> None:
     left, top, right, bottom = box
     draw.rounded_rectangle(box, radius=7, fill=colors["white"], outline=colors["line"], width=1)
+    meta_bits: list[str] = []
+    if chart.get("unit"):
+        meta_bits.append(f"单位：{chart['unit']}")
+    if chart.get("sample_size") not in (None, ""):
+        meta_bits.append(f"n={chart['sample_size']}")
+    if chart.get("condition"):
+        meta_bits.append(str(chart["condition"]))
+    if chart.get("error_bar"):
+        meta_bits.append("含误差条")
+    meta_text = " · ".join(meta_bits)
     plot_left = left + 58
     plot_right = right - 26
     plot_top = top + 32
-    plot_bottom = bottom - 52
+    plot_bottom = bottom - (78 if meta_text else 52)
     if plot_right <= plot_left or plot_bottom <= plot_top:
         return
     grid = mix_color(colors["line"], colors["paper"], 0.55)
@@ -712,9 +722,16 @@ def draw_chart(
     y_label = str(chart.get("y_label", ""))
     if x_label:
         width = text_width(draw, x_label, label_font)
-        draw.text((plot_right - width, bottom - 32), x_label, font=label_font, fill=muted)
+        draw.text((plot_right - width, bottom - (54 if meta_text else 32)), x_label, font=label_font, fill=muted)
     if y_label:
         draw.text((left + 14, top + 10), y_label, font=label_font, fill=muted)
+    if meta_text:
+        meta_font = fonts.get(TextStyle(), max(12, small_size - 2))
+        display = meta_text
+        available = right - left - 28
+        while len(display) > 2 and text_width(draw, display, meta_font) > available:
+            display = display[:-2] + "…"
+        draw.text((left + 14, bottom - 28), display, font=meta_font, fill=muted)
     if chart.get("annotation"):
         annotation = str(chart["annotation"])
         width = text_width(draw, annotation, label_font)

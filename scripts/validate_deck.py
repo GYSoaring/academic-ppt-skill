@@ -7,7 +7,19 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from common import apply_type_profile, estimate_seconds, load_json, load_theme, resolve_path, write_json
+from common import (
+    ARXIV_RE,
+    DOI_RE,
+    apply_type_profile,
+    estimate_seconds,
+    is_assertion_title,
+    load_json,
+    load_theme,
+    normalize_cites,
+    normalize_doi,
+    resolve_path,
+    write_json,
+)
 
 
 SUPPORTED_LAYOUTS = {
@@ -32,6 +44,8 @@ SUPPORTED_LAYOUTS = {
 
 REQUIRES_IMAGE_OR_CHART = {"figure", "figure_flow", "metrics", "balance"}
 DIAGRAM_KINDS = {"sequence", "branch", "stack", "ruler", "matrix", "cycle"}
+IMAGE_ORIGINS = {"own", "generated", "template", "borrowed", "public"}
+SOURCE_POLICIES = {"off", "advisory", "strict"}
 
 
 def parse_args() -> argparse.Namespace:
@@ -146,6 +160,39 @@ def validate_diagram(diagram: dict, page_id: str, issues: list[dict], label: str
             add_issue(issues, "warning", page_id, f"{label} pairs count should match item count.")
 
 
+def validate_citation_entry(entry: dict, page_id: str, issues: list[dict], label: str) -> None:
+    if not isinstance(entry, dict):
+        add_issue(issues, "error", page_id, f"{label} must be an object.")
+        return
+    if not str(entry.get("title", "")).strip():
+        add_issue(issues, "error", page_id, f"{label} needs a title.")
+    venue = str(entry.get("venue", "")).strip()
+    year = str(entry.get("year", "")).strip()
+    doi = str(entry.get("doi", "")).strip()
+    url = str(entry.get("url", "")).strip()
+    if not (venue or year or doi or url):
+        add_issue(issues, "warning", page_id, f"{label} needs venue, year, doi, or url.")
+    identifier = normalize_doi(doi)
+    if identifier:
+        if identifier.lower().startswith("arxiv:"):
+            if not ARXIV_RE.match(identifier):
+                add_issue(issues, "warning", page_id, f"{label} arXiv id is malformed: {identifier}")
+        elif identifier.startswith("10."):
+            if not DOI_RE.match(identifier):
+                add_issue(issues, "error", page_id, f"{label} doi is malformed: {identifier}")
+        else:
+            add_issue(
+                issues,
+                "warning",
+                page_id,
+                f"{label} doi field does not look like a DOI or arXiv id; move it to venue.",
+            )
+    if url and not url.lower().startswith(("http://", "https://")):
+        add_issue(issues, "warning", page_id, f"{label} url should start with http:// or https://.")
+    if year and len(year) != 4:
+        add_issue(issues, "warning", page_id, f"{label} year should be four digits.")
+
+
 def main() -> None:
     args = parse_args()
     deck_path = Path(args.deck).resolve()
@@ -167,6 +214,19 @@ def main() -> None:
         add_issue(issues, "error", "meta", "meta.deck_mode must be 'full' or 'content_only'.")
     if not deck.get("meta", {}).get("title"):
         add_issue(issues, "error", "meta", "Missing meta.title.")
+    title_mode = str(deck.get("meta", {}).get("title_mode", "topic")).strip().lower()
+    if title_mode not in {"topic", "assertion"}:
+        add_issue(issues, "error", "meta", "meta.title_mode must be 'topic' or 'assertion'.")
+    source_policy = str(deck.get("meta", {}).get("source_policy", "off")).strip().lower()
+    if source_policy not in SOURCE_POLICIES:
+        add_issue(issues, "error", "meta", "meta.source_policy must be 'off', 'advisory', or 'strict'.")
+    citations = deck.get("citations")
+    if citations is not None and not isinstance(citations, dict):
+        add_issue(issues, "error", "citations", "citations must be an object keyed by citation id.")
+        citations = {}
+    citations = citations if isinstance(citations, dict) else {}
+    for key, entry in citations.items():
+        validate_citation_entry(entry, "citations", issues, f"Citation '{key}'")
     if not slides:
         add_issue(issues, "error", "deck", "Deck has no slides.")
     if len(sections) < 4:
@@ -196,6 +256,33 @@ def main() -> None:
             add_issue(issues, "error", page_id, "Missing slide title.")
         if not str(slide.get("speech", "")).strip():
             add_issue(issues, "error", page_id, "Missing speech text.")
+        raw_cites = slide.get("cites")
+        if raw_cites is not None and not isinstance(raw_cites, (str, list, tuple)):
+            add_issue(issues, "error", page_id, "cites must be a string or a list of citation ids.")
+        cites = normalize_cites(raw_cites)
+        for key in cites:
+            if key not in citations:
+                add_issue(issues, "error", page_id, f"Unknown citation id: {key}")
+        if len(cites) > 3:
+            add_issue(issues, "warning", page_id, "More than three citations on one slide will crowd the footer.")
+        if "source" in slide and not str(slide.get("source", "")).strip():
+            add_issue(issues, "warning", page_id, "source is present but empty.")
+        image_origin = str(slide.get("image_origin", "")).strip().lower()
+        if image_origin and image_origin not in IMAGE_ORIGINS:
+            add_issue(
+                issues,
+                "warning",
+                page_id,
+                f"image_origin should be one of {sorted(IMAGE_ORIGINS)}.",
+            )
+        if title_mode == "assertion" and layout not in {"cover", "outline", "section", "closing", "references"}:
+            if not is_assertion_title(str(slide.get("title", ""))):
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    "title_mode is 'assertion' but this title reads as a topic label, not a claim.",
+                )
         if layout not in {"cover", "outline"} and slide.get("section") not in section_ids:
             add_issue(issues, "error", page_id, f"Unknown or missing section: {slide.get('section')}")
         chart = slide.get("chart")
@@ -218,6 +305,20 @@ def main() -> None:
                     highlight = chart.get("highlight")
                     if not isinstance(highlight, int) or not 0 <= highlight < len(values):
                         add_issue(issues, "error", page_id, "Chart highlight index is outside the values range.")
+                for field in ("unit", "condition", "source"):
+                    if field in chart and not str(chart.get(field, "")).strip():
+                        add_issue(issues, "warning", page_id, f"Chart {field} is present but empty.")
+                if "sample_size" in chart:
+                    sample_size = chart.get("sample_size")
+                    try:
+                        numeric_sample = float(sample_size)
+                    except (TypeError, ValueError):
+                        add_issue(issues, "error", page_id, "Chart sample_size must be numeric.")
+                    else:
+                        if numeric_sample <= 0:
+                            add_issue(issues, "error", page_id, "Chart sample_size must be positive.")
+                if "error_bar" in chart and not isinstance(chart.get("error_bar"), (list, tuple, dict, int, float)):
+                    add_issue(issues, "warning", page_id, "Chart error_bar should be numbers or a spec object.")
         if layout in {"cover", "outline"} and slide.get("section"):
             add_issue(issues, "warning", page_id, "Cover and outline should not highlight a mini-directory section.")
         if layout == "bullets":
@@ -374,6 +475,24 @@ def main() -> None:
                 if title and title in seen_titles:
                     add_issue(issues, "warning", page_id, f"Reference {ref_index} duplicates an earlier title.")
                 seen_titles.add(title)
+                identifier = normalize_doi(str(reference.get("doi", "")))
+                if identifier:
+                    if identifier.lower().startswith("arxiv:"):
+                        if not ARXIV_RE.match(identifier):
+                            add_issue(issues, "warning", page_id, f"Reference {ref_index} arXiv id is malformed: {identifier}")
+                    elif identifier.startswith("10."):
+                        if not DOI_RE.match(identifier):
+                            add_issue(issues, "error", page_id, f"Reference {ref_index} doi is malformed: {identifier}")
+                    else:
+                        add_issue(
+                            issues,
+                            "warning",
+                            page_id,
+                            f"Reference {ref_index} doi field does not look like a DOI or arXiv id; move it to venue.",
+                        )
+                url = str(reference.get("url", "")).strip()
+                if url and not url.lower().startswith(("http://", "https://")):
+                    add_issue(issues, "warning", page_id, f"Reference {ref_index} url should start with http(s)://.")
         if layout == "closing":
             if not slide.get("points"):
                 add_issue(issues, "warning", page_id, "Closing slide has no summary points.")
@@ -389,6 +508,21 @@ def main() -> None:
                 image_path = resolve_path(slide.get("image"), deck_path.parent)
                 if not slide.get("chart") and (image_path is None or not image_path.exists()):
                     add_issue(issues, "error", page_id, "This layout needs a real image or chart as its visual anchor.")
+        if source_policy != "off":
+            severity = "error" if source_policy == "strict" else "warning"
+            has_source = bool(str(slide.get("source", "")).strip() or cites)
+            chart_source = bool(isinstance(chart, dict) and str(chart.get("source", "")).strip())
+            if chart is not None and not (has_source or chart_source):
+                add_issue(issues, severity, page_id, "Chart carries values but has no source or cites.")
+            image_path = resolve_path(slide.get("image"), deck_path.parent)
+            if image_path is not None and image_path.exists() and image_origin not in {"own", "generated", "template"}:
+                if not has_source:
+                    add_issue(
+                        issues,
+                        severity,
+                        page_id,
+                        "Image has no source. Set image_origin to own/generated/template or add source/cites.",
+                    )
 
     expected_size = (int(theme["canvas"]["width"]), int(theme["canvas"]["height"]))
     rendered_paths = sorted(render_dir.glob("slide_*.png"))

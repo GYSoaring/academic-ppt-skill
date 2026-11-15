@@ -31,6 +31,7 @@ from common import (
     load_theme,
     mix_color,
     resolve_path,
+    source_line_for_slide,
     text_width,
     write_json,
 )
@@ -712,6 +713,18 @@ class EditableDeckExporter:
         name: str = "native_chart",
     ):
         left, top, width, height = box
+        meta_bits: list[str] = []
+        if chart_data.get("unit"):
+            meta_bits.append(f"单位：{chart_data['unit']}")
+        if chart_data.get("sample_size") not in (None, ""):
+            meta_bits.append(f"n={chart_data['sample_size']}")
+        if chart_data.get("condition"):
+            meta_bits.append(str(chart_data["condition"]))
+        if chart_data.get("error_bar"):
+            meta_bits.append("含误差条")
+        if meta_bits:
+            meta_text = " · ".join(meta_bits)
+            caption = f"{caption}　{meta_text}".strip() if caption else meta_text
         self.add_panel(slide, box, "white", "line", radius_px=12, line_width_px=1.2, shadow=True)
         if label:
             label_width = max(120.0, len(label) * 20.0 + 34.0)
@@ -1184,6 +1197,10 @@ class EditableDeckExporter:
         )
 
     def add_footnote(self, slide, text: str) -> None:
+        text = str(text or "").strip()
+        source = source_line_for_slide(self.deck, getattr(self, "current_deck_slide", {}))
+        if source:
+            text = f"{text}　｜　{source}" if text else source
         if not text:
             return
         left = int(self.layout["content"][0])
@@ -3058,6 +3075,7 @@ class EditableDeckExporter:
         for index, s in enumerate(slides, start=1):
             slide = self.new_slide(index)
             layout = s.get("layout")
+            self.current_deck_slide = s
             if layout not in {"cover", "outline", "section"}:
                 self.add_header(slide, s)
             if layout == "cover":

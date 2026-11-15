@@ -20,6 +20,7 @@ from common import (
     mix_color,
     resolve_font,
     resolve_path,
+    source_line_for_slide,
     text_width,
     write_json,
 )
@@ -812,6 +813,7 @@ class DeckRenderer:
         return image
 
     def draw_frame(self, slide: dict, page_number: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+        self.current_slide = slide
         image = self.background(page_number)
         self.draw_header(image, slide)
         self.draw_sidebar(image, slide.get("section"))
@@ -2663,6 +2665,10 @@ class DeckRenderer:
         return image
 
     def draw_footnote(self, image: Image.Image, text: str) -> None:
+        text = str(text or "").strip()
+        source = source_line_for_slide(self.deck, getattr(self, "current_slide", {}))
+        if source:
+            text = f"{text}　｜　{source}" if text else source
         if not text:
             return
         draw = ImageDraw.Draw(image)

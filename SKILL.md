@@ -32,9 +32,9 @@ Produce a self-contained output directory containing:
 3. Choose each page's evidence role and layout from [references/layout-catalog.md](references/layout-catalog.md); read [references/visual-language.md](references/visual-language.md) and [references/design-language.md](references/design-language.md) before designing a new theme or layout.
 4. Build `deck.json` using [references/deck-schema.md](references/deck-schema.md).
 5. Set `meta.deck_mode` to `content_only` when the user explicitly asks to remove the cover and table of contents; otherwise keep `full`.
-6. For each content page, write a short topic `title` (4–10 Chinese characters) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header.
+6. For each content page, write a short topic `title` (4–10 Chinese characters) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header. If the user wants an assertion-driven deck, set `meta.title_mode` to `assertion` and make each header a complete claim.
 7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip, a formula, a table, or a semantic `diagram`; never insert an unrelated placeholder diagram.
-8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md).
+8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md), then run `scripts/build_ghost_deck.py`. If the title chain plus claims cannot be understood without the full speech, fix the titles and leads before styling.
 9. Select or copy a theme. Use `assets/themes/academic_blue/theme.json` as the public default, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/tju_blue/theme.json` for the Tianjin University visual system. Use `--profile document` for dense handouts and `--profile projection` for lecture-room readability.
 10. If the user provides an existing PPTX template, run `scripts/import_pptx_theme.py` to extract its theme colors and major/minor fonts into a `theme.json` draft. Review the draft before using it. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
 11. Render the deterministic preview, export the native editable PowerPoint, and validate both:
@@ -43,6 +43,7 @@ Produce a self-contained output directory containing:
 python scripts/render_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output --profile document
 python scripts/export_editable_pptx.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output --pptx-name defense_deck.pptx --profile document
 python scripts/build_speech.py --deck path/to/deck.json --out path/to/output
+python scripts/build_ghost_deck.py --deck path/to/deck.json --out path/to/output
 python scripts/validate_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --render-dir path/to/output/rendered --out path/to/output --profile document
 python scripts/validate_pptx.py --pptx path/to/output/defense_deck.pptx --deck path/to/deck.json --out path/to/output
 python scripts/check_accessibility.py --pptx path/to/output/defense_deck.pptx --out path/to/output
@@ -94,7 +95,8 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - State experiment conditions beside comparative claims. Use `不同实验条件，不作严格排名` when appropriate.
 - Keep `claim`, `evidence`, and `boundary` separate in `deck.json`.
 - A concept diagram must never be described as measured evidence.
-- Put a source/citation note in `footnote` when a figure, table, or borrowed number appears. If the number is not comparable across papers, say so in the note.
+- Put a source/citation note in `source` or `cites` when a figure, table, or borrowed number appears. Keep the deck-level `citations` map real: title plus venue/year or DOI/URL. Set `meta.source_policy` to `advisory` or `strict` to make missing sources visible. If the number is not comparable across papers, say so in the footer.
+- Charts must carry `unit`, `sample_size`, `condition`, and `source` when those facts exist. Do not claim `error_bar` unless the exported chart actually shows uncertainty.
 - Generated illustrations may clarify a mechanism, but never carry exact Chinese labels, numbers, axes, or citations. Those belong in the deterministic layer.
 - For formulas, store the portable plain fallback in `formula` and the LaTeX source in `formula_latex`. The renderer uses LaTeX-style math typesetting when available and falls back to the plain string without failing.
 - Use real subscript characters or LaTeX math for symbol rows such as `tₑ` or `uₑ`; do not leave code-like `t_e` in the visible slide.
