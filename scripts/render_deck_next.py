@@ -51,11 +51,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", required=True)
     parser.add_argument("--columns", type=int, default=3)
     parser.add_argument("--profile", choices=["document", "projection"], default=None)
+    parser.add_argument("--sample", type=int, default=None, help="Render only the first N slides as a visual sample.")
+    parser.add_argument("--pages", default=None, help="Comma-separated 1-based slide numbers, e.g. 1,4,7.")
     return parser.parse_args()
 
 
 class DeckRenderer:
-    def __init__(self, deck_path: Path, theme_path: Path, output_dir: Path, profile: str | None = None) -> None:
+    def __init__(
+        self,
+        deck_path: Path,
+        theme_path: Path,
+        output_dir: Path,
+        profile: str | None = None,
+        pages: list[int] | None = None,
+        sample: int | None = None,
+    ) -> None:
         self.deck_path = deck_path.resolve()
         self.deck = load_json(self.deck_path)
         self.theme = load_theme(theme_path)
@@ -64,6 +74,12 @@ class DeckRenderer:
         self.output_dir = output_dir.resolve()
         self.render_dir = self.output_dir / "rendered"
         self.render_dir.mkdir(parents=True, exist_ok=True)
+        if pages:
+            self.page_selection = [page for page in pages if page >= 1]
+        elif sample:
+            self.page_selection = list(range(1, max(0, sample) + 1))
+        else:
+            self.page_selection = None
         self.canvas = self.theme["canvas"]
         self.width = int(self.canvas["width"])
         self.height = int(self.canvas["height"])
@@ -2700,7 +2716,13 @@ class DeckRenderer:
         points = slide.get("points") or []
         if not points:
             points = ["结论待补充"]
-        row_height = 104
+        has_bottom_cards = bool(
+            slide.get("boundary")
+            or slide.get("boundary_points")
+            or slide.get("next")
+            or slide.get("next_points")
+        )
+        row_height = 88 if has_bottom_cards and len(points) >= 4 else 104
         gap = 14
         points_bottom = body_top + len(points) * (row_height + gap) - gap
         for index, point in enumerate(points):
@@ -3222,6 +3244,8 @@ class DeckRenderer:
 
     def render(self) -> dict:
         slides = self.deck.get("slides", [])
+        if self.page_selection:
+            slides = [slides[page - 1] for page in self.page_selection if page <= len(slides)]
         rendered_paths: list[Path] = []
         for index, slide in enumerate(slides, start=1):
             layout = slide.get("layout")
@@ -3336,7 +3360,17 @@ class DeckRenderer:
 
 def main() -> None:
     args = parse_args()
-    renderer = DeckRenderer(Path(args.deck), Path(args.theme), Path(args.out), profile=args.profile)
+    pages = None
+    if args.pages:
+        pages = [int(value) for value in str(args.pages).replace("，", ",").split(",") if value.strip()]
+    renderer = DeckRenderer(
+        Path(args.deck),
+        Path(args.theme),
+        Path(args.out),
+        profile=args.profile,
+        pages=pages,
+        sample=args.sample,
+    )
     report = renderer.render()
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

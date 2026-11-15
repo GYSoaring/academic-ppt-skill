@@ -1,0 +1,16 @@
+{
+  "kind": "url",
+  "url": "https://www.urongda.com/images/normal/medium/tsinghua-university-logo-1024px.png",
+  "name": "清华大学",
+  "latin": "TSINGHUA UNIVERSITY",
+  "font": "C:\\Windows\\Fonts\\STZHONGS.TTF",
+  "latin_font": "C:\\Windows\\Fonts\\arial.ttf",
+  "emblem_size": [
+    1024,
+    1026
+  ],
+  "lockup_size": [
+    495,
+    162
+  ]
+}

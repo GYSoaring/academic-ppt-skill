@@ -971,7 +971,9 @@ def draw_diagram(
         count = max(1, len(items))
         gap = max(20, min(34, int((inner_right - inner_left) * 0.035)))
         node_width = max(64, (inner_right - inner_left - gap * (count - 1)) // count)
-        node_height = min(112, max(72, int((inner_bottom - inner_top) * 0.56)))
+        node_height = min(150, max(72, int((inner_bottom - inner_top) * 0.56)))
+        title_size = 22 if node_height >= 128 else 18
+        body_size = 16 if node_height >= 128 else 14
         node_top = inner_top + max(0, (inner_bottom - inner_top - node_height) // 2)
         centers: list[tuple[int, int]] = []
         for index, item in enumerate(items):
@@ -1002,7 +1004,7 @@ def draw_diagram(
                 (x + 10, node_top + 40, x + node_width - 10, node_top + 68),
                 fonts,
                 text_fill,
-                18,
+                title_size,
                 12,
                 bold=True,
                 align="center",
@@ -1017,7 +1019,7 @@ def draw_diagram(
                     (x + 10, node_top + 70, x + node_width - 10, node_top + node_height - 8),
                     fonts,
                     mix_color(white, blue_pale, 0.42) if is_focus else muted,
-                    14,
+                    body_size,
                     10,
                     align="center",
                     max_lines=2,

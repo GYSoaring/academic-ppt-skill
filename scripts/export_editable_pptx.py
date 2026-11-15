@@ -151,7 +151,15 @@ def set_shape_effect(shape, color: tuple[int, int, int], blur_px: float = 8, dis
 
 
 class EditableDeckExporter:
-    def __init__(self, deck_path: Path, theme_path: Path, output_dir: Path, profile: str | None = None) -> None:
+    def __init__(
+        self,
+        deck_path: Path,
+        theme_path: Path,
+        output_dir: Path,
+        profile: str | None = None,
+        pages: list[int] | None = None,
+        sample: int | None = None,
+    ) -> None:
         self.deck_path = deck_path.resolve()
         self.theme_path = theme_path.resolve()
         self.output_dir = output_dir.resolve()
@@ -159,6 +167,12 @@ class EditableDeckExporter:
         self.asset_dir = self.output_dir / "assets"
         self.asset_dir.mkdir(parents=True, exist_ok=True)
         self.deck = load_json(self.deck_path)
+        if pages:
+            self.page_selection = [page for page in pages if page >= 1]
+        elif sample:
+            self.page_selection = list(range(1, max(0, sample) + 1))
+        else:
+            self.page_selection = None
         self.theme = load_theme(self.theme_path)
         self.profile = profile or str(self.deck.get("meta", {}).get("type_profile", "document"))
         apply_type_profile(self.theme, self.profile)
@@ -184,6 +198,12 @@ class EditableDeckExporter:
         self.xsl_path = Path(r"C:\Program Files\Microsoft Office\root\Office16\MML2OMML.XSL")
         self._prepare_backgrounds()
         self._prepare_watermark()
+
+    def selected_slides(self) -> list[dict]:
+        slides = self.deck.get("slides", [])
+        if not self.page_selection:
+            return slides
+        return [slides[page - 1] for page in self.page_selection if page <= len(slides)]
 
     def warn(self, page: str, message: str) -> None:
         self.issues.append({"page": page, "message": message})
@@ -224,7 +244,7 @@ class EditableDeckExporter:
         }
 
     def _prepare_backgrounds(self) -> None:
-        for index, slide in enumerate(self.deck.get("slides", []), start=1):
+        for index, slide in enumerate(self.selected_slides(), start=1):
             image = self.renderer.background(index, cover=slide.get("layout") == "cover")
             path = self.asset_dir / f"background_{index:02d}.png"
             image.save(path, optimize=True)
@@ -2699,7 +2719,13 @@ class EditableDeckExporter:
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
         self.add_sidebar(slide, s.get("section"))
         points = s.get("points") or ["结论待补充"]
-        row_height = 104
+        has_bottom_cards = bool(
+            s.get("boundary")
+            or s.get("boundary_points")
+            or s.get("next")
+            or s.get("next_points")
+        )
+        row_height = 88 if has_bottom_cards and len(points) >= 4 else 104
         gap = 14
         points_bottom = body_top + len(points) * (row_height + gap) - gap
         for index, point in enumerate(points):
@@ -3071,7 +3097,7 @@ class EditableDeckExporter:
         self.presentation = Presentation()
         self.presentation.slide_width = px(self.width)
         self.presentation.slide_height = px(self.height)
-        slides = self.deck.get("slides", [])
+        slides = self.selected_slides()
         for index, s in enumerate(slides, start=1):
             slide = self.new_slide(index)
             layout = s.get("layout")
@@ -3172,12 +3198,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--out", required=True)
     parser.add_argument("--pptx-name", default="defense_deck.pptx")
     parser.add_argument("--profile", choices=["document", "projection"], default=None)
+    parser.add_argument("--sample", type=int, default=None, help="Export only the first N slides as a visual sample.")
+    parser.add_argument("--pages", default=None, help="Comma-separated 1-based slide numbers, e.g. 1,4,7.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    exporter = EditableDeckExporter(Path(args.deck), Path(args.theme), Path(args.out), profile=args.profile)
+    pages = None
+    if args.pages:
+        pages = [int(value) for value in str(args.pages).replace("，", ",").split(",") if value.strip()]
+    exporter = EditableDeckExporter(
+        Path(args.deck),
+        Path(args.theme),
+        Path(args.out),
+        profile=args.profile,
+        pages=pages,
+        sample=args.sample,
+    )
     report = exporter.export(args.pptx_name)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

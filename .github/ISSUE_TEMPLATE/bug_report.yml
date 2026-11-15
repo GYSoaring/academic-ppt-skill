@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a rendering, export, or validation problem.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: Describe the observed result and the expected result.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction
+      description: Include the exact command, theme, and a minimal deck if possible.
+      placeholder: |
+        python scripts/render_deck.py ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+    validations:
+      required: true
+  - type: dropdown
+    id: office
+    attributes:
+      label: Office environment
+      options:
+        - Microsoft PowerPoint on Windows
+        - LibreOffice
+        - No Office installed
+        - Other
+  - type: textarea
+    id: logs
+    attributes:
+      label: Reports
+      description: Paste the relevant `validation_report.json`, `pptx_report.json`, or render warnings.
+      render: json

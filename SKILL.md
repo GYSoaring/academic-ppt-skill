@@ -36,14 +36,15 @@ Produce a self-contained output directory containing:
 7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use a content-derived `footer` / `output` strip, a formula, a table, or a semantic `diagram`; never insert an unrelated placeholder diagram.
 8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md), then run `scripts/build_ghost_deck.py`. If the title chain plus claims cannot be understood without the full speech, fix the titles and leads before styling.
 9. Select or copy a theme. Use `assets/themes/academic_blue/theme.json` as the public default, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, or `assets/themes/tju_blue/theme.json` for the Tianjin University visual system. Use `--profile document` for dense handouts and `--profile projection` for lecture-room readability.
-10. If the user provides an existing PPTX template, run `scripts/import_pptx_theme.py` to extract its theme colors and major/minor fonts into a `theme.json` draft. Review the draft before using it. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. Do not invent or redraw an official seal.
-11. Render the deterministic preview, export the native editable PowerPoint, and validate both:
+10. If the user provides an existing PPTX template, run `scripts/import_pptx_theme.py` to extract its theme colors and major/minor fonts into a `theme.json` draft. Review the draft before using it. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. If the emblem is a local file or a public URL, run `scripts/build_brand_lockup.py` to remove the white background, crop it, compose the "emblem + name" lockup, and write the asset paths back to `theme.json`. Use `--search-query` to look up a candidate on Wikimedia Commons; always show the selected source to the user. Do not invent or redraw an official seal.
+11. Render a five-page sample first (`--sample 5`) and inspect it. After the visual direction is confirmed, render the full deck, export the native editable PowerPoint, and validate both:
 
 ```bash
 python scripts/render_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output --profile document
 python scripts/export_editable_pptx.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --out path/to/output --pptx-name defense_deck.pptx --profile document
 python scripts/build_speech.py --deck path/to/deck.json --out path/to/output
 python scripts/build_ghost_deck.py --deck path/to/deck.json --out path/to/output
+python scripts/build_qa.py --deck path/to/deck.json --out path/to/output --count 10
 python scripts/validate_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --render-dir path/to/output/rendered --out path/to/output --profile document
 python scripts/validate_pptx.py --pptx path/to/output/defense_deck.pptx --deck path/to/deck.json --out path/to/output
 python scripts/check_accessibility.py --pptx path/to/output/defense_deck.pptx --out path/to/output
@@ -56,6 +57,7 @@ Before building the deck:
 ```bash
 python scripts/extract_source.py --input path/to/paper.pdf path/to/figures --out path/to/source_pack
 python scripts/import_pptx_theme.py --pptx path/to/school_template.pptx --out path/to/theme/theme.json --name "学校名称"
+python scripts/build_brand_lockup.py --theme path/to/theme/theme.json --name "学校名称" --latin "UNIVERSITY NAME" --emblem path/to/emblem.png
 ```
 
 12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.

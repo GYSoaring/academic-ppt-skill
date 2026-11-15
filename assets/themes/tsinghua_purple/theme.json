@@ -1,0 +1,187 @@
+{
+  "name": "tsinghua_purple",
+  "display_name": "清华紫开题报告",
+  "canvas": {
+    "width": 2048,
+    "height": 1152
+  },
+  "colors": {
+    "paper": "#FBF9FC",
+    "paper_alt": "#F1EAF5",
+    "white": "#FFFFFF",
+    "ink": "#241A2B",
+    "muted": "#6B5B73",
+    "blue": "#5B0B63",
+    "blue_dark": "#3B0641",
+    "blue_mid": "#7A2A86",
+    "blue_bright": "#9443A0",
+    "blue_pale": "#E7D8EC",
+    "blue_wash": "#F7F1F9",
+    "line": "#D6C2DD",
+    "red": "#A63A32",
+    "green": "#2C735C"
+  },
+  "fonts": {
+    "title": [
+      "C:/Windows/Fonts/Noto Sans SC Bold (TrueType).otf",
+      "C:/Windows/Fonts/msyhbd.ttc",
+      "C:/Windows/Fonts/simhei.ttf",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
+    ],
+    "body": [
+      "C:/Windows/Fonts/Noto Sans SC Medium (TrueType).otf",
+      "C:/Windows/Fonts/msyh.ttc",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    ],
+    "serif": [
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "C:/Windows/Fonts/simkai.ttf",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"
+    ],
+    "display": [
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
+    ],
+    "formula": [
+      "C:/Windows/Fonts/cambria.ttc",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Cambria.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+    ],
+    "latin": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    ]
+  },
+  "pptx_fonts": {
+    "title": "Noto Sans SC",
+    "body": "Noto Sans SC",
+    "display": "STZhongsong",
+    "latin": "Arial",
+    "formula": "Cambria Math"
+  },
+  "type_scale": {
+    "cover_title": 76,
+    "cover_subtitle": 32,
+    "cover_info": 31,
+    "header_title": 46,
+    "eyebrow": 48,
+    "lead": 28,
+    "takeaway": 27,
+    "sidebar": 27,
+    "block_title": 25,
+    "body": 22,
+    "bullet": 21,
+    "small": 18,
+    "micro": 15,
+    "metric_value": 58,
+    "metric_label": 24
+  },
+  "brand": {
+    "lockup": "brand_lockup.png",
+    "emblem": "emblem_mark.png",
+    "cover_box": [
+      118,
+      54,
+      720,
+      226
+    ],
+    "header_box": [
+      1750,
+      9,
+      1996,
+      84
+    ],
+    "fallback_text": "清华大学"
+  },
+  "background": {
+    "motif": "arcs",
+    "arc": true,
+    "noise": 0.9,
+    "motif_opacity": 0.18
+  },
+  "layout": {
+    "header_height": 112,
+    "divider_y": 94,
+    "footer_y": 1102,
+    "margin_x": 36,
+    "title_x": 216,
+    "title_y": 38,
+    "title_size": 48,
+    "chapter_x": 112,
+    "chapter_y": 48,
+    "chapter_size": 48,
+    "slash_x": 24,
+    "slash_y": 18,
+    "slash_width": 34,
+    "slash_height": 74,
+    "sidebar": [
+      40,
+      278,
+      260,
+      796
+    ],
+    "content": [
+      320,
+      186,
+      1992,
+      986
+    ],
+    "content_top": 186,
+    "lead_height": 88,
+    "takeaway_top": 996,
+    "takeaway_height": 68
+  },
+  "cover": {
+    "style": "editorial",
+    "brand_box": [
+      118,
+      52,
+      730,
+      228
+    ],
+    "kicker_y": 252,
+    "title_y": 304,
+    "title_size": 86,
+    "subtitle_gap": 22,
+    "subtitle_size": 34,
+    "rule_gap": 34,
+    "info_gap": 34,
+    "info_y": 708,
+    "info_size": 28,
+    "bottom_band_y": 1002,
+    "bottom_band_height": 92,
+    "watermark_box": [
+      1288,
+      228,
+      1964,
+      862
+    ],
+    "watermark_alpha": 0.07
+  },
+  "outline": {
+    "x": 300,
+    "y": 208,
+    "width": 1540,
+    "row_height": 122,
+    "gap": 27
+  },
+  "table": {
+    "header_height": 62,
+    "row_height": 88,
+    "font_size": 24,
+    "header_size": 26
+  }
+}

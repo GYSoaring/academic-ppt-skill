@@ -14,6 +14,8 @@ theme-name/
 
 If the user does not provide an approved identity asset, omit the images and use `brand.fallback_text` or a neutral monogram.
 
+You may look for a public emblem when the user explicitly names the institution and expects a branded deck. Do not draw a fake seal, and do not claim official endorsement.
+
 ## Import An Existing PPTX Theme
 
 If the user supplies a school or lab `.pptx`, start with:
@@ -26,6 +28,39 @@ python scripts/import_pptx_theme.py \
 ```
 
 The importer reads `ppt/theme/theme*.xml`, maps theme colors to the semantic palette, reads major/minor Latin and East Asian fonts, and reuses the layout geometry of `academic_blue`. Treat the result as a draft: verify the palette, font availability, cover identity, and protected zones before rendering the full deck. The importer does not infer an official seal or logo from arbitrary slide images.
+
+## Acquire And Compose A Brand Asset
+
+Use `scripts/build_brand_lockup.py` after you have a local emblem, a direct image URL, or a Wikimedia Commons search result:
+
+```bash
+python scripts/build_brand_lockup.py \
+  --theme assets/themes/tsinghua_purple/theme.json \
+  --name "清华大学" \
+  --latin "TSINGHUA UNIVERSITY" \
+  --emblem path/to/emblem.png
+```
+
+With a search query:
+
+```bash
+python scripts/build_brand_lockup.py \
+  --theme assets/themes/imported/theme.json \
+  --name "学校名称" \
+  --latin "UNIVERSITY NAME" \
+  --search-query "University name logo"
+```
+
+The script:
+
+- loads a local or remote image;
+- converts near-white pixels to alpha unless `--keep-white` is set;
+- crops the transparent bounding box;
+- composes the emblem, school name, rule, and optional Latin subtitle;
+- writes `emblem_mark.png`, `brand_lockup.png`, and `BRAND_SOURCE.json`;
+- updates `brand.lockup`, `brand.emblem`, and `brand.fallback_text` in `theme.json`.
+
+The search uses Wikimedia Commons and prints the candidate list plus the selected URL. Review the selected file before delivery. Keep the source in `SOURCE.md` or `BRAND_SOURCE.json`, and follow the institution's visual identity rules.
 
 ## Minimum Theme Contract
 

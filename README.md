@@ -25,6 +25,7 @@
 - **结构化内容输入**：`deck.json` 分别记录章节、页面主张、证据、边界、图片来源和逐页讲稿。
 - **源材料抽取**：PDF / DOCX / PPTX / Markdown / 图片文件夹 → `source.md`、`source_manifest.json`、`figures/`，让图片和来源可追溯。
 - **PPTX 主题导入**：从用户现有 `.pptx` 读取 theme colors、major/minor fonts 和 slide size，生成可审查的 `theme.json` 草稿。
+- **院校品牌资产**：`build_brand_lockup.py` 支持本地图、直链或 Wikimedia Commons 搜索，自动去白底、裁切、合成“校徽 + 校名”字标并写回主题。
 - **完整版 / 纯内容版**：`deck_mode: full` 生成封面与目录；`deck_mode: content_only` 从正文页开始，适合作品集嵌入、长图预览和已有封面的场合。
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
 - **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
@@ -32,6 +33,8 @@
 - **断言标题与幽灵稿**：`title_mode: assertion` 让页标题直接写成判断句；`build_ghost_deck.py` 输出一条可在五分钟内读完的标题主张链。
 - **引用与来源可追溯**：deck 级 `citations` + 页级 `cites` / `source`，页脚自动生成来源行；`source_policy` 可把缺来源的图表和借用图片升级为错误。
 - **图表口径齐全**：`unit`、`sample_size`、`condition`、`source`、`error_bar` 与图表绑定，避免数字脱离实验条件。
+- **样板先行**：`--sample 5` 或 `--pages 1,4,7` 先出视觉样板，确认后再生成全套，避免一次性返工。
+- **Q&A 预测**：`build_qa.py` 从 claim / evidence / boundary 生成可追溯的答辩问题，每个问题都指向具体页。
 - **原生可编辑 PPTX**：文字、形状、表格、图表和 OMML 公式均为可编辑对象，而不是整页截图。
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
 - **投影/文档双字号档**：`document` 保留高密度阅读版；`projection` 提高实际 PPTX 字号，并通过溢出门禁要求拆页，而不是把字压小。
@@ -89,6 +92,12 @@ python scripts/import_pptx_theme.py \
   --out outputs/zju-proposal/imported-theme/theme.json \
   --name "学校名称"
 
+python scripts/build_brand_lockup.py \
+  --theme outputs/zju-proposal/imported-theme/theme.json \
+  --name "学校名称" \
+  --latin "UNIVERSITY NAME" \
+  --search-query "你的学校英文名 logo"
+
 python scripts/render_deck.py \
   --deck examples/zju_proposal/deck.json \
   --theme assets/themes/zju_blue/theme.json \
@@ -109,6 +118,11 @@ python scripts/build_speech.py \
 python scripts/build_ghost_deck.py \
   --deck examples/zju_proposal/deck.json \
   --out outputs/zju-proposal
+
+python scripts/build_qa.py \
+  --deck examples/zju_proposal/deck.json \
+  --out outputs/zju-proposal \
+  --count 10
 
 python scripts/validate_deck.py \
   --deck examples/zju_proposal/deck.json \
@@ -135,6 +149,25 @@ python scripts/render_pptx_preview.py \
 
 Windows PowerShell 可把行末的 `\` 改为单行命令，或在 Git Bash / WSL 中执行。
 
+先出样板再生成全套：
+
+```bash
+python scripts/render_deck.py \
+  --deck examples/zju_proposal/deck.json \
+  --theme assets/themes/zju_blue/theme.json \
+  --out outputs/zju-proposal-sample \
+  --sample 5
+
+python scripts/export_editable_pptx.py \
+  --deck examples/zju_proposal/deck.json \
+  --theme assets/themes/zju_blue/theme.json \
+  --out outputs/zju-proposal-sample \
+  --pptx-name sample.pptx \
+  --sample 5
+```
+
+`--pages 1,4,7` 可只出指定页。样板确认后再去掉该参数生成全套。
+
 ## Output
 
 一次完整生成通常包含：
@@ -151,6 +184,7 @@ outputs/<project>/
 |-- speaker_notes.md            # 逐页演讲备注
 |-- defense_script.md           # 连续答辩稿
 |-- ghost_deck.md               # 五分钟可读完的标题主张链
+|-- qa.md                       # 可追溯的答辩问题预测
 |-- render_report.json          # 溢出、缺图和版面检查
 |-- pptx_validation_report.json # PPTX 原生对象与完整性检查
 |-- accessibility_report.json   # 标题、alt、表格 header、阅读顺序检查
@@ -212,6 +246,7 @@ python scripts/export_editable_pptx.py --deck examples/zju_proposal/deck.json --
 python scripts/validate_pptx.py --pptx work/smoke/defense_deck.pptx --deck examples/zju_proposal/deck.json --out work/smoke
 python scripts/check_accessibility.py --pptx work/smoke/defense_deck.pptx --out work/smoke
 python scripts/render_pptx_preview.py --pptx work/smoke/defense_deck.pptx --out work/smoke/pptx_preview --compare-dir work/smoke/rendered --strict
+python scripts/package_skill.py --out dist/academic-ppt-skill-v0.1.0.zip --version 0.1.0
 ```
 
 `work/`、`outputs/`、PPTX、渲染图和报告都被 `.gitignore` 排除。

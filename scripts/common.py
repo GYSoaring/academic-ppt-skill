@@ -40,6 +40,9 @@ ARXIV_RE = re.compile(r"^arxiv:\d{4}\.\d{4,5}(v\d+)?$", re.IGNORECASE)
 ASSERTION_CUES = (
     "是",
     "不是",
+    "不会",
+    "没有",
+    "并不",
     "需要",
     "应",
     "必须",
@@ -128,7 +131,7 @@ def normalize_doi(value: str) -> str:
     return text
 
 
-def citation_label(entry: dict, max_title: int = 42, max_venue: int = 26) -> str:
+def citation_label(entry: dict, max_title: int = 26, max_venue: int = 16) -> str:
     """Build a compact one-line citation label for a footer source line."""
     entry = entry if isinstance(entry, dict) else {}
     title = str(entry.get("title", "")).strip()
@@ -160,11 +163,14 @@ def source_line_for_slide(deck: dict, slide: dict) -> str:
     citations = deck.get("citations") if isinstance(deck, dict) else None
     citations = citations if isinstance(citations, dict) else {}
     labels: list[str] = []
-    for key in keys:
+    for key in keys[:2]:
         entry = citations.get(key)
         label = citation_label(entry or {}) or key
         labels.append(label)
-    return "来源：" + "；".join(labels)
+    line = "来源：" + "；".join(labels)
+    if len(keys) > 2:
+        line += f"；等 {len(keys) - 2} 篇"
+    return line
 
 
 def is_assertion_title(text: str) -> bool:
