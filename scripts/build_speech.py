@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from common import estimate_seconds, format_duration, load_json, write_json
+from audit_speech import audit_deck, render_report
 
 
 def parse_args() -> argparse.Namespace:
@@ -12,6 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--deck", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--allow-missing", action="store_true")
+    parser.add_argument("--no-audit", action="store_true", help="Skip the AI-tone speech audit.")
     return parser.parse_args()
 
 
@@ -128,6 +130,14 @@ def main() -> None:
         "missing_speech": missing,
         "slides": records,
     }
+    if not args.no_audit:
+        speech_audit = audit_deck(deck)
+        (output_dir / "speech_audit.md").write_text(render_report(speech_audit), encoding="utf-8")
+        write_json(output_dir / "speech_audit.json", speech_audit)
+        report["speech_audit"] = {
+            "report": str(output_dir / "speech_audit.md"),
+            "level_counts": speech_audit["level_counts"],
+        }
     write_json(output_dir / "speech_report.json", report)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

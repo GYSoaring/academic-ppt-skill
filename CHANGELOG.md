@@ -9,6 +9,7 @@
 - `lecture` type profile and `validate_pptx --lecture-audit` physical font-size audit.
 - `build_gallery.py` and a 20+ page layout gallery covering all six diagram kinds and layout variants.
 - Figure sourcing: `extract_source.py` now captures PDF figure captions; `find_figures.py` searches arXiv and renders complete figure regions; `suggest_figures.py` ranks/attaches figures with source and review-required role/boundary fields.
+- Speech de-AI audit adapted from `lieflat-less-ai-tone`: A/B/C/F grading, spoken-rhythm checks, X-level no-change list, and automatic `speech_audit.md/json` from `build_speech.py`.
 
 ## v0.1.0 — 2026-11-15
 

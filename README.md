@@ -39,6 +39,7 @@
 - **图表口径齐全**：`unit`、`sample_size`、`condition`、`source`、`error_bar` 与图表绑定，避免数字脱离实验条件。
 - **样板先行**：`--sample 5` 或 `--pages 1,4,7` 先出视觉样板，确认后再生成全套，避免一次性返工。
 - **Q&A 预测**：`build_qa.py` 从 claim / evidence / boundary 生成可追溯的答辩问题，每个问题都指向具体页。
+- **讲解稿去 AI 味**：内置 `lieflat-less-ai-tone` 适配版审计，按 A/B/C/F 分级标出翻案腔、提示语冒号、翻译腔、长句、分号和念 PPT，并明确 X 级不改项；`build_speech.py` 自动生成 `speech_audit.md/json`。
 - **原生可编辑 PPTX**：文字、形状、表格、图表和 OMML 公式均为可编辑对象，而不是整页截图。
 - **公式排版**：支持 LaTeX 源 `formula_latex`，预览使用数学排版，PPTX 优先转换为 OMML。
 - **投影/文档双字号档**：`document` 保留高密度阅读版；`projection` 提高实际 PPTX 字号，并通过溢出门禁要求拆页，而不是把字压小。
@@ -207,6 +208,7 @@ outputs/<project>/
 |   `-- pptx_render_report.json # 实际渲染、空白页和预览差异
 |-- speaker_notes.md            # 逐页演讲备注
 |-- defense_script.md           # 连续答辩稿
+|-- speech_audit.md             # 分级去 AI 味与口播节奏报告
 |-- ghost_deck.md               # 五分钟可读完的标题主张链
 |-- qa.md                       # 可追溯的答辩问题预测
 |-- render_report.json          # 溢出、缺图和版面检查

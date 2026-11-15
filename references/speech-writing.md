@@ -2,6 +2,8 @@
 
 Write for the ear, not for the page. The speaker should sound present, precise, and willing to state limits.
 
+After drafting, read [speech-deai.md](speech-deai.md) and run `build_speech.py`. It grades AI-tone patterns and spoken-rhythm problems; A/B hits are rewrite candidates, X-level items should be left alone.
+
 ## Per-Slide Shape
 
 Use this sequence without printing the labels in the final script:
@@ -18,7 +20,7 @@ For a 20-minute defense, aim for 45 to 80 seconds per content slide. The cover a
 
 - Use short spoken sentences and concrete verbs.
 - Prefer `这里可以看到` and `需要说明的是` over ceremonial phrasing.
-- Do not stack `首先、其次、再次、最后`.
+- `首先 / 其次 / 最后` are normal oral signposts; do not delete them just to sound less AI. Avoid using the same ordinal frame on every page.
 - Do not read bullet text verbatim.
 - Do not turn every pause into a rhetorical question.
 - Avoid `卡脖子`, `从 0 到 1`, `国际领先`, `彻底解决`, and `全面胜出` unless the user supplies direct evidence and explicitly wants the phrase.
