@@ -33,6 +33,16 @@ def main() -> None:
     output_path = Path(args.out).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    paper_figures = [
+        slide
+        for slide in slides
+        if str(slide.get("image_origin", "")).strip().lower() in {"own", "public", "borrowed"}
+        and slide.get("image")
+        and slide.get("source")
+        and slide.get("image_role")
+        and slide.get("image_boundary")
+    ]
+
     lines = [
         f"# 可移植学术答辩 PPT 任务书：{title}",
         "",
@@ -41,13 +51,18 @@ def main() -> None:
         "## 交付物",
         "",
         f"1. 一份 {len(slides)} 页、16:9 的学术答辩 PPT，比例与顺序按下方页面清单。",
+        "1. 正文文字必须是可编辑文本，不得把段落烧进图片；仅论文原图、图表和身份资产可作为图片。",
         "2. 每页 45–90 秒的自然口播讲解词。",
         "3. 一份连续答辩稿，按页面顺序衔接，不要逐条朗读页面文字。",
         "4. 每张论文图、系统图、实验图都要说明：图中是什么、为什么放在这里、支持哪条结论、不能证明什么。",
         f"5. 题材：`{genre}`；叙事：`{narrative or '由材料决定'}`。先读 `references/genre-playbooks.md`，不要套用固定页序。",
+        f"6. 至少一页必须使用论文原图；下方清单中标为论文原图的页面共 {len(paper_figures)} 页，必须原样保留其中至少一页。",
         "",
         "## 固定视觉规则",
         "",
+        "- 【字体硬约束】正文使用无衬线黑体（Noto Sans SC / Microsoft YaHei / Arial），字号 ≥24 pt 且语义正文必须加粗；标题 32–40 pt 并加粗；可见次级文字（脚注、来源、图注、表格元数据、侧栏标签）≥18 pt，可保持常规字重。禁止 Times New Roman、Cambria、宋体、SimSun 作为正文。",
+        "- 【原生 PPTX 排版】中文正文要按文本框宽度预先显式换行，行距设为 1.0；标题、模块名、微标签预留至少一行字高，不能靠自动换行把固定页眉、卡片标题或页脚挤出边界。",
+        "- 【交付门禁】正文未加粗、正文小于 24 pt、标题小于 32 pt、使用衬线正文，或正文被烧进图片，均视为未完成，必须重做。",
         f"- 画布比例：16:9，参考尺寸 {theme['canvas']['width']}×{theme['canvas']['height']}。",
         f"- 底色：{colors['paper']}；主色：{colors['blue']}；深色结论带：{colors['blue_dark']}；辅助色：{colors['blue_mid']}、{colors['blue_pale']}。",
         f"- 正文色：{colors['ink']}；弱化文字：{colors['muted']}；分隔线：{colors['line']}。",
@@ -58,8 +73,10 @@ def main() -> None:
         f"- 左上双斜杠与章节号 x≈{layout['chapter_x']}，页标题 x≈{layout['title_x']}，标题字号约 {layout['title_size']}。",
         f"- 左侧小目录固定在约 x={layout['sidebar'][0]}–{layout['sidebar'][2]}、y={layout['sidebar'][1]}–{layout['sidebar'][3]}。",
         f"- 右上校名校徽固定在约 x={brand['header_box'][0]}–{brand['header_box'][2]}、y={brand['header_box'][1]}–{brand['header_box'][3]}。",
-        "- 字体：中文标题用粗黑体，正文用常规黑体；英文和公式保持清晰，不装饰化。",
-        "- 图片：保持原始宽高比，用矩形白底相框放入；不要裁切或重绘论文曲线、坐标轴、图例和实验照片；图片下方不要加“论文 Fig. ×”之类标注。",
+        "- 字体：中文标题用粗黑体；语义正文用加粗黑体；脚注、来源、图注和微标签可用常规黑体。英文和公式保持清晰，不装饰化。",
+        "- 图片：至少保留一页论文原图；保持原始宽高比，用矩形白底相框放入；不要裁切或重绘论文曲线、坐标轴、图例和实验照片；图片下方不要加“论文 Fig. ×”之类标注。",
+        "- 【论文原图硬约束】论文原图必须来自用户论文或开放论文，`image_origin` 只能是 `own` / `public` / `borrowed`；必须写明 `source`、`image_role`、`image_boundary`，主图占内容区 65%–80%。生成图、模板图、无来源装饰图、自绘概念图一律不得冒充论文原图。",
+        "- 【图片交付门禁】全篇没有论文原图、来源/角色/边界缺失，或把生成图当论文原图，均视为未完成；图片数量大于 0 不能替代论文原图。",
         (
             "- 层级：本报告使用断言型标题。顶部标题必须写成完整判断句，标题本身能独立说明结论；lead 条再补充证据口径，不要写“研究背景”一类纯主题名。"
             if title_mode == "assertion"
@@ -226,6 +243,9 @@ def main() -> None:
                     lines.append(f"- 表头：{column}")
         if slide.get("image"):
             lines.append(f"- 图片：`{slide['image']}`（角色：{slide.get('image_role', '未注明')}）")
+            origin = str(slide.get("image_origin", "")).strip().lower()
+            if origin in {"own", "public", "borrowed"}:
+                lines.append("- 图片类型：论文原图（必须保留；不得换成生成图、模板图或重绘图）")
             if slide.get("image_boundary"):
                 lines.append(f"- 图片边界：{slide['image_boundary']}")
         if slide.get("panels"):
@@ -300,6 +320,7 @@ def main() -> None:
             "- 避免机械排比和长篇定义；首次出现的缩写要展开。",
             "- 论文图必须按图讲，不允许自己补曲线、补数值或把示意图说成实测。",
             "- 图表和借用图片必须能追溯来源；生成图、自绘图和模板图要标 `image_origin`，不能冒充论文插图。",
+        "- 外部生成完成后必须自查：正文 ≥24 pt 且加粗、标题 ≥32 pt、次级可见文字 ≥18 pt、至少一张带来源和边界的论文原图；任一项不满足都要重做，不要交付。",
             "",
             "## 幻灯片 JSON 参考",
             "",

@@ -26,14 +26,19 @@ from pptx.util import Emu, Pt
 
 from common import (
     apply_type_profile,
+    clamp_defense_size_px,
+    clamp_defense_body_size_px,
+    defense_body_bold,
     figure_width_ratio,
     fit_text_block,
     load_json,
     load_theme,
     mix_color,
     resolve_path,
+    resolve_font,
     source_line_for_slide,
     text_width,
+    wrap_cjk_text,
     write_json,
 )
 from accessibility import finalize_slide_accessibility, mark_decorative, set_alt_text
@@ -78,6 +83,22 @@ def anchor_value(name: str) -> MSO_ANCHOR:
 
 def strip_markup(text: str) -> str:
     return MARKUP_RE.sub(lambda match: match.group(0)[2:-2] if match.group(0)[:2] in {"**", "__", "[["} else match.group(0), text or "")
+
+
+def defense_line_text(text: str, width_px: float, size_px: float, font_paths: Iterable[str] | None = None) -> str:
+    """Insert explicit CJK line breaks so PowerPoint does not repack a measured line."""
+    if not text:
+        return ""
+    draw = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    candidates = list(font_paths or []) or [
+        r"C:\Windows\Fonts\Noto Sans SC Bold (TrueType).otf",
+        r"C:\Windows\Fonts\msyhbd.ttc",
+        r"C:\Windows\Fonts\simhei.ttf",
+        "/System/Library/Fonts/PingFang.ttc",
+    ]
+    font = resolve_font(candidates, max(1, int(round(size_px))))
+    lines = wrap_cjk_text(draw, strip_markup(text), font, max(20, int(width_px)))
+    return "\n".join(lines) if lines else ""
 
 
 def family_from_path(path: str | Path | None, fallback: str) -> str:
@@ -215,6 +236,12 @@ class EditableDeckExporter:
     def color(self, name: str) -> tuple[int, int, int]:
         return self.colors[name]
 
+    @staticmethod
+    def _defense_font_paths(bold: bool) -> list[str]:
+        if bold:
+            return [r"C:\Windows\Fonts\msyhbd.ttc", r"C:\Windows\Fonts\simhei.ttf", "/System/Library/Fonts/PingFang.ttc"]
+        return [r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simsun.ttc", "/System/Library/Fonts/PingFang.ttc"]
+
     def rgb(self, name: str) -> RGBColor:
         return RGBColor(*self.color(name))
 
@@ -275,8 +302,15 @@ class EditableDeckExporter:
         self.watermark_path = target
 
     def apply_font(self, run, family: str, size_px: float, color: RGBColor, bold: bool = False, underline: bool = False) -> None:
+        size_px = clamp_defense_size_px(size_px, self.profile)
+        bold = bold or defense_body_bold(self.theme, size_px, self.profile)
+        if self.profile == "defense" and bold:
+            family = "Microsoft YaHei"
         run.font.name = family
-        run.font.size = pt(size_px)
+        point_size = float(size_px) * PT_PER_PX
+        if self.profile == "defense" and 23.0 < point_size < 24.0:
+            point_size = 24.0
+        run.font.size = Pt(point_size)
         run.font.bold = bold
         run.font.underline = underline
         run.font.color.rgb = color
@@ -305,7 +339,10 @@ class EditableDeckExporter:
         accent_color: tuple[int, int, int] | None = None,
         name: str = "",
         transparent: bool = True,
+        body_floor: bool = False,
     ):
+        if body_floor:
+            size_px = clamp_defense_body_size_px(size_px, self.profile)
         left, top, width, height = box
         if (
             self.body_bold
@@ -326,12 +363,20 @@ class EditableDeckExporter:
         tf.margin_bottom = 0
         tf.vertical_anchor = anchor_value(valign)
         tf.auto_size = None
-        paragraphs = str(text).split("\n") if str(text) else [""]
+        rendered_text = str(text)
+        if self.profile == "defense" and rendered_text:
+            rendered_text = defense_line_text(
+                rendered_text,
+                max(20, width - 2 * margin_px),
+                clamp_defense_size_px(size_px, self.profile, body_floor=body_floor),
+                self._defense_font_paths(bold or (self.body_bold and self.body_bold_min_px <= float(size_px) <= self.body_bold_max_px)),
+            )
+        paragraphs = rendered_text.split("\n") if rendered_text else [""]
         font_family = family or self.fonts["body"]
         for paragraph_index, paragraph_text in enumerate(paragraphs):
             paragraph = tf.paragraphs[0] if paragraph_index == 0 else tf.add_paragraph()
             paragraph.alignment = align_value(align)
-            paragraph.line_spacing = line_ratio
+            paragraph.line_spacing = 1.0 if self.profile == "defense" else line_ratio
             paragraph.space_before = Pt(0)
             paragraph.space_after = Pt(0)
             runs = parse_markup(paragraph_text)
@@ -368,6 +413,10 @@ class EditableDeckExporter:
         max_lines: int | None = None,
         line_ratio: float = 1.22,
     ) -> tuple[int, list[str]]:
+        max_size = int(round(clamp_defense_size_px(max_size, self.profile)))
+        min_size = int(round(clamp_defense_size_px(min_size, self.profile)))
+        if min_size > max_size:
+            min_size = max_size
         draw = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
         fonts = self.renderer.theme["fonts"].get(kind) or self.renderer.theme["fonts"]["body"]
         font, lines, _, fits = fit_text_block(
@@ -400,6 +449,7 @@ class EditableDeckExporter:
         family: str | None = None,
         accent_color: tuple[int, int, int] | None = None,
         name: str = "",
+        body_floor: bool = False,
     ):
         size, _ = self.measure(
             text,
@@ -424,6 +474,7 @@ class EditableDeckExporter:
             line_ratio=line_ratio,
             accent_color=accent_color,
             name=name,
+            body_floor=body_floor,
         )
 
     def add_panel(
@@ -663,7 +714,7 @@ class EditableDeckExporter:
         chart.has_legend = False
         chart.has_title = False
         chart.font.name = self.fonts["body"]
-        chart.font.size = pt(15)
+        chart.font.size = pt(clamp_defense_size_px(15, self.profile))
         chart.font.color.rgb = self.rgb("muted")
 
         plot = chart.plots[0]
@@ -1068,6 +1119,9 @@ class EditableDeckExporter:
     ) -> None:
         if not bullets:
             return
+        max_size = int(round(clamp_defense_size_px(max_size, self.profile)))
+        min_size = int(round(clamp_defense_size_px(min_size, self.profile)))
+
         max_size = max(max_size, min_size)
         left, top, width, height = box
         chosen = min_size
@@ -1106,16 +1160,19 @@ class EditableDeckExporter:
             paragraph = tf.paragraphs[0] if index == 0 else tf.add_paragraph()
             paragraph.space_before = Pt(0)
             paragraph.space_after = pt(gap_px)
-            paragraph.line_spacing = 1.18
+            paragraph.line_spacing = 1.0 if self.profile == "defense" else 1.18
             marker = paragraph.add_run()
             marker.text = "◆  "
             self.apply_font(marker, self.fonts["body"], chosen, self.rgb("blue_mid"), bold=True)
             run = paragraph.add_run()
-            run.text = strip_markup(str(bullet))
+            run_text = strip_markup(str(bullet))
             bullet_bold = (
                 self.body_bold
                 and self.body_bold_min_px <= float(chosen) <= self.body_bold_max_px
             )
+            if self.profile == "defense":
+                run_text = defense_line_text(run_text, width - 52, chosen, self._defense_font_paths(bullet_bold))
+            run.text = run_text
             self.apply_font(
                 run,
                 self.fonts["title"] if bullet_bold else self.fonts["body"],
@@ -1194,6 +1251,7 @@ class EditableDeckExporter:
             max_lines=2,
             line_ratio=1.12,
             name="lead_claim",
+            body_floor=True,
         )
         return top + height + 20
 
@@ -1234,6 +1292,7 @@ class EditableDeckExporter:
             line_ratio=1.08,
             accent_color=mix_color(self.color("white"), self.color("red"), 0.58),
             name="takeaway",
+            body_floor=True,
         )
 
     def add_footnote(self, slide, text: str) -> None:
@@ -1311,7 +1370,7 @@ class EditableDeckExporter:
         self.set_slide_title(
             slide,
             title,
-            (title_left, float(self.layout["title_y"]) - 4, title_width, 62),
+            (title_left, float(self.layout["title_y"]) - 18 if self.profile == "defense" else float(self.layout["title_y"]) - 4, title_width, 88 if self.profile == "defense" else 62),
             title_size,
             color_name="blue_dark",
             bold=True,
@@ -1442,7 +1501,7 @@ class EditableDeckExporter:
         for paragraph_index, paragraph_text in enumerate(paragraphs):
             paragraph = tf.paragraphs[0] if paragraph_index == 0 else tf.add_paragraph()
             paragraph.alignment = align_value(align)
-            paragraph.line_spacing = line_ratio
+            paragraph.line_spacing = 1.0 if self.profile == "defense" else line_ratio
             paragraph.space_before = Pt(0)
             paragraph.space_after = Pt(0)
             run = paragraph.add_run()
@@ -2567,7 +2626,7 @@ class EditableDeckExporter:
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         paragraph = tf.paragraphs[0]
         paragraph.alignment = align_value(align)
-        paragraph.line_spacing = 1.08
+        paragraph.line_spacing = 1.0 if self.profile == "defense" else 1.08
         run = paragraph.add_run()
         run.text = strip_markup(text)
         self.apply_font(run, self.fonts["title"] if bold else self.fonts["body"], size_px, self.rgb(color_name), bold=bold)

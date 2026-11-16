@@ -18,6 +18,13 @@
 
 Do not use the fixed header for a long sentence. Header titles should normally be 4–10 Chinese characters; the action claim belongs in `lead`.
 
+## Defense Readability Contract
+
+- Semantic body text: sans-serif, about 24 pt, bold. Shorter micro-labels, captions, reference metadata, and source lines are secondary chrome: 18–24 pt, regular weight.
+- Headings: 32–40 pt and bold. Every substantive visible run is at least 18 pt.
+- At least one `figure` / `figure_flow` page uses a paper-sourced image with `image_origin: own|public|borrowed`, `source`, `image_role`, and `image_boundary`; the source figure is contained, not cropped or redrawn, and occupies 65–80% of the content area.
+- Generated illustrations, template art, and concept diagrams never count as paper figures. `export_agent_brief.py` repeats this contract for external generators, and `audit_pptx.py` checks the delivered PPTX runs for the physical font/bold result.
+
 ### Assertion Mode
 
 When `meta.title_mode` is `assertion`, the header itself becomes the claim. The rule is not "longer titles are better"; it is "the title alone must state a judgment." Pair it with shorter interpretation panels so the page does not become a wall of text. Run `build_ghost_deck.py` and read only the titles: if the story is still unclear, the titles are not yet assertions.

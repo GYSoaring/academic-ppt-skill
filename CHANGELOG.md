@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- Defense readability now includes density-aware validation and a stricter PPTX rebuild workflow.
+- Defense readability now includes density-aware validation, a stricter PPTX rebuild workflow, research-backed 24/18/32 pt gates, sans-serif body enforcement, semantic body-bold enforcement, and a required paper-sourced figure with provenance metadata.
+- The portable `agent_brief.md` now carries the same hard contract for other generators: bold sans-serif 24 pt body, 32–40 pt headings, 18 pt secondary chrome, and at least one provenance-tagged paper figure.
+- Fixed the defense PNG renderer's clamped `fit_text` helper so it calls `fit_text_block` instead of recursing.
+
 - Added the `defense` type profile, semantic body-bold range, Nanjing University official-wordmark theme, 16-page optics example, and `audit_pptx.py` physical PPTX readability audit.
 - Made hero-figure geometry configurable through `image_width_ratio` / `rail_ratio`, and added projected-deck density, visual-anchor, and layout-rhythm warnings.
 - Header titles are short topic labels by default; `title_max_chars` and the validator warn when a header becomes a sentence.

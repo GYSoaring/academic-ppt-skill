@@ -53,15 +53,18 @@ class FontBook:
         body_bold: bool = False,
         body_bold_min_px: float = 40,
         body_bold_max_px: float = 56,
+        min_size_px: float = 0,
     ) -> None:
         self.title_paths = list(title_paths)
         self.body_paths = list(body_paths)
         self.body_bold = body_bold
         self.body_bold_min_px = body_bold_min_px
         self.body_bold_max_px = body_bold_max_px
+        self.min_size_px = float(min_size_px)
         self._cache: dict[tuple[bool, int], ImageFont.FreeTypeFont] = {}
 
     def get(self, style: TextStyle, size: int) -> ImageFont.FreeTypeFont:
+        size = max(int(size), int(round(self.min_size_px)))
         key = (bool(style.bold), int(size))
         if key not in self._cache:
             semantic_body_bold = (

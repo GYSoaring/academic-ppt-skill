@@ -10,6 +10,8 @@ from PIL import Image
 from common import (
     ARXIV_RE,
     DOI_RE,
+    DEFENSE_BODY_PX,
+    DEFENSE_MIN_ANY_PX,
     apply_type_profile,
     estimate_seconds,
     is_assertion_title,
@@ -79,6 +81,27 @@ def parse_args() -> argparse.Namespace:
 
 def add_issue(issues: list[dict], severity: str, page: str, message: str) -> None:
     issues.append({"severity": severity, "page": page, "message": message})
+
+
+def defense_theme_issues(theme: dict) -> list[dict]:
+    issues: list[dict] = []
+    scale = theme.get("type_scale", {}) or {}
+    if float(scale.get("body", 0)) * (72.0 / 153.6) < 24.0:
+        add_issue(issues, "error", "type_scale", "Defense profile requires body >= 24 pt at 153.6 px/in.")
+    if float(scale.get("header_title", 0)) * (72.0 / 153.6) < 32.0:
+        add_issue(issues, "error", "type_scale", "Defense profile requires header_title >= 32 pt at 153.6 px/in.")
+    text = theme.get("text", {}) or {}
+    if not bool(text.get("body_bold", False)):
+        add_issue(issues, "error", "text", "Defense profile requires text.body_bold for semantic body emphasis.")
+    if not float(text.get("body_bold_min_px", 0)) <= float(scale.get("body", 0)) <= float(text.get("body_bold_max_px", 0)):
+        add_issue(issues, "error", "text", "Defense profile body-bold range must include 24 pt body text.")
+    body_family = str((theme.get("pptx_fonts", {}) or {}).get("body", "")).strip().lower()
+    if any(term in body_family for term in ("times", "serif", "song", "songti", "simsun", "cambria")):
+        add_issue(issues, "error", "fonts", "Defense profile requires a sans-serif body font, not a serif or CJK serif face.")
+    for token_name in ("small", "micro", "reference_title", "reference_meta", "footnote"):
+        if float(scale.get(token_name, 0)) * (72.0 / 153.6) < 18.0:
+            add_issue(issues, "error", "type_scale", f"Defense profile requires {token_name} >= 18 pt at 153.6 px/in.")
+    return issues
 
 
 def content_units(slide: dict) -> int:
@@ -262,6 +285,8 @@ def main() -> None:
     profile = args.profile or str(deck.get("meta", {}).get("type_profile", "document"))
     apply_type_profile(theme, profile)
     issues: list[dict] = []
+    if profile == "defense":
+        issues.extend(defense_theme_issues(theme))
     deck_mode = str(deck.get("meta", {}).get("deck_mode", "full")).strip().lower()
     sections = deck.get("sections", [])
     slides = deck.get("slides", [])
@@ -648,6 +673,15 @@ def main() -> None:
         ]
         if not anchor_pages:
             add_issue(issues, "warning", "rhythm", "Projected deck has no hero figure, chart, or formula page.")
+        if profile == "defense" and not any(
+            str(slide.get("image_origin", "")).strip().lower() in {"own", "public", "borrowed"}
+            and slide.get("image")
+            and slide.get("source")
+            and slide.get("image_role")
+            and slide.get("image_boundary")
+            for slide in slides
+        ):
+            add_issue(issues, "error", "figures", "Defense profile requires at least one paper-sourced figure with source, image_role, and image_boundary.")
     layout_set = set(content_layouts)
     genre_requirements = {
         "experiment": ({"figure", "figure_flow", "metrics", "compare"}, "a measured figure, metric, or comparison page"),
@@ -757,7 +791,7 @@ def main() -> None:
         "issues": issues,
     }
     write_json(output_dir / "validation_report.json", report)
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    print(json.dumps(report, ensure_ascii=True, indent=2))
     if error_count:
         raise SystemExit(1)
 

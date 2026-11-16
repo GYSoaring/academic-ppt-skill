@@ -10,6 +10,40 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+PX_PER_INCH = 153.6
+DEFENSE_MIN_ANY_PX = 38.5
+DEFENSE_BODY_PX = 51.3
+DEFENSE_HEADING_PX = 68.3
+DEFENSE_SECONDARY_NAMES = {
+    "chapter",
+    "footnote",
+    "formula_condition",
+    "formula_label",
+    "formula_meaning",
+    "formula_symbol",
+    "formula_variables_title",
+    "lead_label",
+    "takeaway",
+}
+DEFENSE_SECONDARY_PREFIXES = (
+    "chart_",
+    "diagram_",
+    "outline_",
+    "outline_number_",
+    "sidebar_",
+)
+
+
+def is_defense_secondary_text(name: str, text: str, size_pt: float) -> bool:
+    normalized = str(name or "").strip().lower()
+    if normalized in DEFENSE_SECONDARY_NAMES or normalized.startswith(DEFENSE_SECONDARY_PREFIXES):
+        return True
+    if normalized.startswith("textbox ") and len(str(text or "").strip()) < 10:
+        return True
+    content = str(text or "").strip()
+    return content.startswith(("来源：", "来源:", "注：", "Source:", "References", "参考文献")) or size_pt < 22
+
+
 PROJECTION_TYPE_SCALE = {
     "cover_kicker": 30,
     "cover_title": 96,
@@ -74,16 +108,16 @@ DEFENSE_TYPE_SCALE = {
     "block_title": 48,
     "body": 52,
     "bullet": 48,
-    "small": 36,
-    "micro": 30,
+    "small": 39,
+    "micro": 39,
     "metric_value": 104,
     "metric_label": 40,
     "quote_text": 60,
     "table_header": 44,
     "table_cell": 40,
-    "reference_title": 38,
-    "reference_meta": 28,
-    "footnote": 30,
+    "reference_title": 39,
+    "reference_meta": 39,
+    "footnote": 39,
 }
 PUNCTUATION = set("，。；：？！、）》」』】”’%）")
 CLOSING_PUNCTUATION = set(".,;:!?)]}%\"'")
@@ -290,6 +324,23 @@ def apply_type_profile(theme: dict, profile: str | None = None) -> dict:
         theme.setdefault("type_scale", {}).update(scale)
     theme["active_type_profile"] = name
     return theme
+
+
+def clamp_defense_size_px(size_px: float, profile: str | None, *, body_floor: bool = False) -> float:
+    if str(profile or "").strip().lower() != "defense":
+        return float(size_px)
+    return max(float(size_px), DEFENSE_BODY_PX if body_floor else DEFENSE_MIN_ANY_PX)
+
+
+def clamp_defense_body_size_px(size_px: float, profile: str | None) -> float:
+    return clamp_defense_size_px(size_px, profile, body_floor=True)
+
+
+def defense_body_bold(theme: dict, size_px: float, profile: str | None) -> bool:
+    if str(profile or "").strip().lower() != "defense":
+        return False
+    text = theme.get("text", {}) or {}
+    return DEFENSE_BODY_PX <= float(size_px) <= float(text.get("body_bold_max_px", 56))
 
 
 def figure_width_ratio(slide: dict, default: float = 0.66) -> float:

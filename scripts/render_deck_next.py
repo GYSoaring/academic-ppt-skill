@@ -5,6 +5,7 @@ import json
 import math
 import shutil
 from pathlib import Path
+from typing import Iterable
 
 from PIL import Image, ImageDraw
 from pptx import Presentation
@@ -12,6 +13,9 @@ from pptx.util import Inches
 
 from common import (
     apply_type_profile,
+    clamp_defense_size_px,
+    DEFENSE_BODY_PX,
+    DEFENSE_MIN_ANY_PX,
     figure_width_ratio,
     draw_lines,
     fit_text_block,
@@ -87,12 +91,16 @@ class DeckRenderer:
         self.colors = self.theme["_colors"]
         self.layout = self.theme["layout"]
         self.type_scale = self.theme.get("type_scale", {})
+        body_bold_min_px = float(self.theme.get("text", {}).get("body_bold_min_px", 40))
+        if self.profile == "defense":
+            body_bold_min_px = DEFENSE_BODY_PX
         self.fonts = FontBook(
             self.theme["fonts"]["title"],
             self.theme["fonts"]["body"],
             body_bold=bool(self.theme.get("text", {}).get("body_bold", False)),
-            body_bold_min_px=float(self.theme.get("text", {}).get("body_bold_min_px", 40)),
+            body_bold_min_px=body_bold_min_px,
             body_bold_max_px=float(self.theme.get("text", {}).get("body_bold_max_px", 56)),
+            min_size_px=0,
         )
         self.serif_fonts = self.theme["fonts"]["serif"]
         self.display_fonts = self.theme["fonts"].get("display", self.serif_fonts)
@@ -113,7 +121,39 @@ class DeckRenderer:
         return any("\u4e00" <= char <= "\u9fff" for char in text)
 
     def type_size(self, name: str, fallback: int) -> int:
-        return int(self.type_scale.get(name, fallback))
+        value = int(self.type_scale.get(name, fallback))
+        return int(round(clamp_defense_size_px(value, self.profile)))
+
+    def fit_text(
+        self,
+        draw: ImageDraw.ImageDraw,
+        text: str,
+        font_candidates: Iterable[str],
+        max_width: int,
+        max_height: int,
+        max_size: int,
+        min_size: int,
+        *args,
+        body_floor: bool = False,
+        **kwargs,
+    ):
+        max_size = int(round(clamp_defense_size_px(max_size, self.profile, body_floor=body_floor)))
+        min_size = int(round(clamp_defense_size_px(min_size, self.profile)))
+        if self.profile == "defense" and not body_floor and max_size < DEFENSE_BODY_PX:
+            min_size = min(min_size, 12)
+        if min_size > max_size:
+            min_size = max_size
+        return fit_text_block(
+            draw,
+            text,
+            font_candidates,
+            max_width,
+            max_height,
+            max_size,
+            min_size,
+            *args,
+            **kwargs,
+        )
 
     def load_lockup(self) -> Image.Image | None:
         lockup_path = self.theme.get("brand", {}).get("lockup_path")
@@ -165,7 +205,7 @@ class DeckRenderer:
             return
         left, top, right, bottom = box
         inside_width = right - left
-        font, lines, _, fits = fit_text_block(
+        font, lines, _, fits = self.fit_text(
             draw,
             text,
             self.theme["fonts"]["title"],
@@ -222,7 +262,7 @@ class DeckRenderer:
         title = str(slide.get("title", "")).strip()
         title_width = int(self.theme["brand"]["header_box"][0] - title_left - 54)
         header_height = max(56, int(self.type_size("header_title", 48) * 1.25))
-        font, lines, _, fits = fit_text_block(
+        font, lines, _, fits = self.fit_text(
             draw,
             title,
             self.theme["fonts"]["title"],
@@ -300,7 +340,7 @@ class DeckRenderer:
                 )
                 draw.rectangle((left, row_top + 14, left + 4, row_top + row_height - 14), fill=self.color("blue_pale"))
             text_color = self.color("white") if active else self.color("blue_dark")
-            font, lines, _, fits = fit_text_block(
+            font, lines, _, fits = self.fit_text(
                 draw,
                 section["title"],
                 self.theme["fonts"]["title"],
@@ -455,7 +495,7 @@ class DeckRenderer:
         title_lines = slide.get("title_lines") or meta.get("title_lines")
         if isinstance(title_lines, list) and title_lines:
             title_text = "\n".join(str(line) for line in title_lines)
-        font, lines, _, fits = fit_text_block(
+        font, lines, _, fits = self.fit_text(
             draw,
             title_text,
             self.display_fonts,
@@ -472,7 +512,7 @@ class DeckRenderer:
 
         subtitle = slide.get("subtitle") or meta.get("subtitle")
         if subtitle:
-            subtitle_font, subtitle_lines, _, subtitle_fits = fit_text_block(
+            subtitle_font, subtitle_lines, _, subtitle_fits = self.fit_text(
                 draw,
                 subtitle,
                 self.theme["fonts"]["body"],
@@ -568,7 +608,7 @@ class DeckRenderer:
         kicker = str(meta.get("report_type") or meta.get("subtitle") or "学术报告").strip()
         kicker_y = int(cover.get("kicker_y", 252))
         draw.rectangle((accent_x, kicker_y + 1, accent_x + 7, kicker_y + 38), fill=self.color("blue"))
-        kicker_font, kicker_lines, _, kicker_fits = fit_text_block(
+        kicker_font, kicker_lines, _, kicker_fits = self.fit_text(
             draw,
             kicker,
             self.theme["fonts"]["title"],
@@ -608,7 +648,7 @@ class DeckRenderer:
                     break
                 title_size -= 2
         else:
-            title_font, title_lines, _, title_fits = fit_text_block(
+            title_font, title_lines, _, title_fits = self.fit_text(
                 draw,
                 title,
                 self.display_fonts,
@@ -637,7 +677,7 @@ class DeckRenderer:
         subtitle_bottom = title_bottom
         if subtitle and subtitle != kicker:
             subtitle_y = title_bottom + int(cover.get("subtitle_gap", 22))
-            subtitle_font, subtitle_lines, _, subtitle_fits = fit_text_block(
+            subtitle_font, subtitle_lines, _, subtitle_fits = self.fit_text(
                 draw,
                 subtitle,
                 self.theme["fonts"]["body"],
@@ -693,7 +733,7 @@ class DeckRenderer:
             band_height = int(cover.get("bottom_band_height", 92))
             draw.rectangle((0, band_y, self.width, band_y + band_height), fill=self.color("blue_dark"))
             draw.rectangle((0, band_y, 10, band_y + band_height), fill=self.color("red"))
-            line_font, line_text, _, line_fits = fit_text_block(
+            line_font, line_text, _, line_fits = self.fit_text(
                 draw,
                 cover_line,
                 self.theme["fonts"]["body"],
@@ -775,7 +815,7 @@ class DeckRenderer:
                 (left + 2, row_top + row_height - 2),
             ]
             draw.polygon(number_box, fill=self.color("blue"))
-            title_font, title_lines, _, title_fits = fit_text_block(
+            title_font, title_lines, _, title_fits = self.fit_text(
                 draw,
                 section["title"],
                 self.theme["fonts"]["title"],
@@ -806,7 +846,7 @@ class DeckRenderer:
         draw.text((176, 260), number, font=number_font, fill=mix_color(self.color("blue_pale"), self.color("white"), 0.2))
         draw.line((470, 292, 470, 756), fill=self.color("blue"), width=4)
         title = str(slide.get("section_title", slide.get("title", "")))
-        font, lines, _, fits = fit_text_block(draw, title, self.theme["fonts"]["title"], 1400, 180, 78, 48, max_lines=2)
+        font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"], 1400, 180, 78, 48, max_lines=2)
         if not fits:
             self.warn(str(slide.get("id", "")), "Section title overflowed.")
         draw_lines(draw, lines, (520, 326), font, self.color("blue_dark"), 1.1)
@@ -888,7 +928,7 @@ class DeckRenderer:
             text_left = left + 56
         fits = True
         if heading:
-            rendered, lines, _, fits = fit_text_block(
+            rendered, lines, _, fits = self.fit_text(
                 draw,
                 heading,
                 self.theme["fonts"]["title"],
@@ -928,7 +968,7 @@ class DeckRenderer:
         current_top = top
         all_fit = True
         for bullet in bullets:
-            font, lines, block_height, fits = fit_text_block(
+            font, lines, block_height, fits = self.fit_text(
                 draw,
                 bullet,
                 self.theme["fonts"]["body"],
@@ -1147,7 +1187,7 @@ class DeckRenderer:
                 draw = ImageDraw.Draw(image)
             else:
                 fallback_formula = formula or formula_latex
-                formula_font, formula_lines, _, formula_fits = fit_text_block(
+                formula_font, formula_lines, _, formula_fits = self.fit_text(
                     draw,
                     fallback_formula,
                     self.formula_fonts,
@@ -1281,7 +1321,7 @@ class DeckRenderer:
         )
         text_left = left + label_width + 12
         text_width_available = right - text_left - 10
-        font, lines, _, fits = fit_text_block(
+        font, lines, _, fits = self.fit_text(
             draw,
             text,
             self.theme["fonts"]["body"],
@@ -1407,7 +1447,7 @@ class DeckRenderer:
             )
             text_left = left + 106
             text_width_available = right - text_left - 20
-            heading_font, heading_lines, _, heading_fits = fit_text_block(
+            heading_font, heading_lines, _, heading_fits = self.fit_text(
                 draw,
                 str(item.get("heading", "")),
                 self.theme["fonts"]["title"],
@@ -1543,7 +1583,7 @@ class DeckRenderer:
         )
         text_left = left + 76
         text_width_available = right - text_left - 18
-        heading_font, heading_lines, _, heading_fits = fit_text_block(
+        heading_font, heading_lines, _, heading_fits = self.fit_text(
             draw,
             str(item.get("heading", "")),
             self.theme["fonts"]["title"],
@@ -1682,7 +1722,7 @@ class DeckRenderer:
             label_width = text_width(draw, label, label_font)
             draw.text((center_cx - label_width // 2, center_cy - 92), label, font=label_font, fill=self.color("blue_dark"))
         if value:
-            value_font, value_lines, _, value_fits = fit_text_block(
+            value_font, value_lines, _, value_fits = self.fit_text(
                 draw,
                 value,
                 self.display_fonts,
@@ -1702,7 +1742,7 @@ class DeckRenderer:
                 fill=self.color("blue"),
             )
         if note:
-            note_font, note_lines, _, note_fits = fit_text_block(
+            note_font, note_lines, _, note_fits = self.fit_text(
                 draw,
                 note,
                 self.theme["fonts"]["body"],
@@ -1873,7 +1913,7 @@ class DeckRenderer:
                 str(step.get("icon", "signal")),
                 self.colors,
             )
-            title_font, title_lines, _, title_fits = fit_text_block(
+            title_font, title_lines, _, title_fits = self.fit_text(
                 draw,
                 str(step.get("title", "")),
                 self.theme["fonts"]["title"],
@@ -1886,7 +1926,7 @@ class DeckRenderer:
             if not title_fits:
                 self.warn(str(slide.get("id", "")), f"Flow title overflowed: {step.get('title', '')}")
             draw.text((x + 74, body_top + 18), title_lines[0] if title_lines else str(step.get("title", "")), font=title_font, fill=self.color("blue_dark"))
-            body_font, body_lines, _, body_fits = fit_text_block(
+            body_font, body_lines, _, body_fits = self.fit_text(
                 draw,
                 str(step.get("body", "")),
                 self.theme["fonts"]["body"],
@@ -2064,7 +2104,7 @@ class DeckRenderer:
             draw = ImageDraw.Draw(image)
         else:
             fallback = formula_text or formula_latex or "公式待补充"
-            fallback_font, fallback_lines, _, fallback_fits = fit_text_block(
+            fallback_font, fallback_lines, _, fallback_fits = self.fit_text(
                 draw,
                 fallback,
                 self.formula_fonts,
@@ -2136,7 +2176,7 @@ class DeckRenderer:
                 draw.line((x, y + row_height - 6, x + column_width, y + row_height - 6), fill=mix_color(self.color("line"), self.color("white"), 0.35), width=1)
                 symbol = str(item.get("symbol", "")).strip()
                 meaning = str(item.get("meaning", "")).strip()
-                symbol_font, symbol_lines, _, symbol_fits = fit_text_block(
+                symbol_font, symbol_lines, _, symbol_fits = self.fit_text(
                     draw,
                     symbol,
                     self.formula_fonts,
@@ -2275,7 +2315,7 @@ class DeckRenderer:
             draw_icon_badge(image, draw, (x + 42, card_top + 42), 54, str(step.get("icon", "route")), self.colors)
             step_font = self.fonts.get(TextStyle(bold=True), 15)
             draw.text((x + 74, card_top + 22), f"STEP {index + 1:02d}", font=step_font, fill=self.color("muted"))
-            title_font, title_lines, _, title_fits = fit_text_block(
+            title_font, title_lines, _, title_fits = self.fit_text(
                 draw,
                 str(step.get("title", "")),
                 self.theme["fonts"]["title"],
@@ -2288,7 +2328,7 @@ class DeckRenderer:
             if not title_fits:
                 self.warn(str(slide.get("id", "")), f"Pipeline title overflowed: {step.get('title', '')}")
             draw_lines(draw, title_lines, (x + 18, card_top + 78), title_font, self.color("blue_dark"), 1.16)
-            body_font, body_lines, _, body_fits = fit_text_block(
+            body_font, body_lines, _, body_fits = self.fit_text(
                 draw,
                 str(step.get("body", "")),
                 self.theme["fonts"]["body"],
@@ -2426,7 +2466,7 @@ class DeckRenderer:
         for index, column in enumerate(columns):
             cell_box = (current_left, header_top, current_left + widths[index], header_top + header_height)
             draw_gradient_panel(image, draw, cell_box, self.color("blue_mid"), self.color("blue_dark"), None, radius=0, width=0)
-            heading_font, heading_lines, _, heading_fits = fit_text_block(
+            heading_font, heading_lines, _, heading_fits = self.fit_text(
                 draw,
                 column,
                 self.theme["fonts"]["title"],
@@ -2456,7 +2496,7 @@ class DeckRenderer:
                 if column_index:
                     draw.line((current_left, row_top, current_left, row_top + row_height), fill=self.color("line"), width=1)
                 font_paths = self.theme["fonts"]["title"] if column_index == 0 else self.theme["fonts"]["body"]
-                value_font, value_lines, _, value_fits = fit_text_block(
+                value_font, value_lines, _, value_fits = self.fit_text(
                     draw,
                     str(value),
                     font_paths,
@@ -2519,7 +2559,7 @@ class DeckRenderer:
         draw.rectangle((left + 2, top + 2, right - 2, top + 7), fill=self.color("blue") if index == 0 else self.color("blue_mid"))
         icon = str(metric.get("icon", "chart"))
         draw_icon_badge(image, draw, (right - 42, top + 44), 48, icon, self.colors)
-        value_font, value_lines, _, value_fits = fit_text_block(
+        value_font, value_lines, _, value_fits = self.fit_text(
             draw,
             str(metric.get("value", "")),
             self.theme["fonts"]["title"],
@@ -2532,7 +2572,7 @@ class DeckRenderer:
         if not value_fits:
             self.warn("metric", f"Metric value overflowed: {metric.get('value', '')}")
         draw_lines(draw, value_lines, (left + 20, top + 26), value_font, self.color("blue"), 1.05)
-        label_font, label_lines, _, label_fits = fit_text_block(
+        label_font, label_lines, _, label_fits = self.fit_text(
             draw,
             str(metric.get("label", "")),
             self.theme["fonts"]["title"],
@@ -2545,7 +2585,7 @@ class DeckRenderer:
         if not label_fits:
             self.warn("metric", f"Metric label overflowed: {metric.get('label', '')}")
         draw_lines(draw, label_lines, (left + 20, top + 112), label_font, self.color("ink"), 1.2)
-        note_font, note_lines, _, note_fits = fit_text_block(
+        note_font, note_lines, _, note_fits = self.fit_text(
             draw,
             str(metric.get("note", "")),
             self.theme["fonts"]["body"],
@@ -2594,7 +2634,7 @@ class DeckRenderer:
             if label:
                 draw.text((x, y + 2), label, font=label_font, fill=self.color("muted"))
             value_width = cell_width - (0 if not label else 0)
-            value_rendered, value_lines, _, value_fits = fit_text_block(
+            value_rendered, value_lines, _, value_fits = self.fit_text(
                 draw,
                 value,
                 self.theme["fonts"]["title"],
@@ -2718,7 +2758,7 @@ class DeckRenderer:
         draw = ImageDraw.Draw(image)
         left = int(self.layout["content"][0])
         right = int(self.layout["content"][2])
-        font, lines, _, fits = fit_text_block(
+        font, lines, _, fits = self.fit_text(
             draw,
             text,
             self.theme["fonts"]["body"],
@@ -2778,7 +2818,7 @@ class DeckRenderer:
         quote_width = quote_box[2] - text_left - 42
         text_top = quote_box[1] + 46
         text_bottom = quote_box[3] - 76
-        quote_font, quote_lines, _, quote_fits = fit_text_block(
+        quote_font, quote_lines, _, quote_fits = self.fit_text(
             draw,
             quote,
             self.theme["fonts"]["serif"],
@@ -2794,7 +2834,7 @@ class DeckRenderer:
         draw_lines(draw, quote_lines, (text_left, text_top), quote_font, self.color("ink"), 1.45)
         if attribution:
             attr_text = f"— {attribution}"
-            attr_font, attr_lines, _, attr_fits = fit_text_block(
+            attr_font, attr_lines, _, attr_fits = self.fit_text(
                 draw,
                 attr_text,
                 self.theme["fonts"]["body"],
@@ -2855,7 +2895,7 @@ class DeckRenderer:
                 self.warn(str(slide.get("id", "")), "Quote commentary overflowed.")
             rail_top += used + 10
         if quote_note:
-            note_font, note_lines, _, note_fits = fit_text_block(
+            note_font, note_lines, _, note_fits = self.fit_text(
                 draw,
                 quote_note,
                 self.theme["fonts"]["body"],
@@ -2942,7 +2982,7 @@ class DeckRenderer:
                 )
             )
         cards_top = points_bottom + 16
-        cards_bottom = min(bottom - 120, cards_top + 190)
+        cards_bottom = min(bottom - 100, cards_top + 220)
         if cards and cards_bottom - cards_top > 80:
             gap_cards = 16
             card_width = (right - left - gap_cards * (len(cards) - 1)) // len(cards)
@@ -2963,8 +3003,8 @@ class DeckRenderer:
                         max(34, cards_bottom - body_top - 16),
                         self.fonts,
                         self.colors,
-                        18,
-                        13,
+                        16,
+                        11,
                         max_lines=2,
                         line_ratio=1.22,
                     )
@@ -2977,14 +3017,14 @@ class DeckRenderer:
                         body_top,
                         card_width - 36,
                         max(24, cards_bottom - body_top - 12),
-                        max_size=16,
-                        min_size=11,
-                        gap=3,
+                        max_size=14,
+                        min_size=8,
+                        gap=1,
                     )
                     if not fits:
                         self.warn(str(slide.get("id", "")), f"Closing card bullets overflowed: {title}")
         closing = str(slide.get("closing", "谢谢各位老师")).strip()
-        closing_font, closing_lines, _, closing_fits = fit_text_block(
+        closing_font, closing_lines, _, closing_fits = self.fit_text(
             draw,
             closing,
             self.theme["fonts"]["title"],
@@ -3089,7 +3129,7 @@ class DeckRenderer:
             )
 
             period = str(phase.get("period", "")).strip()
-            period_font, period_lines, _, period_fits = fit_text_block(
+            period_font, period_lines, _, period_fits = self.fit_text(
                 draw,
                 period,
                 self.theme["fonts"]["title"],
@@ -3114,7 +3154,7 @@ class DeckRenderer:
             )
 
             title_y = card_top + 72
-            title_font, title_lines, _, title_fits = fit_text_block(
+            title_font, title_lines, _, title_fits = self.fit_text(
                 draw,
                 str(phase.get("title", "")),
                 self.theme["fonts"]["title"],
@@ -3198,7 +3238,7 @@ class DeckRenderer:
                     font=badge_font,
                     fill=self.color("white"),
                 )
-                milestone_font, milestone_lines, _, milestone_fits = fit_text_block(
+                milestone_font, milestone_lines, _, milestone_fits = self.fit_text(
                     draw,
                     milestone,
                     self.theme["fonts"]["body"],
@@ -3237,7 +3277,7 @@ class DeckRenderer:
                 "alert",
                 self.colors,
             )
-            note_font, note_lines, _, note_fits = fit_text_block(
+            note_font, note_lines, _, note_fits = self.fit_text(
                 draw,
                 timeline_note,
                 self.theme["fonts"]["body"],
@@ -3310,7 +3350,7 @@ class DeckRenderer:
                 cursor = item_top
                 authors = str(reference.get("authors", "")).strip()
                 if authors:
-                    authors_font, authors_lines, _, authors_fits = fit_text_block(
+                    authors_font, authors_lines, _, authors_fits = self.fit_text(
                         draw,
                         authors,
                         self.theme["fonts"]["body"] if self.has_cjk(authors) else self.latin_fonts,
@@ -3332,7 +3372,7 @@ class DeckRenderer:
                     cursor += int(line_height(authors_font, 1.15) * 1.05)
 
                 title_text = str(reference.get("title", "")).strip()
-                title_font, title_lines, _, title_fits = fit_text_block(
+                title_font, title_lines, _, title_fits = self.fit_text(
                     draw,
                     title_text,
                     self.theme["fonts"]["title"] if self.has_cjk(title_text) else self.latin_fonts,
@@ -3357,7 +3397,7 @@ class DeckRenderer:
 
                 venue = str(reference.get("venue", "")).strip()
                 if venue:
-                    venue_font, venue_lines, _, venue_fits = fit_text_block(
+                    venue_font, venue_lines, _, venue_fits = self.fit_text(
                         draw,
                         venue,
                         self.theme["fonts"]["body"] if self.has_cjk(venue) else self.latin_fonts,
@@ -3380,7 +3420,7 @@ class DeckRenderer:
 
                 doi = str(reference.get("doi", "")).strip()
                 if doi:
-                    doi_font, doi_lines, _, doi_fits = fit_text_block(
+                    doi_font, doi_lines, _, doi_fits = self.fit_text(
                         draw,
                         doi,
                         self.theme["fonts"]["body"] if self.has_cjk(doi) else self.latin_fonts,
@@ -3457,6 +3497,12 @@ class DeckRenderer:
             else:
                 raise ValueError(f"Unsupported layout {layout!r} on slide {index}")
             output_path = self.render_dir / f"slide_{index:02d}.png"
+            if self.profile == "defense":
+                draw = ImageDraw.Draw(image)
+                draw.rectangle(
+                    (24, int(self.layout["footer_y"]), self.width - 24, int(self.layout["footer_y"]) + 3),
+                    fill=self.color("blue"),
+                )
             image.save(output_path, optimize=True)
             rendered_paths.append(output_path)
         pptx_path = self.output_dir / "defense_deck_raster.pptx"
@@ -3543,7 +3589,7 @@ def main() -> None:
         sample=args.sample,
     )
     report = renderer.render()
-    print(json.dumps(report, ensure_ascii=False, indent=2))
+    print(json.dumps(report, ensure_ascii=True, indent=2))
 
 
 if __name__ == "__main__":
