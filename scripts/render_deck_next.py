@@ -824,6 +824,40 @@ class DeckRenderer:
         sections = self.deck.get("sections", [])
         spine_x = left - 34
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
+        index_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "index"
+        if index_style:
+            # 中文答辩 deck 的通行目录：大序号 + 章节名，两列排布（实测自三份真实模板）
+            cols = 2
+            gap_x = 72
+            col_w = (width - gap_x) // cols
+            rows = (len(sections) + cols - 1) // cols
+            row_gap = 26
+            avail = int(outline.get("height", 800))
+            row_h = min(190, (avail - (rows - 1) * row_gap) // max(1, rows))
+            kicker_font = self.fonts.get(TextStyle(bold=True), 24)
+            draw.text((left + width, top - 54), "CONTENTS", font=kicker_font,
+                      fill=self.color("blue_mid"), anchor="ra")
+            for index, section in enumerate(sections):
+                col, row = index % cols, index // cols
+                x = left + col * (col_w + gap_x)
+                y = top + row * (row_h + row_gap)
+                number_font = self.fonts.get(TextStyle(bold=True), 92)
+                num = f"{index + 1:02d}"
+                draw.text((x, y + 6), num, font=number_font, fill=self.color("blue_pale"))
+                title_font, title_lines, _, _ = self.fit_text(
+                    draw, str(section["title"]), self.theme["fonts"]["title"], col_w - 150, row_h - 46,
+                    self.type_size("block_title", 44), 24, max_lines=1,
+                )
+                draw.text((x + 132, y + 34), title_lines[0] if title_lines else str(section["title"]),
+                          font=title_font, fill=self.color("ink"))
+                desc = str(section.get("desc", "")).strip()
+                if desc:
+                    desc_font = self.fonts.get(TextStyle(bold=False), 24)
+                    draw.text((x + 132, y + 34 + line_height(title_font) + 8), desc,
+                              font=desc_font, fill=self.color("muted"))
+                draw.line((x, y + row_h - 10, x + col_w, y + row_h - 10), fill=self.color("line"), width=2)
+            return image
+
         lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
         if not lines_style:
             draw.line((spine_x, top + 15, spine_x, last_row_bottom - 15), fill=self.color("line"), width=2)

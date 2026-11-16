@@ -1697,6 +1697,33 @@ class EditableDeckExporter:
         sections = self.deck.get("sections", [])
         spine_x = left - 34
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
+        index_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "index"
+        if index_style:
+            # 大序号 + 章节名，两列；与 PNG 预览保持一致
+            cols = 2
+            gap_x = 72
+            col_w = (width - gap_x) // cols
+            rows = (len(sections) + cols - 1) // cols
+            row_gap = 26
+            avail = int(outline.get("height", 800))
+            row_h = min(190, (avail - (rows - 1) * row_gap) // max(1, rows))
+            self.add_text(slide, (left, top - 76, width, 30), "CONTENTS",
+                          int(self.type_size("micro", 20)), "blue_mid", bold=True, align="right")
+            for index, section in enumerate(sections):
+                col, row = index % cols, index // cols
+                x = left + col * (col_w + gap_x)
+                y = top + row * (row_h + row_gap)
+                self.add_text(slide, (x, y, 132, 110), f"{index + 1:02d}",
+                              int(self.type_size("header_title", 46)), "blue_pale", bold=True)
+                self.add_text(slide, (x + 132, y + 26, col_w - 150, 52), str(section["title"]),
+                              int(self.type_size("block_title", 44)), "ink", bold=True)
+                desc = str(section.get("desc", "")).strip()
+                if desc:
+                    self.add_text(slide, (x + 132, y + 92, col_w - 150, 46), desc,
+                                  int(self.type_size("small", 26)), "muted")
+                self.add_line(slide, (x, y + row_h - 10), (x + col_w, y + row_h - 10), "line", 2)
+            return
+
         lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
         if not lines_style:
             self.add_line(slide, (spine_x, top + 15), (spine_x, last_row_bottom - 15), "line", 2)
