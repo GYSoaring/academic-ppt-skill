@@ -360,6 +360,13 @@ class EditableDeckExporter:
         transparent: bool = True,
         body_floor: bool = False,
     ):
+        # Nothing in a projected deck may render below the smallest step of the
+        # type ladder. Diagram labels, formula notes and cover metadata used to
+        # carry hard-coded 13-18 px sizes; clamp here instead of hunting down
+        # every call site.
+        floor = int(self.type_size("micro", 16))
+        if isinstance(size_px, (int, float)) and size_px < floor:
+            size_px = floor
         if body_floor:
             size_px = clamp_defense_body_size_px(size_px, self.profile)
         left, top, width, height = box

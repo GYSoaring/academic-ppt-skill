@@ -470,6 +470,9 @@ def _circle_icon(draw: ImageDraw.ImageDraw, box, color, width):
 # A page of glyph badges reads as a dashboard. Themes may switch them off;
 # the layout stays identical, the decoration goes away.
 DRAW_ICONS = True
+# Diagram labels were hard-coded at 13-16 px (about 7 pt on a projected slide).
+# Scale them into a readable range instead of rewriting every layout.
+DIAGRAM_TEXT_SCALE = 1.6
 # Corner ticks are pure decoration; four shapes per panel with no information.
 DRAW_CORNER_MARKS = True
 
@@ -974,7 +977,7 @@ def draw_diagram(
     inner_left, inner_right = left + pad, right - pad
     inner_top, inner_bottom = top + pad, bottom - pad
     if label:
-        label_font = fonts.get(TextStyle(bold=True), 13)
+        label_font = fonts.get(TextStyle(bold=True), int(13 * DIAGRAM_TEXT_SCALE))
         label_width = text_width(draw, label, label_font) + 22
         label_box = (inner_left, inner_top, inner_left + label_width, inner_top + 25)
         draw.rounded_rectangle(label_box, radius=3, fill=colors["blue"])
@@ -1004,7 +1007,7 @@ def draw_diagram(
         node_width = max(64, (inner_right - inner_left - gap * (count - 1)) // count)
         node_height = min(150, max(72, int((inner_bottom - inner_top) * 0.56)))
         title_size = 22 if node_height >= 128 else 18
-        body_size = 16 if node_height >= 128 else 14
+        body_size = int((16 if node_height >= 128 else 14) * DIAGRAM_TEXT_SCALE)
         node_top = inner_top + max(0, (inner_bottom - inner_top - node_height) // 2)
         centers: list[tuple[int, int]] = []
         for index, item in enumerate(items):
@@ -1278,7 +1281,7 @@ def draw_diagram(
                 draw.line((x2, bracket_y - 5, x2, bracket_y + 5), fill=blue_mid, width=2)
                 label_text = str(pair.get("label", "")).strip()
                 if label_text:
-                    pair_font = fonts.get(TextStyle(bold=True), 13)
+                    pair_font = fonts.get(TextStyle(bold=True), int(13 * DIAGRAM_TEXT_SCALE))
                     label_width = text_width(draw, label_text, pair_font)
                     draw.rectangle(
                         ((x1 + x2 - label_width) // 2 - 6, bracket_y - 10, (x1 + x2 + label_width) // 2 + 6, bracket_y + 3),

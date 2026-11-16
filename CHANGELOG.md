@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Readable diagrams, icon library, editorial cover (2026-11-16, third pass)
+
+- **Diagram labels were 7 pt.** `design.py` hard-coded 13-16 px for diagram indexes, node titles, node bodies and notes; they are now scaled ×1.6, and the PPTX `add_text` path clamps every run to the smallest type step (18.75 pt at `lecture`). The minimum measurable size in a generated deck went from 6.1 pt to 18.8 pt.
+- **`scripts/icon_library.py` (new).** Fetches any Lucide icon by name (three CDN fallbacks plus a `curl` retry), recolours it to the theme, and rasterises it with a built-in path renderer — no cairo, no Inkscape. Verified: `satellite` → 160×160 PNG.
+- **`resolve_emblem.py` hardened** with a curl fallback: on Windows installs where Python's urllib resets TLS, the resolver used to report a false "not found". Wuhan University now resolves from Commons (684×738).
+- **Editorial cover carries real hierarchy**: kicker line, 118 px title, enlarged institutional lockup, watermark column.
+- Documented that a typeset calligraphic name is a fallback and the official wordmark must be sourced or supplied.
+
+
 ### Brand, type hygiene and emblem sourcing (2026-11-16, second pass)
 
 - **Fixed header-title overflow in PowerPoint.** The exporter hard-coded a 62 px title box while the lecture title is 68 px, so titles spilled into the divider in PowerPoint (invisible in the PNG preview). Box height now derives from the measured size (`title_size × 1.28`).
