@@ -90,6 +90,27 @@ These are the defects that make a generated deck look machine-made even when the
 
 
 
+
+## Section dividers: the blue band and the number that straddles it
+
+Every Chinese defense deck in the reference set opens each part with the same move, so the skill now ships it as `layout: "section"` (measured spec in `references/section-dividers.md`):
+
+- header without a title: emblem lockup left, motto right, hairline at `0.19h`
+- a blue band from `0.46h` to `0.855h`, ending at `0.968w` so the right edge keeps a 3% margin
+- Chinese title in white at 100 px, English label at 38 px, hairline with an end dot
+- **a large two-digit number straddling the band** — dark above on white, pale below inside the band
+
+The straddle is the whole point. A number placed on top of the band, or beside it, loses the effect.
+
+PowerPoint cannot gradient text, so the PPTX path renders the same numeral to a transparent PNG (`assets/section_number_XX.png`) and places it as a picture; the PNG path builds it from a text mask with a vertical gradient. Keep the two geometries identical or the preview stops predicting the deliverable.
+
+```bash
+python scripts/add_section_pages.py --deck deck.json            # 在每个章节前插入分隔页（幂等）
+python scripts/add_section_pages.py --deck deck.json --dry-run   # 只看会插几张
+```
+
+`validate_deck.py` exempts `layout: "section"` from the header/footer pixel-identity checks — those pages are intentionally a different full-page composition.
+
 ## Titles: describe the page, argue in the body
 
 Default `title_mode` is **`summary`**. A page title says *what this page is about* (6-18 characters, noun phrase), the way a paper's subsection heading does. The judgment goes into `lead` (first sentence) and `claim`.

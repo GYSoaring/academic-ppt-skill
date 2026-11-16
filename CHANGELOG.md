@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Section dividers from a measured reference (2026-11-16, seventh pass)
+
+- Ported the blue-band divider from a real template (991x620 screenshot): header rule at 0.19h, band 0.46h-0.855h ending at 0.968w, 100 px white title, 38 px English label, hairline with an end dot, and a large number straddling the band with a vertical gradient.
+- PNG builds the gradient with a text mask; PPTX cannot gradient text, so it renders the numeral to a transparent PNG and places it as a picture.
+- `scripts/add_section_pages.py` (new): inserts one divider before each section's first slide, idempotent, and auto-derives English labels from a hint table.
+- `references/section-dividers.md` (new): the measured ratios and the required/optional fields.
+- `validate_deck.py`: `layout: section` is exempt from the header/footer pixel-identity checks.
+
+
 ### Titles describe, claims move into the body (2026-11-16, sixth pass)
 
 - **`title_mode: summary` is now the default.** Page headings summarise what the page covers (6-18 characters); the judgment lives in `lead` and `claim`. Seven claim-titles in a row read as seven slogans.
