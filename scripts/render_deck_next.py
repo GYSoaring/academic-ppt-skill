@@ -933,11 +933,9 @@ class DeckRenderer:
         section_id = str(slide.get("section", ""))
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
 
-        # 页眉：左校徽锁版，右校训，细线
-        if self.lockup is not None:
-            fitted, position = self.fit_transparent(self.lockup, (56, 30, 520, 196))
-            image.paste(fitted, position, fitted)
-            draw = ImageDraw.Draw(image)
+        # 页眉：左校徽锁版（没有锁版就退回文字校名），右校训，细线
+        self.draw_brand(image, (56, 30, 520, 196), align="left")
+        draw = ImageDraw.Draw(image)
         motto = str(self.theme.get("brand", {}).get("motto") or "")
         if motto:
             motto_font = self.fonts.get(TextStyle(bold=False), 34)

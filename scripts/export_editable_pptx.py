@@ -1784,10 +1784,7 @@ class EditableDeckExporter:
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
         width, height = self.width, self.height
 
-        lockup = self.theme.get("brand", {}).get("lockup")
-        lockup_path = resolve_path(lockup, Path(self.theme["_dir"])) if lockup else None
-        if lockup_path:
-            self.add_picture_fit(slide, lockup_path, (56, 30, 464, 166), name="brand_lockup")
+        self.add_brand(slide, (56, 30, 464, 166), align="left")
         motto = str(self.theme.get("brand", {}).get("motto") or "")
         if motto:
             self.add_text(slide, (width - 520, 76, 456, 44), motto, 34, "muted", align="right")
