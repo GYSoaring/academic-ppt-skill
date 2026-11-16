@@ -1779,23 +1779,34 @@ class EditableDeckExporter:
 
     def draw_section(self, slide, s: dict) -> None:
         self.add_header(slide, s)
-        number = str(s.get("number", s.get("id", ""))).strip()[:2]
-        self.add_text(slide, (150, 250, 320, 220), number, 176, "blue_mid", bold=True, line_ratio=1.0)
-        self.add_rect(slide, (470, 292, 4, 464), "blue")
-        title = str(s.get("section_title", s.get("title", "")))
-        self.add_fit_text(slide, (520, 326, 1400, 180), title, "title", 78, 48, "blue_dark", bold=True, max_lines=2, line_ratio=1.05)
+        sections = self.deck.get("sections", []) or []
+        section_id = str(s.get("section", ""))
+        index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
+        total = max(1, len(sections))
+        panel_right = 828
+        panel_top = int(self.layout.get("header_height", 132)) - 2
+        panel_bottom = int(self.layout.get("footer_y", self.height - 96)) - 40
+        self.add_rect(slide, (0, panel_top, panel_right, panel_bottom - panel_top), "blue")
+        self.add_rect(slide, (panel_right, panel_top, 10, panel_bottom - panel_top), "blue_mid")
+
+        self.add_text(slide, (96, panel_top + 74, 240, 150), f"{index + 1:02d}", 128, "white", bold=True, line_ratio=1.0)
+        self.add_text(slide, (234, panel_top + 168, 140, 44), f"/ {total:02d}", 34, "blue_pale", bold=True, line_ratio=1.0)
+
+        title = str(s.get("section_title") or s.get("title") or "")
+        self.add_fit_text(slide, (96, panel_top + 300, panel_right - 190, 300), title, "title", 84, 46,
+                          "white", bold=True, max_lines=3, line_ratio=1.14)
+        self.add_rect(slide, (96, panel_top + 660, 240, 4), "blue_pale")
+
         summary = str(s.get("summary", ""))
         if summary:
-            self.add_fit_text(slide, (524, 496, 1320, 140), summary, "body", 30, 20, "ink", max_lines=3, line_ratio=1.2)
-        keywords = s.get("keywords") or []
-        if keywords:
-            x = 524
-            for keyword in keywords[:4]:
-                tag_width = max(92, len(str(keyword)) * 24 + 34)
-                self.add_panel(slide, (x, 680, tag_width, 42), "blue_wash", "line", radius_px=5, line_width_px=1)
-                self.add_text(slide, (x, 680, tag_width, 42), str(keyword), 20, "blue_dark", bold=True, align="center", valign="middle", line_ratio=1.0)
-                x += tag_width + 14
-        self.add_rect(slide, (176, 876, 1694, 4), "blue")
+            self.add_text(slide, (912, panel_top + 92, 520, 40), "本 章 要 点", 30, "blue_mid", bold=True)
+            self.add_fit_text(slide, (912, panel_top + 156, 980, 220), summary, "body", 40, 26, "ink",
+                              max_lines=4, line_ratio=1.4)
+
+        bar_y, seg_w, seg_gap = panel_bottom - 96, 132, 12
+        for i in range(total):
+            x = 96 + i * (seg_w + seg_gap)
+            self.add_rect(slide, (x, bar_y, seg_w, 6), "white" if i == index else "blue_mid")
 
     def draw_grid(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)

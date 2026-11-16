@@ -826,36 +826,32 @@ class DeckRenderer:
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
         index_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "index"
         if index_style:
-            # 单列铺满整页：大序号 + 章节名 + 说明 + 细分隔线
-            # （两列会让 5 个条目挤在上半页，下半页整片留白，这是"丑"的根源）
-            top_y = max(int(outline["y"]), 224)
-            bottom_y = self.height - 88
-            rows = max(1, len(sections))
-            row_h = (bottom_y - top_y) // rows
-            num_font = self.fonts.get(TextStyle(bold=True), 96)
-            kicker_font = self.fonts.get(TextStyle(bold=True), 22)
-            draw.text((left + width, top_y - 58), "CONTENTS", font=kicker_font,
-                      fill=self.color("blue_mid"), anchor="ra")
-            draw.line((left - 40, top_y, left - 40, bottom_y), fill=self.color("blue"), width=4)
-            for index, section in enumerate(sections):
-                y = top_y + index * row_h
-                number = f"{index + 1:02d}"
-                draw.text((left - 6, y + 10), number, font=num_font, fill=self.color("blue"))
+            # 比例取自三份真实模板（1280x720 折算到 2048x1152，×1.6）：
+            # 序号 43-68 px、章节名 51 px、CONTENTS 43 px、双列列距约 740 px
+            cols = 2
+            col_pitch = 740
+            row_pitch = 160
+            items = list(sections)
+            rows = (len(items) + cols - 1) // cols
+            top_y = 520 if len(items) > 4 else 600
+            kicker_font = self.fonts.get(TextStyle(bold=False), 43)
+            draw.text((left - 2, 452), "CONTENTS", font=kicker_font, fill=self.color("blue_mid"))
+            for index, section in enumerate(items):
+                col, row = index % cols, index // cols
+                x = left + col * col_pitch
+                y = top_y + row * row_pitch
+                number_font = self.fonts.get(TextStyle(bold=True), 68)
+                draw.text((x, y), f"{index + 1:02d}", font=number_font, fill=self.color("blue"))
                 title_font, title_lines, _, _ = self.fit_text(
-                    draw, str(section["title"]), self.theme["fonts"]["title"], width - 240, row_h - 40,
-                    self.type_size("block_title", 44), 24, max_lines=1,
+                    draw, str(section["title"]), self.theme["fonts"]["title"], col_pitch - 190, 70,
+                    51, 32, max_lines=1,
                 )
-                baseline = y + 16
-                draw.text((left + 196, baseline), title_lines[0] if title_lines else str(section["title"]),
+                draw.text((x + 108, y + 8), title_lines[0] if title_lines else str(section["title"]),
                           font=title_font, fill=self.color("ink"))
                 desc = str(section.get("desc", "")).strip()
                 if desc:
-                    desc_font = self.fonts.get(TextStyle(bold=False), 26)
-                    draw.text((left + 198, baseline + line_height(title_font) + 10), desc,
-                              font=desc_font, fill=self.color("muted"))
-                if index < len(sections) - 1:
-                    draw.line((left + 196, y + row_h - 6, left + width, y + row_h - 6),
-                              fill=self.color("line"), width=2)
+                    desc_font = self.fonts.get(TextStyle(bold=False), 30)
+                    draw.text((x + 108, y + 66), desc, font=desc_font, fill=self.color("muted"))
             return image
 
         lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
@@ -930,35 +926,43 @@ class DeckRenderer:
         section_id = str(slide.get("section", ""))
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
         total = max(1, len(sections))
-        number = f"{index + 1:02d}"
 
-        # 大序号：暖淡色打底，压住左侧
-        number_font = self.fonts.get(TextStyle(bold=True), 176)
-        draw.text((150, 250), number, font=number_font, fill=self.color("blue_mid"))
-        # 章节总数，作为右侧的小注释
-        total_font = self.fonts.get(TextStyle(bold=True), 26)
-        draw.text((150 + text_width(draw, number, number_font) + 18, 300),
-                  f"/ {total:02d}", font=total_font, fill=self.color("blue_mid"))
-        # 竖向强调线
-        draw.line((470, 296, 470, 742), fill=self.color("blue"), width=5)
+        # 左侧深色块：数字反白，标题白色，整块压住版面左三分之一
+        panel_right = 828
+        panel_top = int(self.layout.get("header_height", 132)) - 2
+        panel_bottom = int(self.layout.get("footer_y", self.height - 96)) - 40   # 让出页脚，保持像素一致
+        draw.rectangle((0, panel_top, panel_right, panel_bottom), fill=self.color("blue"))
+        # 右侧一条细强调线
+        draw.rectangle((panel_right, panel_top, panel_right + 10, panel_bottom), fill=self.color("blue_mid"))
+
+        counter_font = self.fonts.get(TextStyle(bold=True), 34)
+        draw.text((96, panel_top + 74), f"{index + 1:02d}", font=self.fonts.get(TextStyle(bold=True), 128),
+                  fill=self.color("white"))
+        draw.text((96 + 138, panel_top + 168), f"/ {total:02d}", font=counter_font, fill=self.color("blue_pale"))
 
         title = str(slide.get("section_title") or slide.get("title") or "")
-        font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"], 1420, 170, 82, 48, max_lines=2)
+        font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"],
+                                             panel_right - 190, 300, 84, 46, max_lines=3)
         if not fits:
             self.warn(str(slide.get("id", "")), "Section title overflowed.")
-        draw_lines(draw, lines, (520, 330), font, self.color("blue_dark"), 1.08)
+        draw_lines(draw, lines, (96, panel_top + 300), font, self.color("white"), 1.14)
+        draw.rectangle((96, panel_top + 300 + line_height(font) * len(lines) + 34,
+                        336, panel_top + 300 + line_height(font) * len(lines) + 38), fill=self.color("blue_pale"))
 
+        # 右侧：本章要点，用主色小标题 + 说明
         summary = str(slide.get("summary") or "")
         if summary:
-            draw_rich_block(draw, summary, (524, 330 + line_height(font) * len(lines) + 34), 1300, 130,
-                            self.fonts, self.colors, 30, 20, max_lines=2, line_ratio=1.34)
+            label_font = self.fonts.get(TextStyle(bold=True), 28)
+            draw.text((912, panel_top + 96), "本 章 要 点", font=label_font, fill=self.color("blue_mid"))
+            draw_rich_block(draw, summary, (912, panel_top + 156), 980, 220,
+                            self.fonts, self.colors, 40, 26, max_lines=4, line_ratio=1.4)
 
-        # 底部进度条：五段，当前段实心
-        bar_y, seg_w, seg_gap = 892, 150, 16
+        # 底部进度条（在左侧色块内，反白）
+        bar_y, seg_w, seg_gap = panel_bottom - 96, 132, 12
         for i in range(total):
-            x = 176 + i * (seg_w + seg_gap)
-            color = self.color("blue") if i == index else self.color("line")
-            draw.rectangle((x, bar_y, x + seg_w, bar_y + 8), fill=color)
+            x = 96 + i * (seg_w + seg_gap)
+            color = self.color("white") if i == index else mix_color(self.color("white"), self.color("blue"), 0.62)
+            draw.rectangle((x, bar_y, x + seg_w, bar_y + 6), fill=color)
         return image
 
     def draw_frame(self, slide: dict, page_number: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
