@@ -826,32 +826,34 @@ class DeckRenderer:
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
         index_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "index"
         if index_style:
-            # 比例取自三份真实模板（1280x720 折算到 2048x1152，×1.6）：
-            # 序号 43-68 px、章节名 51 px、CONTENTS 43 px、双列列距约 740 px
-            cols = 2
-            col_pitch = 740
-            row_pitch = 160
+            # 参考图实测：单列五行铺满版心，序号在左、标题与说明在右、行间细线，
+            # 右上角一个小号 CONTENTS。两列会把 5 条挤在上半页，整页留白失衡。
             items = list(sections)
-            rows = (len(items) + cols - 1) // cols
-            top_y = 520 if len(items) > 4 else 600
-            kicker_font = self.fonts.get(TextStyle(bold=False), 43)
-            draw.text((left - 2, 452), "CONTENTS", font=kicker_font, fill=self.color("blue_mid"))
+            rows = max(1, len(items))
+            top_y = int(self.layout.get("header_height", 132)) + 48
+            bottom_y = int(self.layout.get("footer_y", self.height - 96)) - 48
+            row_h = (bottom_y - top_y) // rows
+            number_font = self.fonts.get(TextStyle(bold=True), 112)
+            kicker_font = self.fonts.get(TextStyle(bold=False), 34)
+            draw.text((left + width, top_y - 64), "C O N T E N T S", font=kicker_font,
+                      fill=self.color("blue_mid"), anchor="ra")
+            draw.line((left - 34, top_y + 6, left - 34, bottom_y - 6), fill=self.color("blue"), width=3)
             for index, section in enumerate(items):
-                col, row = index % cols, index // cols
-                x = left + col * col_pitch
-                y = top_y + row * row_pitch
-                number_font = self.fonts.get(TextStyle(bold=True), 68)
-                draw.text((x, y), f"{index + 1:02d}", font=number_font, fill=self.color("blue"))
+                y = top_y + index * row_h
+                draw.text((left - 6, y + 8), f"{index + 1:02d}", font=number_font, fill=self.color("blue"))
                 title_font, title_lines, _, _ = self.fit_text(
-                    draw, str(section["title"]), self.theme["fonts"]["title"], col_pitch - 190, 70,
-                    51, 32, max_lines=1,
+                    draw, str(section["title"]), self.theme["fonts"]["title"], width - 260, 78,
+                    62, 40, max_lines=1,
                 )
-                draw.text((x + 108, y + 8), title_lines[0] if title_lines else str(section["title"]),
+                draw.text((left + 210, y + 12), title_lines[0] if title_lines else str(section["title"]),
                           font=title_font, fill=self.color("ink"))
                 desc = str(section.get("desc", "")).strip()
                 if desc:
                     desc_font = self.fonts.get(TextStyle(bold=False), 30)
-                    draw.text((x + 108, y + 66), desc, font=desc_font, fill=self.color("muted"))
+                    draw.text((left + 212, y + 78), desc, font=desc_font, fill=self.color("muted"))
+                if index < len(items) - 1:
+                    draw.line((left + 210, y + row_h - 12, left + width, y + row_h - 12),
+                              fill=self.color("line"), width=2)
             return image
 
         lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
