@@ -1699,29 +1699,26 @@ class EditableDeckExporter:
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
         index_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "index"
         if index_style:
-            # 大序号 + 章节名，两列；与 PNG 预览保持一致
-            cols = 2
-            gap_x = 72
-            col_w = (width - gap_x) // cols
-            rows = (len(sections) + cols - 1) // cols
-            row_gap = 26
-            avail = int(outline.get("height", 800))
-            row_h = min(190, (avail - (rows - 1) * row_gap) // max(1, rows))
-            self.add_text(slide, (left, top - 76, width, 30), "CONTENTS",
+            # 单列铺满：与 PNG 预览同一套几何
+            top_y = max(int(outline["y"]), 224)
+            bottom_y = self.height - 88
+            rows = max(1, len(sections))
+            row_h = (bottom_y - top_y) // rows
+            self.add_text(slide, (left, top_y - 76, width, 30), "CONTENTS",
                           int(self.type_size("micro", 20)), "blue_mid", bold=True, align="right")
+            self.add_line(slide, (left - 40, top_y), (left - 40, bottom_y), "blue", 4)
             for index, section in enumerate(sections):
-                col, row = index % cols, index // cols
-                x = left + col * (col_w + gap_x)
-                y = top + row * (row_h + row_gap)
-                self.add_text(slide, (x, y, 132, 110), f"{index + 1:02d}",
+                y = top_y + index * row_h
+                self.add_text(slide, (left - 8, y + 4, 190, 120), f"{index + 1:02d}",
                               int(self.type_size("header_title", 46)), "blue_pale", bold=True)
-                self.add_text(slide, (x + 132, y + 26, col_w - 150, 52), str(section["title"]),
+                self.add_text(slide, (left + 196, y + 10, width - 240, 62), str(section["title"]),
                               int(self.type_size("block_title", 44)), "ink", bold=True)
                 desc = str(section.get("desc", "")).strip()
                 if desc:
-                    self.add_text(slide, (x + 132, y + 92, col_w - 150, 46), desc,
+                    self.add_text(slide, (left + 198, y + 82, width - 250, 46), desc,
                                   int(self.type_size("small", 26)), "muted")
-                self.add_line(slide, (x, y + row_h - 10), (x + col_w, y + row_h - 10), "line", 2)
+                if index < len(sections) - 1:
+                    self.add_line(slide, (left + 196, y + row_h - 6), (left + width, y + row_h - 6), "line", 2)
             return
 
         lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
