@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Outline page measured from a screenshot (2026-11-16, eighth pass)
+
+- `references/outline-page.md` (new): single-column geometry derived from header and footer, 112 px solid numerals, 62 px titles, 30 px descriptions, hairline rows.
+- Fixed the two failure modes behind "the TOC is ugly": a hard-coded `top = 520` that piled five rows into the lower half, and a two-column grid that left a 3+2 hole.
+- Numerals moved from `blue_pale` to the solid primary colour - pale on white is a contrast bug, not a style choice.
+- PNG and PPTX outline geometry are now identical; the pptx first row sits at canvas_top x 0.625.
+
+
 ### Section dividers from a measured reference (2026-11-16, seventh pass)
 
 - Ported the blue-band divider from a real template (991x620 screenshot): header rule at 0.19h, band 0.46h-0.855h ending at 0.968w, 100 px white title, 38 px English label, hairline with an end dot, and a large number straddling the band with a vertical gradient.

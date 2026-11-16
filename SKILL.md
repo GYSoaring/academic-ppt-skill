@@ -91,6 +91,22 @@ These are the defects that make a generated deck look machine-made even when the
 
 
 
+
+## Outline page: one column that fills the page
+
+`layout.outline_style: "index"` is the default for decks aimed at a Chinese audience. Measured spec in `references/outline-page.md`.
+
+- left spine (3 px), numerals at **112 px in the solid primary colour** — pale numerals are invisible on white, which is a contrast bug people read as "ugly"
+- section name 62 px, one-line description 30 px, hairline between rows
+- `C O N T E N T S` top-right, letter-spaced
+
+Two rules that matter more than the styling:
+
+1. **Derive the geometry, never hard-code the start.** `top = header + 48`, `bottom = footer - 48`, `row_h = span / sections`. A fixed `top = 520` piles five rows into the lower half and leaves ~600 px of dead space above; that is the usual reason a TOC looks wrong.
+2. **One column, not two.** Five sections in two columns becomes a 3+2 grid with a hole in the bottom-right corner.
+
+Check it numerically: bin the rendered page into 12 horizontal bands and count dark pixels. If the first four bands are empty, the list is not filling the page. The PNG preview and the PPTX must use the same numbers — the pptx `top` should be about `canvas_top × 0.625`.
+
 ## Section dividers: the blue band and the number that straddles it
 
 Every Chinese defense deck in the reference set opens each part with the same move, so the skill now ships it as `layout: "section"` (measured spec in `references/section-dividers.md`):
