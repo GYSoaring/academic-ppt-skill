@@ -1709,8 +1709,7 @@ class EditableDeckExporter:
             self.add_line(slide, (left - 40, top_y), (left - 40, bottom_y), "blue", 4)
             for index, section in enumerate(sections):
                 y = top_y + index * row_h
-                self.add_text(slide, (left - 8, y + 4, 190, 120), f"{index + 1:02d}",
-                              int(self.type_size("header_title", 46)), "blue_pale", bold=True)
+                self.add_text(slide, (left - 6, y + 2, 200, 120), f"{index + 1:02d}", 96, "blue", bold=True)
                 self.add_text(slide, (left + 196, y + 10, width - 240, 62), str(section["title"]),
                               int(self.type_size("block_title", 44)), "ink", bold=True)
                 desc = str(section.get("desc", "")).strip()
@@ -1781,7 +1780,7 @@ class EditableDeckExporter:
     def draw_section(self, slide, s: dict) -> None:
         self.add_header(slide, s)
         number = str(s.get("number", s.get("id", ""))).strip()[:2]
-        self.add_text(slide, (176, 260, 300, 220), number, 210, "blue_pale", bold=True, line_ratio=1.0)
+        self.add_text(slide, (150, 250, 320, 220), number, 176, "blue_mid", bold=True, line_ratio=1.0)
         self.add_rect(slide, (470, 292, 4, 464), "blue")
         title = str(s.get("section_title", s.get("title", "")))
         self.add_fit_text(slide, (520, 326, 1400, 180), title, "title", 78, 48, "blue_dark", bold=True, max_lines=2, line_ratio=1.05)

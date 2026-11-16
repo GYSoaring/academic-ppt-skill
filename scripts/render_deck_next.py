@@ -832,7 +832,7 @@ class DeckRenderer:
             bottom_y = self.height - 88
             rows = max(1, len(sections))
             row_h = (bottom_y - top_y) // rows
-            num_font = self.fonts.get(TextStyle(bold=True), 104)
+            num_font = self.fonts.get(TextStyle(bold=True), 96)
             kicker_font = self.fonts.get(TextStyle(bold=True), 22)
             draw.text((left + width, top_y - 58), "CONTENTS", font=kicker_font,
                       fill=self.color("blue_mid"), anchor="ra")
@@ -840,7 +840,7 @@ class DeckRenderer:
             for index, section in enumerate(sections):
                 y = top_y + index * row_h
                 number = f"{index + 1:02d}"
-                draw.text((left - 8, y + 8), number, font=num_font, fill=self.color("blue_pale"))
+                draw.text((left - 6, y + 10), number, font=num_font, fill=self.color("blue"))
                 title_font, title_lines, _, _ = self.fit_text(
                     draw, str(section["title"]), self.theme["fonts"]["title"], width - 240, row_h - 40,
                     self.type_size("block_title", 44), 24, max_lines=1,
@@ -926,39 +926,39 @@ class DeckRenderer:
         image = self.background(page_number)
         self.draw_header(image, slide)
         draw = ImageDraw.Draw(image)
-        number = str(slide.get("number", slide.get("id", ""))).strip()[:2]
-        number_font = self.fonts.get(TextStyle(bold=True), 210)
-        draw.text((176, 260), number, font=number_font, fill=mix_color(self.color("blue_pale"), self.color("white"), 0.2))
-        draw.line((470, 292, 470, 756), fill=self.color("blue"), width=4)
-        title = str(slide.get("section_title", slide.get("title", "")))
-        font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"], 1400, 180, 78, 48, max_lines=2)
+        sections = self.deck.get("sections", []) or []
+        section_id = str(slide.get("section", ""))
+        index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
+        total = max(1, len(sections))
+        number = f"{index + 1:02d}"
+
+        # 大序号：暖淡色打底，压住左侧
+        number_font = self.fonts.get(TextStyle(bold=True), 176)
+        draw.text((150, 250), number, font=number_font, fill=self.color("blue_mid"))
+        # 章节总数，作为右侧的小注释
+        total_font = self.fonts.get(TextStyle(bold=True), 26)
+        draw.text((150 + text_width(draw, number, number_font) + 18, 300),
+                  f"/ {total:02d}", font=total_font, fill=self.color("blue_mid"))
+        # 竖向强调线
+        draw.line((470, 296, 470, 742), fill=self.color("blue"), width=5)
+
+        title = str(slide.get("section_title") or slide.get("title") or "")
+        font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"], 1420, 170, 82, 48, max_lines=2)
         if not fits:
             self.warn(str(slide.get("id", "")), "Section title overflowed.")
-        draw_lines(draw, lines, (520, 326), font, self.color("blue_dark"), 1.1)
-        summary = str(slide.get("summary", ""))
+        draw_lines(draw, lines, (520, 330), font, self.color("blue_dark"), 1.08)
+
+        summary = str(slide.get("summary") or "")
         if summary:
-            draw_rich_block(
-                draw,
-                summary,
-                (524, 496),
-                1320,
-                140,
-                self.fonts,
-                self.colors,
-                30,
-                20,
-                max_lines=3,
-                line_ratio=1.34,
-            )
-        keywords = slide.get("keywords") or []
-        if keywords:
-            x = 524
-            for keyword in keywords[:4]:
-                tag_font = self.fonts.get(TextStyle(bold=True), 20)
-                tag_width = text_width(draw, str(keyword), tag_font) + 34
-                draw_tag(draw, (x, 680, x + tag_width, 722), str(keyword), tag_font, self.color("blue_wash"), self.color("blue_dark"), radius=5)
-                x += tag_width + 14
-        draw.rectangle((176, 876, 1870, 880), fill=self.color("blue"))
+            draw_rich_block(draw, summary, (524, 330 + line_height(font) * len(lines) + 34), 1300, 130,
+                            self.fonts, self.colors, 30, 20, max_lines=2, line_ratio=1.34)
+
+        # 底部进度条：五段，当前段实心
+        bar_y, seg_w, seg_gap = 892, 150, 16
+        for i in range(total):
+            x = 176 + i * (seg_w + seg_gap)
+            color = self.color("blue") if i == index else self.color("line")
+            draw.rectangle((x, bar_y, x + seg_w, bar_y + 8), fill=color)
         return image
 
     def draw_frame(self, slide: dict, page_number: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
