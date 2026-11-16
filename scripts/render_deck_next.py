@@ -2219,7 +2219,7 @@ class DeckRenderer:
             # Keep these numbers identical to export_editable_pptx.py so the PNG
             # preview and the delivered PPTX put each line in the same place.
             block_height = max(48, bottom - variables_top - 52)
-            line_height = block_height // line_count
+            row_height = block_height // line_count
             body_size = self.type_size("small", 16)
             for column in range(columns):
                 chunk = variables[column * rows : (column + 1) * rows]
@@ -2229,13 +2229,13 @@ class DeckRenderer:
                 for row_index, item in enumerate(chunk):
                     symbol = str(item.get("symbol", "")).strip()
                     meaning = str(item.get("meaning", "")).strip()
-                    y = variables_top + 42 + row_index * line_height
+                    y = variables_top + 42 + row_index * row_height
                     font, lines, _, fits = self.fit_text(
                         draw,
                         f"{symbol}　{meaning}",
                         self.theme["fonts"]["body"],
                         column_width - 6,
-                        line_height - 4,
+                        row_height - 4,
                         body_size,
                         max(12, body_size - 6),
                         max_lines=1,
