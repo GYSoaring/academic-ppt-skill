@@ -1778,35 +1778,79 @@ class EditableDeckExporter:
             self.add_chevrons(slide, left + width - 52, row_top + row_height / 2 - 9, 18, "blue_pale", count=1)
 
     def draw_section(self, slide, s: dict) -> None:
-        self.add_header(slide, {**s, "title": "", "eyebrow": ""})
+        """与 PNG 预览同一套几何：页眉 + 蓝带 + 跨带渐变数字。"""
         sections = self.deck.get("sections", []) or []
         section_id = str(s.get("section", ""))
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
-        total = max(1, len(sections))
-        centre = self.width / 2
+        width, height = self.width, self.height
 
-        # 校徽水印：居中偏上
-        if getattr(self, "watermark_path", None):
-            self.add_picture_fit(slide, self.watermark_path, (centre - 280, 196, 560, 560),
-                                 name="emblem_watermark", decorative=True)
+        lockup = self.theme.get("brand", {}).get("lockup")
+        lockup_path = resolve_path(lockup, Path(self.theme["_dir"])) if lockup else None
+        if lockup_path:
+            self.add_picture_fit(slide, lockup_path, (56, 30, 464, 166), name="brand_lockup")
+        motto = str(self.theme.get("brand", {}).get("motto") or "")
+        if motto:
+            self.add_text(slide, (width - 520, 76, 456, 44), motto, 34, "muted", align="right")
+        rule_y = int(height * 0.19)
+        self.add_rect(slide, (40, rule_y, width - 80, 3), "blue_dark")
 
-        self.add_text(slide, (centre - 300, 282, 600, 44), f"{index + 1:02d}  /  {total:02d}",
-                      38, "blue_mid", bold=True, align="center", line_ratio=1.0)
+        band_top = int(height * 0.46)
+        band_bottom = int(height * 0.855)
+        band_right = int(width * 0.968)
+        self.add_rect(slide, (0, band_top, band_right, band_bottom - band_top), "blue")
+
+        # 渐变数字：生成带透明度的 PNG 再贴，PPTX 里无法给文字上渐变
+        number = f"{index + 1:02d}"
+        num_left, num_top = int(width * 0.605), int(height * 0.222)
+        num_w, num_h = int(width * 0.335), int(height * 0.44)
+        number_path = self.asset_dir / f"section_number_{number}.png"
+        if not number_path.exists():
+            self._build_number_asset(number_path, number, num_w, num_h)
+        self.add_picture_fit(slide, number_path, (num_left, num_top, num_w, num_h), name="section_number")
+
         title = str(s.get("section_title") or s.get("title") or "")
-        self.add_fit_text(slide, (centre - 700, 350, 1400, 260), title, "title", 96, 52, "blue_dark",
-                          bold=True, max_lines=2, line_ratio=1.12, align="center")
-        self.add_rect(slide, (centre - 60, 640, 120, 4), "blue")
-        summary = str(s.get("summary", ""))
-        if summary:
-            self.add_fit_text(slide, (centre - 620, 700, 1240, 160), summary, "body", 34, 24, "ink",
-                              max_lines=3, line_ratio=1.4, align="center")
+        self.add_fit_text(slide, (104, band_top + 62, int(width * 0.42), 120), title, "title", 100, 62,
+                          "white", bold=True, max_lines=1)
+        label = str(s.get("label_en") or "").upper()
+        if label:
+            self.add_text(slide, (108, band_top + 196, int(width * 0.45), 52), label, 38, "white")
+        line_y = band_bottom - int((band_bottom - band_top) * 0.19)
+        line_right = int(width * 0.90)
+        self.add_rect(slide, (104, line_y, line_right - 104, 2), "white")
+        self.add_rect(slide, (line_right - 7, line_y - 5, 14, 14), "white")
 
-        bar_y, seg_w, seg_gap = int(self.layout.get("footer_y", self.height - 96)) - 88, 108, 12
-        total_w = total * seg_w + (total - 1) * seg_gap
-        start_x = centre - total_w / 2
-        for i in range(total):
-            x = start_x + i * (seg_w + seg_gap)
-            self.add_rect(slide, (x, bar_y, seg_w, 6), "blue" if i == index else "line")
+    def _build_number_asset(self, path: Path, number: str, box_w: int, box_h: int) -> None:
+        """生成竖向渐变的数字 PNG（上深下浅），供分隔页与 PPTX 共用。"""
+        from PIL import ImageDraw as _ImageDraw
+        from PIL import ImageFont as _ImageFont
+
+        font_path = self.fonts.get("title")
+        size = int(box_h * 1.34)
+        try:
+            font = _ImageFont.truetype(font_path, size)
+        except Exception:
+            font = _ImageFont.load_default()
+        measure = _ImageDraw.Draw(Image.new("RGB", (4, 4)))
+        while measure.textlength(number, font=font) > box_w and size > 60:
+            size = int(size * 0.94)
+            try:
+                font = _ImageFont.truetype(font_path, size)
+            except Exception:
+                break
+        mask = Image.new("L", (box_w, box_h), 0)
+        text_width = measure.textlength(number, font=font)
+        _ImageDraw.Draw(mask).text(((box_w - text_width) / 2, box_h * 0.02), number, font=font, fill=255)
+        top_rgb, bottom_rgb = self.color("blue_dark"), self.color("blue_mid")
+        bottom_rgb = tuple(int(bottom_rgb[i] * 0.45 + 255 * 0.55) for i in range(3))
+        gradient = Image.new("RGB", (box_w, box_h))
+        gdraw = _ImageDraw.Draw(gradient)
+        for row in range(box_h):
+            t = row / max(1, box_h - 1)
+            gdraw.line((0, row, box_w, row),
+                       fill=tuple(int(top_rgb[c] * (1 - t) + bottom_rgb[c] * t) for c in range(3)))
+        layer = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 0))
+        layer.paste(gradient, (0, 0), mask)
+        layer.save(path, optimize=True)
 
     def draw_grid(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)

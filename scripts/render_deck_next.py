@@ -919,55 +919,82 @@ class DeckRenderer:
         return image
 
     def draw_section(self, slide: dict, page_number: int) -> Image.Image:
+        """章节分隔页：复刻参考模板的「蓝带 + 跨带大数字」版式。
+
+        实测参考图（991x620）折算到 2048x1152：
+          页眉细线 y≈0.19；蓝带 y 0.46–0.855，右端留白 3%；
+          中文标题 100 px、英文 38 px、细白线 y≈0.79；
+          大数字 x 0.605、宽 0.313、纵向跨带（0.242–0.63），上深下浅渐变。
+        """
         image = self.background(page_number)
-        # 分隔页不画页眉标题：标题在版心居中，重复一次就是噪音
-        self.draw_header(image, {**slide, "title": "", "eyebrow": ""})
         draw = ImageDraw.Draw(image)
+        width, height = self.width, self.height
         sections = self.deck.get("sections", []) or []
         section_id = str(slide.get("section", ""))
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
-        total = max(1, len(sections))
-        centre = self.width // 2
 
-        # 校徽作背景水印：居中、低透明度，不抢标题
-        if self.emblem is not None:
-            wm_w = 560
-            wm = self.emblem.resize((wm_w, max(1, int(wm_w * self.emblem.height / self.emblem.width))),
-                                    Image.Resampling.LANCZOS)
-            wm.putalpha(wm.split()[3].point(lambda value: int(value * 0.09)))
-            image.paste(wm, (centre - wm.width // 2, 196), wm)
+        # 页眉：左校徽锁版，右校训，细线
+        if self.lockup is not None:
+            fitted, position = self.fit_transparent(self.lockup, (56, 30, 520, 196))
+            image.paste(fitted, position, fitted)
             draw = ImageDraw.Draw(image)
+        motto = str(self.theme.get("brand", {}).get("motto") or "")
+        if motto:
+            motto_font = self.fonts.get(TextStyle(bold=False), 34)
+            draw.text((width - 64, 96), motto, font=motto_font, fill=self.color("muted"), anchor="rt")
+        rule_y = int(height * 0.19)
+        draw.rectangle((40, rule_y, width - 40, rule_y + 3), fill=self.color("blue_dark"))
 
-        counter_font = self.fonts.get(TextStyle(bold=True), 38)
-        draw.text((centre, 300), f"{index + 1:02d}  /  {total:02d}", font=counter_font,
-                  fill=self.color("blue_mid"), anchor="mm")
+        # 蓝带
+        band_top = int(height * 0.46)
+        band_bottom = int(height * 0.855)
+        band_right = int(width * 0.968)
+        draw.rectangle((0, band_top, band_right, band_bottom), fill=self.color("blue"))
 
+        # 跨带大数字：先做蒙版，再用纵向渐变填充
+        number = f"{index + 1:02d}"
+        num_left = int(width * 0.605)
+        num_top = int(height * 0.222)
+        num_w = int(width * 0.335)
+        num_h = int(height * 0.44)
+        size = int(num_h * 1.34)
+        number_font = self.fonts.get(TextStyle(bold=True), size)
+        while text_width(draw, number, number_font) > num_w and number_font.size > 60:
+            number_font = self.fonts.get(TextStyle(bold=True), int(number_font.size * 0.94))
+        mask = Image.new("L", (num_w, num_h), 0)
+        ImageDraw.Draw(mask).text(((num_w - text_width(draw, number, number_font)) // 2, int(num_h * 0.02)),
+                                  number, font=number_font, fill=255)
+        gradient = Image.new("RGB", (num_w, num_h))
+        gdraw = ImageDraw.Draw(gradient)
+        top_rgb = self.color("blue_dark")
+        bottom_rgb = mix_color(self.color("blue_mid"), self.color("white"), 0.55)
+        for row in range(num_h):
+            t = row / max(1, num_h - 1)
+            gdraw.line((0, row, num_w, row),
+                       fill=tuple(int(top_rgb[c] * (1 - t) + bottom_rgb[c] * t) for c in range(3)))
+        image.paste(gradient, (num_left, num_top), mask)
+        draw = ImageDraw.Draw(image)
+
+        # 中文标题 + 英文 + 细线
         title = str(slide.get("section_title") or slide.get("title") or "")
-        font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"],
-                                             1400, 300, 96, 52, max_lines=2)
+        title_font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"],
+                                                  int(width * 0.42), 150, 100, 62, max_lines=1)
         if not fits:
             self.warn(str(slide.get("id", "")), "Section title overflowed.")
-        block = line_height(font) * len(lines)
-        title_top = 360 + (260 - block) // 2
-        for offset, line in enumerate(lines):
-            draw.text((centre, title_top + offset * line_height(font)), line, font=font,
-                      fill=self.color("blue_dark"), anchor="ma")
+        title_y = band_top + int((band_bottom - band_top) * 0.24)
+        draw.text((104, title_y), lines[0] if lines else title, font=title_font, fill=self.color("white"))
 
-        rule_y = title_top + block + 44
-        draw.rectangle((centre - 60, rule_y, centre + 60, rule_y + 4), fill=self.color("blue"))
+        label = str(slide.get("label_en") or "").upper()
+        if label:
+            label_font = self.fonts.get(TextStyle(bold=False), 38)
+            draw.text((108, title_y + line_height(title_font) + 18), label, font=label_font,
+                      fill=mix_color(self.color("white"), self.color("blue"), 0.25))
 
-        summary = str(slide.get("summary") or "")
-        if summary:
-            draw_rich_block(draw, summary, (centre - 620, rule_y + 56), 1240, 160,
-                            self.fonts, self.colors, 34, 24, max_lines=3, line_ratio=1.4)
-
-        bar_y, seg_w, seg_gap = int(self.layout.get("footer_y", self.height - 96)) - 88, 108, 12
-        total_w = total * seg_w + (total - 1) * seg_gap
-        start_x = centre - total_w // 2
-        for i in range(total):
-            x = start_x + i * (seg_w + seg_gap)
-            draw.rectangle((x, bar_y, x + seg_w, bar_y + 6),
-                           fill=self.color("blue") if i == index else self.color("line"))
+        line_y = band_bottom - int((band_bottom - band_top) * 0.19)
+        line_left, line_right = 104, int(width * 0.90)
+        draw.rectangle((line_left, line_y, line_right, line_y + 2),
+                       fill=mix_color(self.color("white"), self.color("blue"), 0.35))
+        draw.ellipse((line_right - 7, line_y - 5, line_right + 7, line_y + 9), fill=self.color("white"))
         return image
 
     def draw_frame(self, slide: dict, page_number: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:

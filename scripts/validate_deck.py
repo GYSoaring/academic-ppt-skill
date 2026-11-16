@@ -776,7 +776,14 @@ def main() -> None:
             offset_y = (box_height - size[1]) // 2
             full_mask[offset_y:offset_y + size[1], offset_x:offset_x + size[0]] = np.array(alpha) > 180
             brand_mask = full_mask
+        section_pages = {
+            position for position, slide in enumerate(slides, start=1)
+            if str(slide.get("layout", "")).strip().lower() == "section"
+        }
         for index, path in enumerate(rendered_paths[1:], start=2):
+            # 分隔页是有意的整页版式，不承载页眉与页脚，豁免这两项一致性检查
+            if index in section_pages:
+                continue
             current = np.array(Image.open(path).convert("RGB"))
             current_brand = current[brand_box[1]:brand_box[3], brand_box[0]:brand_box[2]]
             current_footer = current[footer_y:footer_y + 3, 24:expected_size[0] - 24]
