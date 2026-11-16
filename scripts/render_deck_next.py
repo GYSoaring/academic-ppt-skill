@@ -3029,7 +3029,7 @@ class DeckRenderer:
                 box = (x, cards_top, x + card_width, cards_bottom)
                 draw_shadowed_panel(image, draw, box, fill, self.color("line"), radius=8, width=2, shadow_offset=(0, 4), shadow_blur=8, shadow_alpha=18)
                 draw_icon(draw, icon, (x + 18, cards_top + 18, x + 50, cards_top + 50), self.color("red") if index == 0 else self.color("blue"), fill, stroke=2)
-                title_font = self.fonts.get(TextStyle(bold=True), 20)
+                title_font = self.fonts.get(TextStyle(bold=True), 28)
                 draw.text((x + 62, cards_top + 20), title, font=title_font, fill=self.color("blue_dark"))
                 body_top = cards_top + 58
                 if body:
@@ -3055,8 +3055,8 @@ class DeckRenderer:
                         body_top,
                         card_width - 36,
                         max(24, cards_bottom - body_top - 12),
-                        max_size=14,
-                        min_size=8,
+                        max_size=32,
+                        min_size=22,
                         gap=1,
                     )
                     if not fits:

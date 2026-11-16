@@ -3013,13 +3013,13 @@ class EditableDeckExporter:
                 x = left + index * (card_width + gap_cards)
                 self.add_panel(slide, (x, cards_top, card_width, cards_bottom - cards_top), fill, "line", radius_px=8, line_width_px=1.2, shadow=True)
                 self.add_icon(slide, icon, (x + 18, cards_top + 18, 32, 32), "red" if index == 0 else "blue")
-                self.add_text(slide, (x + 62, cards_top + 18, card_width - 78, 28), title, 20, "blue_dark", bold=True, line_ratio=1.0)
+                self.add_text(slide, (x + 62, cards_top + 18, card_width - 78, 28), title, 30, "blue_dark", bold=True, line_ratio=1.0)
                 cursor = cards_top + 56
                 if body:
                     self.add_fit_text(slide, (x + 18, cursor, card_width - 36, 54), body, "body", 18, 13, "ink", max_lines=2, line_ratio=1.1)
                     cursor += 54
                 if points:
-                    self.add_bullets(slide, points, (x + 18, cursor, card_width - 36, max(24, cards_bottom - cursor - 12)), max_size=16, min_size=11, gap_px=3)
+                    self.add_bullets(slide, points, (x + 18, cursor, card_width - 36, max(24, cards_bottom - cursor - 12)), max_size=34, min_size=24, gap_px=4)
         closing = str(s.get("closing", "谢谢各位老师")).strip()
         closing_y = min(cards_bottom + 42 if cards and cards_bottom - cards_top > 80 else bottom - 62, bottom - 52)
         self.add_line(slide, (left, closing_y - 24), (right, closing_y - 24), "line", 1)
