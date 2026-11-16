@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Reference measurement, not reference guessing (2026-11-16, fourth pass)
+
+- **`scripts/analyze_reference.py` (new).** Reads any .pptx and reports objects/page, text boxes/page, text-area ratio, title pt per inch, body size, size-step count, bold ratio, palette and fonts. `--aggregate` produces a Markdown profile across several decks.
+- **`references/human-deck-profile.md` (new).** Five real Chinese academic decks, 126 pages, measured. Medians: 15.0 objects/page, 8.9 text boxes, 0.25 text-area ratio, title 1.8 pt/in, body 16 pt, 13 size steps.
+- **Header type reduced**: `LECTURE_TYPE_SCALE.header_title` 68 → 58 px, putting the title at 2.04 pt/inch against a human median of 1.8-2.0. The old value was 2.39.
+- **Containers named as the real gap**: generated decks ran 28 objects/page against 15, and the difference is card and node chrome (~2.5 shapes per container), not content. Documented as the next target.
+
+
 ### Readable diagrams, icon library, editorial cover (2026-11-16, third pass)
 
 - **Diagram labels were 7 pt.** `design.py` hard-coded 13-16 px for diagram indexes, node titles, node bodies and notes; they are now scaled ×1.6, and the PPTX `add_text` path clamps every run to the smallest type step (18.75 pt at `lecture`). The minimum measurable size in a generated deck went from 6.1 pt to 18.8 pt.

@@ -82,7 +82,7 @@
     "cover_title": 76,
     "cover_subtitle": 32,
     "cover_info": 31,
-    "header_title": 46,
+    "header_title": 58,
     "eyebrow": 48,
     "lead": 28,
     "takeaway": 27,
@@ -165,7 +165,8 @@
     "panel_shadow_alpha": 6,
     "block_icons": "off",
     "lead_panel": false,
-    "outline_style": "lines"
+    "outline_style": "lines",
+    "object_budget": 15
   },
   "cover": {
     "title_y": 352,

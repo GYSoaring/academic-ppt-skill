@@ -87,6 +87,26 @@ These are the defects that make a generated deck look machine-made even when the
 - **The emblem must come from a real source.** Run `scripts/resolve_emblem.py --name 学校名 --latin "University Name"` first; it walks Wikimedia Commons → zh.wikipedia → the school homepage → favicon and reports what each step returned. If it finds nothing, ask the user for the official file. Drawing a seal is forbidden.
 - **Covers default to `editorial`.** A left accent bar, left-aligned wordmark, a vertical rule and a quiet right column read as designed; a centred stack of title + subtitle + three info lines reads as a form.
 
+
+## Match a measured deck, not a vibe
+
+Before tuning a theme, measure. `scripts/analyze_reference.py` reads any .pptx and returns the numbers that actually make a deck look professional: objects per page, text boxes per page, text-area ratio, title size per inch, body size, size-step count, bold ratio, palette, fonts.
+
+Run it on decks the audience would call good, and on your own output — same ruler, or the comparison means nothing.
+
+Reference point from five real Chinese academic decks (126 pages, measured in `references/human-deck-profile.md`):
+
+| | 真人中位 | 达标线 |
+|---|---|---|
+| 元素/页 | 15.0 | ≤ 18 |
+| 文本框/页 | 8.9 | ≤ 11 |
+| 文本框占版面 | 0.25 | ≤ 0.30 |
+| 标题字号 / 版面宽 | 1.8–2.0 | 1.8–2.1 |
+| 正文字号 | 16 pt | 16–19 pt |
+| 字号档数 | 13 | ≥ 11 |
+
+The single biggest structural gap between generated and human decks is **containers**: every panel card costs ~2.5 shapes, every diagram node ~2.5. Humans put text on the page and group it with whitespace and alignment, not with a border around each block. If a page needs more than two containers, the content is probably two pages or one table.
+
 ## Style Families
 
 Two reference families pull in opposite directions, and both are legitimate:

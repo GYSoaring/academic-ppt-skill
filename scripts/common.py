@@ -74,7 +74,7 @@ LECTURE_TYPE_SCALE = {
     "cover_title": 104,
     "cover_subtitle": 56,
     "cover_info": 36,
-    "header_title": 68,
+    "header_title": 58,
     "eyebrow": 68,
     "lead": 50,
     "lead_label": 30,
