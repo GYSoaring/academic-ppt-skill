@@ -209,6 +209,24 @@ class EditableDeckExporter:
         self.body_bold_max_px = float(self.theme.get("text", {}).get("body_bold_max_px", 56))
         self.panel_radius = int(self.layout.get("panel_radius", 8))
         self.panel_shadow_alpha = int(self.layout.get("panel_shadow_alpha", 20))
+        self.sidebar_mode = str(self.layout.get("sidebar_mode", "always")).strip().lower() or "always"
+        self.block_icons = str(self.layout.get("block_icons", "on")).strip().lower() != "off"
+        self.corner_marks = bool((self.theme.get("panel", {}) or {}).get("corner_marks", True))
+        self.card_index = bool((self.theme.get("panel", {}) or {}).get("card_index", True))
+        self.card_highlight = bool((self.theme.get("panel", {}) or {}).get("card_highlight", True))
+        self.section_openers: set[str] = set()
+        _previous_section = None
+        for _item in self.deck.get("slides", []):
+            if _item.get("layout") in {"cover", "outline"}:
+                continue
+            _current_section = _item.get("section")
+            if _current_section != _previous_section:
+                self.section_openers.add(str(_item.get("id", "")))
+                _previous_section = _current_section
+        if self.sidebar_mode == "off":
+            _wide = self.layout.get("content_no_sidebar")
+            if isinstance(_wide, (list, tuple)) and len(_wide) == 4:
+                self.layout["content"] = [float(value) for value in _wide]
         self.formula_cache: dict[str, etree._Element] = {}
         self.formula_native = 0
         self.formula_fallback = 0
@@ -268,6 +286,7 @@ class EditableDeckExporter:
         latin_path = first_existing(theme_fonts.get("latin"))
         return {
             "title": str(configured.get("title") or family_from_path(title_path, "Microsoft YaHei")),
+            "brand": str(configured.get("brand") or family_from_path(first_existing(theme_fonts.get("brand")), configured.get("title") or "Microsoft YaHei")),
             "body": str(configured.get("body") or family_from_path(body_path, "Microsoft YaHei")),
             "display": str(configured.get("display") or family_from_path(display_path, "STZhongsong")),
             "formula": str(configured.get("formula") or "Cambria Math"),
@@ -657,6 +676,8 @@ class EditableDeckExporter:
         return shape
 
     def add_corner_marks(self, slide, box: tuple[float, float, float, float], color_name: str = "line") -> None:
+        if not getattr(self, "corner_marks", True):
+            return
         left, top, width, height = box
         inset = 8
         length = 16
@@ -949,10 +970,16 @@ class EditableDeckExporter:
             valign="middle",
             max_lines=2,
             line_ratio=1.0,
+            family=self.fonts.get("brand") or None,
             name=name,
         )
 
-    def add_icon(
+    def add_icon(self, *args, **kwargs):
+        if not getattr(self, "block_icons", True):
+            return None
+        return self._add_icon(*args, **kwargs)
+
+    def _add_icon(
         self,
         slide,
         name: str,
@@ -1086,9 +1113,10 @@ class EditableDeckExporter:
         header.fill.fore_color.rgb = self.rgb("blue")
         header.line.fill.background()
         header.shadow.inherit = False
-        self.add_rect(slide, (left + 3, top + 3, width - 6, 3), "blue_mid")
+        if getattr(self, "card_highlight", True):
+            self.add_rect(slide, (left + 3, top + 3, width - 6, 3), "blue_mid")
         text_left = left + 16
-        if index:
+        if index and getattr(self, "card_index", True):
             self.add_text(slide, (left + 18, top + 12, 36, 32), index, 20, "blue_pale", bold=True)
             text_left = left + 56
         if heading:
@@ -1206,6 +1234,11 @@ class EditableDeckExporter:
             return top
         left, _, right, _ = map(int, self.layout["content"])
         height = int(self.layout.get("lead_height", 88))
+        if not self.layout.get("lead_panel", True):
+            label_only = str(self.layout.get("lead_label", "")).strip()
+            text_left = left + (44 if label_only else 0)
+            self.add_text(slide, (text_left, top + 6, right - text_left, height - 8), text, self.type_size("lead", 38), "ink", bold=True, line_ratio=1.16, name="lead_claim")
+            return top + height
         panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, px(left), px(top), px(right - left), px(height))
         panel.adjustments[0] = min(0.5, self.panel_radius / max(1, height))
         panel.fill.gradient()
@@ -1370,7 +1403,12 @@ class EditableDeckExporter:
         self.set_slide_title(
             slide,
             title,
-            (title_left, float(self.layout["title_y"]) - 18 if self.profile == "defense" else float(self.layout["title_y"]) - 4, title_width, 88 if self.profile == "defense" else 62),
+            (
+                title_left,
+                float(self.layout["title_y"]) - 18 if self.profile == "defense" else float(self.layout["title_y"]) - 4,
+                title_width,
+                max(62, int(round(float(title_size) * 1.28))),
+            ),
             title_size,
             color_name="blue_dark",
             bold=True,
@@ -1385,9 +1423,19 @@ class EditableDeckExporter:
         self.add_brand(slide, (box[0], box[1], box[2] - box[0], box[3] - box[1]), name="brand_lockup")
         self.add_rect(slide, (24, float(self.layout["footer_y"]), self.width - 48, 3), "blue")
 
-    def add_sidebar(self, slide, active_section: str | None) -> None:
+    def add_sidebar(self, slide, source: dict | str | None) -> None:
         sections = self.deck.get("sections", [])
         if not sections:
+            return
+        if isinstance(source, dict):
+            active_section = source.get("section")
+            slide_id = str(source.get("id", ""))
+        else:
+            active_section = source
+            slide_id = ""
+        if self.sidebar_mode == "off":
+            return
+        if self.sidebar_mode == "section" and slide_id not in self.section_openers:
             return
         left, top, right, bottom = map(float, self.layout["sidebar"])
         gap = 10
@@ -1642,9 +1690,18 @@ class EditableDeckExporter:
         sections = self.deck.get("sections", [])
         spine_x = left - 34
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
-        self.add_line(slide, (spine_x, top + 15), (spine_x, last_row_bottom - 15), "line", 2)
+        lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
+        if not lines_style:
+            self.add_line(slide, (spine_x, top + 15), (spine_x, last_row_bottom - 15), "line", 2)
         for index, section in enumerate(sections):
             row_top = top + index * (row_height + gap)
+            if lines_style:
+                self.add_text(slide, (left, row_top + 8, 130, row_height - 16), f"{index + 1:02d}",
+                              self.type_size("header_title", 46), "blue", bold=True, line_ratio=1.0, name="outline_number")
+                self.add_text(slide, (left + 140, row_top + 12, width - 210, row_height - 24), str(section["title"]),
+                              self.type_size("block_title", 44), "ink", line_ratio=1.05, name="outline_title")
+                self.add_line(slide, (left, row_top + row_height - 6), (left + width, row_top + row_height - 6), "line", 2)
+                continue
             self.add_ellipse(slide, (spine_x - 6, row_top + row_height / 2 - 6, 12, 12), "blue_mid", None)
             self.add_panel(slide, (left, row_top, width, row_height), "white", "line", radius_px=9, line_width_px=1.6, shadow=True)
             number_width = 168
@@ -1713,7 +1770,7 @@ class EditableDeckExporter:
     def draw_grid(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         blocks = s.get("blocks") or []
         if not blocks:
             self.warn(str(s.get("id", "")), "Grid layout has no blocks.")
@@ -2391,7 +2448,7 @@ class EditableDeckExporter:
     def draw_concept(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         diagram = s.get("diagram") or {}
         panels = s.get("panels") or []
         gap = 18
@@ -2433,7 +2490,7 @@ class EditableDeckExporter:
     def draw_formula(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         gap = 18
         left_ratio = max(0.52, min(0.70, float(s.get("formula_width_ratio", 0.62))))
         left_width = (right - left) * left_ratio
@@ -2463,17 +2520,27 @@ class EditableDeckExporter:
             column_gap = 18
             column_width = (left_width - column_gap * (columns - 1)) / columns
             rows = math.ceil(len(variables) / columns)
-            row_height = max(54, min(74, (bottom - variables_top - 50) / max(1, rows)))
-            for index, item in enumerate(variables):
-                column = index % columns
-                row = index // columns
+            line_count = max(1, rows)
+            block_height = max(48, bottom - variables_top - 52)
+            line_height = block_height / line_count
+            for column in range(columns):
+                chunk = variables[column * rows : (column + 1) * rows]
+                if not chunk:
+                    continue
                 x = left + column * (column_width + column_gap)
-                y = variables_top + 42 + row * row_height
-                self.add_line(slide, (x, y + row_height - 6), (x + column_width, y + row_height - 6), "line", 1)
-                symbol = str(item.get("symbol", "")).strip()
-                meaning = str(item.get("meaning", "")).strip()
-                self.add_text(slide, (x, y, column_width, 32), symbol, 26, "blue", family=self.fonts["formula"], line_ratio=1.0, name="formula_symbol")
-                self.add_fit_text(slide, (x, y + 32, column_width, max(20, row_height - 42)), meaning, "body", 16, 11, "ink", max_lines=2, line_ratio=1.15, name="formula_meaning")
+                for row_index, item in enumerate(chunk):
+                    symbol = str(item.get("symbol", "")).strip()
+                    meaning = str(item.get("meaning", "")).strip()
+                    y = variables_top + 42 + row_index * line_height
+                    self.add_text(
+                        slide,
+                        (x, y, column_width, line_height - 4),
+                        f"{symbol}　{meaning}",
+                        self.type_size("small", 16),
+                        "ink",
+                        line_ratio=1.15,
+                        name="formula_variable_line",
+                    )
 
         panels = s.get("panels") or []
         if panels:
@@ -2500,7 +2567,7 @@ class EditableDeckExporter:
     def draw_pipeline(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         steps = s.get("steps") or []
         if not steps:
             steps = [{"title": "步骤", "body": "内容待补充"}]
@@ -2537,7 +2604,7 @@ class EditableDeckExporter:
     def draw_compare(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         columns = s.get("columns") or []
         rows = s.get("rows") or []
         if not columns:
@@ -2634,7 +2701,7 @@ class EditableDeckExporter:
     def draw_timeline(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         phases = s.get("phases") or []
         if not phases:
             phases = [{"period": "阶段", "title": "内容待补充"}]
@@ -2694,7 +2761,7 @@ class EditableDeckExporter:
     def draw_hub(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         items = (s.get("items") or [])[:6]
         if not items:
             items = [{"heading": "内容待补充", "body": ""}]
@@ -2761,7 +2828,7 @@ class EditableDeckExporter:
     def draw_references(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         references = s.get("references") or []
         if not references:
             references = [{"authors": "", "title": "参考文献待补充", "venue": "", "doi": ""}]
@@ -2815,7 +2882,7 @@ class EditableDeckExporter:
     def draw_quote(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         quote = str(s.get("quote", "")).strip() or "引文待补充"
         attribution = str(s.get("attribution", "")).strip()
         commentary = str(s.get("commentary", "")).strip()
@@ -2908,7 +2975,7 @@ class EditableDeckExporter:
     def draw_closing(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         points = s.get("points") or ["结论待补充"]
         has_bottom_cards = bool(
             s.get("boundary")
@@ -2954,7 +3021,7 @@ class EditableDeckExporter:
     def draw_bullets(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         columns = s.get("columns") or [{"heading": "要点", "bullets": s.get("bullets", [])}]
         gap = 18
         weights = s.get("column_weights") or [1.0] * len(columns)
@@ -2981,7 +3048,7 @@ class EditableDeckExporter:
     def draw_figure(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         image_path = resolve_path(s.get("image"), self.deck_path.parent)
         side = str(s.get("image_side", "left"))
         variant = str(s.get("variant", "")).strip().lower()
@@ -3065,7 +3132,7 @@ class EditableDeckExporter:
     def draw_figure_flow(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         flow = s.get("flow") or []
         if not flow:
             self.warn(str(s.get("id", "")), "Figure-flow layout has no flow steps.")
@@ -3196,7 +3263,7 @@ class EditableDeckExporter:
     def draw_metrics(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         metrics = s.get("metrics") or []
         gap = 18
         card_width = (right - left - gap * (len(metrics) - 1)) / max(1, len(metrics))
@@ -3243,7 +3310,7 @@ class EditableDeckExporter:
     def draw_balance(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
         body_top = self.add_lead(slide, s.get("lead", ""), top, str(s.get("id", "")))
-        self.add_sidebar(slide, s.get("section"))
+        self.add_sidebar(slide, s)
         gap = 24
         rail_width = int((right - left) * 0.255)
         center_left = left + rail_width + gap

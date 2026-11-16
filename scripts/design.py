@@ -449,6 +449,8 @@ def draw_corner_marks(
     length: int = 18,
     width: int = 2,
 ) -> None:
+    if not DRAW_CORNER_MARKS:
+        return None
     left, top, right, bottom = box
     for x, y, sx, sy in (
         (left, top, 1, 1),
@@ -465,6 +467,13 @@ def _circle_icon(draw: ImageDraw.ImageDraw, box, color, width):
     draw.ellipse(box, outline=color, width=width)
 
 
+# A page of glyph badges reads as a dashboard. Themes may switch them off;
+# the layout stays identical, the decoration goes away.
+DRAW_ICONS = True
+# Corner ticks are pure decoration; four shapes per panel with no information.
+DRAW_CORNER_MARKS = True
+
+
 def draw_icon(
     draw: ImageDraw.ImageDraw,
     name: str,
@@ -473,6 +482,8 @@ def draw_icon(
     paper: tuple[int, int, int],
     stroke: int = 3,
 ) -> None:
+    if not DRAW_ICONS:
+        return None
     left, top, right, bottom = box
     w, h = right - left, bottom - top
     cx, cy = (left + right) / 2, (top + bottom) / 2
@@ -641,6 +652,8 @@ def draw_icon_badge(
     fill: tuple[int, int, int] | None = None,
     outline: tuple[int, int, int] | None = None,
 ) -> None:
+    if not DRAW_ICONS:
+        return None
     cx, cy = center
     radius = size // 2
     box = (cx - radius, cy - radius, cx + radius, cy + radius)

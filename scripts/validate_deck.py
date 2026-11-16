@@ -24,6 +24,20 @@ from common import (
 )
 
 
+DESIGN_HINTS = {
+    "dominant_object_ratio": "Give more pages one dominant object (a real figure, chart, formula or schematic) instead of equal cards.",
+    "card_only_ratio": "Too many pages are only rows of equal-weight cards; that is the shape readers call a template.",
+    "emphasis_per_page": "Mark the decisive number or boundary with **text**; a deck with no accent has no focus.",
+    "assertion_ratio": "Turn topic-label titles into claims (see is_assertion_title in common.py).",
+    "takeaway_ratio": "The takeaway band is appearing on almost every page; keep it for real turns of argument.",
+    "layout_run_max": "The same layout repeats too many pages in a row; break the rhythm.",
+    "image_page_ratio": "Source at least one real figure; a deck of pure text and boxes reads as generated.",
+    "chars_per_line": "Text columns are too narrow for Chinese prose (under 18 characters per line reads choppy).",
+    "rhythm_stdev": "Every page carries the same visual weight; alternate dense evidence pages with quiet ones.",
+    "chrome_share": "Fixed chrome eats too much of the page; trim the header band, lead band or mini directory.",
+}
+
+
 SUPPORTED_LAYOUTS = {
     "cover",
     "outline",
@@ -772,6 +786,57 @@ def main() -> None:
         add_issue(issues, "warning", "timing", f"Estimated speech {estimated}s exceeds target {target_seconds}s by more than 15%.")
     if target_seconds and estimated < target_seconds * 0.65:
         add_issue(issues, "warning", "timing", f"Estimated speech {estimated}s is much shorter than target {target_seconds}s.")
+
+    # Visible text must not carry code-like pseudo-formulas: N_s reads as code,
+    # Nₛ reads as math. LaTeX sources are exempt.
+    import re as _re
+
+    pseudo = _re.compile(r"[A-Za-z][A-Za-z0-9]{0,6}_[a-z]{1,3}")
+    for slide in slides:
+        page_id = str(slide.get("id", ""))
+        probes = []
+        for key in ("title", "lead", "takeaway", "footnote"):
+            probes.append(slide.get(key))
+        for block in slide.get("blocks") or []:
+            if isinstance(block, dict):
+                probes.extend([block.get("heading"), block.get("body"), block.get("footer")])
+        for panel in slide.get("panels") or []:
+            if isinstance(panel, dict):
+                probes.extend([panel.get("heading"), panel.get("body")])
+        for variable in slide.get("variables") or []:
+            if isinstance(variable, dict):
+                probes.append(variable.get("symbol"))
+        for probe in probes:
+            if not isinstance(probe, str):
+                continue
+            hit = pseudo.search(probe)
+            if hit:
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    f"Pseudo-formula in visible text: '{hit.group(0)}'. Use Unicode subscripts (Nₛ, Eₚ, fₚᵣ) or keep it in formula_latex.",
+                )
+                break
+
+    # Design audit: structure, hierarchy and emphasis. These are warnings rather
+    # than errors because "looks like a form" cannot invalidate an otherwise
+    # valid deck, but it should never pass silently either.
+    try:
+        from qa_design import audit_design
+
+        design = audit_design(deck, theme, Path(args.render_dir))
+        for check in design["checks"]:
+            if check["ok"]:
+                continue
+            add_issue(
+                issues,
+                "warning",
+                "design",
+                f"Design: {check['metric']} = {check['value']} (target {check['target']}). {DESIGN_HINTS.get(check['metric'], '')}".strip(),
+            )
+    except Exception as exc:  # noqa: BLE001 - the audit must never break validation
+        add_issue(issues, "warning", "design", f"Design audit skipped: {type(exc).__name__}: {exc}")
 
     error_count = sum(1 for issue in issues if issue["severity"] == "error")
     warning_count = sum(1 for issue in issues if issue["severity"] == "warning")

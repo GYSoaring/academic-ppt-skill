@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Brand, type hygiene and emblem sourcing (2026-11-16, second pass)
+
+- **Fixed header-title overflow in PowerPoint.** The exporter hard-coded a 62 px title box while the lecture title is 68 px, so titles spilled into the divider in PowerPoint (invisible in the PNG preview). Box height now derives from the measured size (`title_size × 1.28`).
+- **Smallest type raised to 18.75 pt.** Lecture scale: `footnote` 36 → 40 px, `micro` 36 → 40 px, `small` 38 px. Nothing in a projected deck should be smaller.
+- **Calligraphic school name.** New `fonts.brand` / `pptx_fonts.brand` slots; the brand line no longer borrows the title sans. `cn_defense` ships with 华文行楷 (`STXingkai`).
+- **`scripts/resolve_emblem.py` (new).** Walks Wikimedia Commons → zh.wikipedia → school homepage → favicon, downloads the first usable candidate, and reports the trail. It never draws a seal; "not found" is a valid, reported outcome. Includes a `curl` fallback because Python's urllib resets TLS on some Windows installs (`WinError 10054`) while curl works — a false "not found" was masking real hits.
+- **Pseudo-formula guard.** `validate_deck.py` now warns when visible text contains `N_s`-style ASCII subscripts; use `Nₛ`, `Eₚ`, `fₚᵣ` or keep it in `formula_latex`.
+- **Covers default to `editorial`** in `cn_defense`, and the theme's header band grew to 132 px to hold a 68 px title.
+
+### Design audit and lean themes (2026-11-16)
+
+- **New** `scripts/qa_design.py`: ten structural proxies (dominant object, card-only ratio, emphasis density, assertion ratio, takeaway ratio, layout runs, image pages, characters per line, ink-coverage rhythm, chrome share) scored 0–100 with an A–D grade. `validate_deck.py` now surfaces failing checks as warnings with a fix hint.
+- **New** `scripts/compare_human.py`: benchmarks a deck against human-made PPTX files on width-normalised geometry (type scale, font-step count, pictures, objects, characters, margins). Reports pass/fail per metric.
+- **New** theme `assets/themes/cn_defense/`: palette measured from a real Chinese defense deck (primary `#1A4E9B`, accent `#A82F2E`), card header bars, lean defaults, documented in `references/cn-defense-style.md`.
+- Fixed a crash that made **two of the three bundled examples unrenderable**: `draw_references` passed an extra positional argument, so `fit_text_block()` received `max_lines` twice.
+- `layout.sidebar_mode` (`always` / `section` / `off`) with `layout.content_no_sidebar`; the mini directory no longer has to appear on every page. The PPTX exporter honours the same policy.
+- `layout.outline_style: "lines"` renders the outline as a numbered list instead of five shadowed cards (44 → 23 objects on a five-section deck).
+- Decoration switches, all default-on and backwards compatible: `panel.corner_marks`, `panel.card_index`, `panel.card_highlight`, `layout.block_icons`, `layout.lead_panel`. Together they take a 13-page deck from 33.4 to **26.2 objects per page** without touching text.
+- The lecture type ladder was collapsed from 12 distinct sizes to 10 and the smallest step raised from 24 px to 34 px (≈16 pt), because human decks run on six or seven sizes and nothing below 16 pt.
+- Formula variable rows are now one text object per line instead of three objects per symbol (separator, symbol, meaning); a 7-variable page drops from 65 to 51 objects.
+- `references/cn-defense-style.md` documents the measured palette range (H 213–217°), the card-header-bar convention, and a per-layer object cost table.
+
 - Defense readability now includes density-aware validation, a stricter PPTX rebuild workflow, research-backed 24/18/32 pt gates, sans-serif body enforcement, semantic body-bold enforcement, and a required paper-sourced figure with provenance metadata.
 - The portable `agent_brief.md` now carries the same hard contract for other generators: bold sans-serif 24 pt body, 32–40 pt headings, 18 pt secondary chrome, and at least one provenance-tagged paper figure.
 - Fixed the defense PNG renderer's clamped `fit_text` helper so it calls `fit_text_block` instead of recursing.

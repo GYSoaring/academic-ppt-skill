@@ -82,6 +82,36 @@ python scripts/build_brand_lockup.py \
 
 The typeset path is a fallback. It records `typographic_fallback: true`; do not present it as the official school wordmark.
 
+
+## Lean Mode（可选：把版面骨架的花销压下来）
+
+同一份内容，一个页面的对象数从 ~33 压到 ~29 甚至 ~21，靠的是下面五个开关。它们都只删装饰、不动文字，
+所以不需要改 deck.json：
+
+```json
+{
+  "panel": {
+    "corner_marks": false,      // 面板四角的小折角（每块 4 个对象）
+    "card_index": false,        // 卡片左上角的 01 / 02
+    "card_highlight": false,    // 标题条顶部那条高光
+    "header_style": "gradient"  // gradient = 深蓝标题条；flat = 纯色，会与 PPTX 导出不一致
+  },
+  "layout": {
+    "block_icons": "off",       // 圆形图标徽章
+    "lead_panel": false,        // lead 的浅灰底板；关掉后文字直接压在纸面上
+    "sidebar_mode": "off",      // 常驻小目录
+    "panel_radius": 2,
+    "panel_shadow_alpha": 0
+  }
+}
+```
+
+实测（13 页 deck，同内容）：全开 33.4 对象/页 → 关角标+序号+高光 32.4 → 再去 lead 底板 28.8，
+单页最低 21。作为参照，一份真人做的同题材答辩 deck 是 15.8 对象/页。
+
+**注意**：`lead_panel: false` 会让版面明显变松。这是审美选择，不是优化，用之前请先看渲染结果。
+`header_style: "flat"` 只在 PNG 预览里生效，PPTX 导出器不读它——需要扁平卡片就得改导出器。
+
 ## Minimum Theme Contract
 
 - `canvas.width` and `canvas.height`
@@ -90,6 +120,8 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
 - `layout.content`, `layout.sidebar`, `layout.header_height`, `layout.footer_y`, and `layout.takeaway_top`
 - `type_scale.header_title` and `type_scale.eyebrow` must describe the same header type size; `layout.title_size` and `layout.chapter_size` should also match. The renderer fits both to the same measured size so a long title shrinks together with its chapter number.
 - `type_profiles` is optional. If omitted, built-in scales cover `projection`, `lecture`, and `defense`. A theme may override a profile with `type_profiles.<name>.type_scale` to match its own layout density. `text.body_bold_min_px` and `text.body_bold_max_px` constrain semantic body bolding; do not use `body_bold` as a global bold-all switch.
+- `layout.sidebar_mode`: `always` | `section` | `off`. `off` also uses `layout.content_no_sidebar` as the text box, which is how a theme buys back the 260 px the directory occupied.
+- `layout.panel_radius` and `layout.panel_shadow_alpha`: a designed academic theme is flat. Defaults are `8` px and `20`; `2` / `0` with `panel.header_style = "flat"` removes the dashboard feel without touching any layout code.
 - `brand.lockup` or `brand.fallback_text`
 - `cover.style`: `centered` or `editorial`
 

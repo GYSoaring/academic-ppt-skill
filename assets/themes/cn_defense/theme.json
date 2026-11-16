@@ -1,0 +1,200 @@
+{
+  "name": "cn_defense",
+  "display_name": "中文答辩蓝（实测配色）",
+  "canvas": {
+    "width": 2048,
+    "height": 1152
+  },
+  "colors": {
+    "paper": "#F7F9FC",
+    "paper_alt": "#EAF0F7",
+    "white": "#FFFFFF",
+    "ink": "#16283C",
+    "muted": "#5A6C7D",
+    "blue": "#1A4E9B",
+    "blue_dark": "#123A75",
+    "blue_mid": "#4A6FA5",
+    "blue_bright": "#6E8FC7",
+    "blue_pale": "#DCE6F3",
+    "blue_wash": "#F0F5FB",
+    "line": "#B9C9DD",
+    "red": "#A82F2E",
+    "green": "#2C6E58"
+  },
+  "fonts": {
+    "title": [
+      "C:/Windows/Fonts/Noto Sans SC Bold (TrueType).otf",
+      "C:/Windows/Fonts/msyhbd.ttc",
+      "C:/Windows/Fonts/simhei.ttf",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
+    ],
+    "body": [
+      "C:/Windows/Fonts/Noto Sans SC Medium (TrueType).otf",
+      "C:/Windows/Fonts/msyh.ttc",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    ],
+    "serif": [
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "C:/Windows/Fonts/simkai.ttf",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"
+    ],
+    "display": [
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
+    ],
+    "formula": [
+      "C:/Windows/Fonts/cambria.ttc",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Cambria.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+    ],
+    "latin": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    ],
+    "brand": [
+      "C:/Windows/Fonts/STXINGKA.TTF",
+      "C:/Windows/Fonts/STKAITI.TTF",
+      "C:/Windows/Fonts/simkai.ttf"
+    ]
+  },
+  "pptx_fonts": {
+    "title": "Noto Sans SC",
+    "body": "Noto Sans SC",
+    "display": "STZhongsong",
+    "latin": "Arial",
+    "formula": "Cambria Math",
+    "brand": "STXingkai"
+  },
+  "type_scale": {
+    "cover_title": 76,
+    "cover_subtitle": 32,
+    "cover_info": 31,
+    "header_title": 46,
+    "eyebrow": 48,
+    "lead": 28,
+    "takeaway": 27,
+    "quote_text": 40,
+    "sidebar": 27,
+    "block_title": 25,
+    "body": 22,
+    "bullet": 21,
+    "small": 18,
+    "micro": 15,
+    "metric_value": 58,
+    "metric_label": 24,
+    "table_header": 26,
+    "table_cell": 24,
+    "reference_title": 22,
+    "reference_meta": 16,
+    "footnote": 15
+  },
+  "brand": {
+    "lockup": null,
+    "cover_box": [
+      672,
+      54,
+      1376,
+      292
+    ],
+    "header_box": [
+      1778,
+      9,
+      1998,
+      78
+    ],
+    "fallback_text": "学校名称"
+  },
+  "background": {
+    "motif": "arcs",
+    "arc": true,
+    "noise": 1.1,
+    "motif_opacity": 0.14
+  },
+  "layout": {
+    "header_height": 132,
+    "divider_y": 116,
+    "footer_y": 1102,
+    "margin_x": 36,
+    "title_x": 216,
+    "title_y": 38,
+    "title_size": 48,
+    "chapter_x": 122,
+    "chapter_y": 48,
+    "chapter_size": 48,
+    "slash_x": 24,
+    "slash_y": 18,
+    "slash_width": 34,
+    "slash_height": 74,
+    "sidebar": [
+      40,
+      278,
+      260,
+      796
+    ],
+    "content": [
+      320,
+      186,
+      1992,
+      986
+    ],
+    "content_top": 186,
+    "lead_height": 88,
+    "takeaway_top": 996,
+    "takeaway_height": 68,
+    "sidebar_mode": "off",
+    "content_no_sidebar": [
+      96,
+      186,
+      1992,
+      986
+    ],
+    "panel_radius": 3,
+    "panel_shadow_alpha": 6,
+    "block_icons": "off",
+    "lead_panel": false,
+    "outline_style": "lines"
+  },
+  "cover": {
+    "title_y": 352,
+    "title_size": 74,
+    "subtitle_y": 458,
+    "subtitle_size": 34,
+    "rule_y": 526,
+    "info_y": 595,
+    "info_size": 31,
+    "bottom_arc": true,
+    "style": "editorial"
+  },
+  "outline": {
+    "x": 300,
+    "y": 208,
+    "width": 1540,
+    "row_height": 122,
+    "gap": 27
+  },
+  "table": {
+    "header_height": 62,
+    "row_height": 88,
+    "font_size": 24,
+    "header_size": 26
+  },
+  "panel": {
+    "header_style": "gradient",
+    "corner_marks": false,
+    "card_index": false,
+    "card_highlight": false
+  }
+}

@@ -35,9 +35,11 @@ Produce a self-contained output directory containing:
 5. Set `meta.deck_mode` to `content_only` when the user explicitly asks to remove the cover and table of contents; otherwise keep `full`.
 6. For each content page, write a short topic `title` (4–10 Chinese characters, default `title_max_chars: 10`) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header. The validator warns when a header reads like a sentence. Humanities decks may let a quotation or image carry more of the page, but keep a short title for navigation and accessibility. Only when the user explicitly asks for an assertion-driven deck, set `meta.title_mode` to `assertion` and raise `title_max_chars` deliberately.
 7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use the user's paper figures first, then an open-access paper figure with a source line, then a content-derived `footer` / `output` strip, formula, table, or semantic `diagram`; never insert an unrelated placeholder image.
+   **One dominant object per page.** A page needs a main thing — one figure, one table, one formula, one schematic, one number — and at most two supporting blocks. Three equal cards are not a hierarchy, they are a table of contents. If you cannot name the page's dominant object in one phrase, the page is a form.
+   Prose columns must stay readable: keep Chinese body lines at 18 characters or more. A three-column `grid` at 1672 px puts 13 characters on a line and reads as chopped text, so prefer two columns and let one block span.
    For a defense-room deck, at least one `figure` / `figure_flow` page must use a paper-sourced image (`image_origin: own`, `public`, or `borrowed`) with `source`, `image_role`, and `image_boundary`; a decorative template image does not satisfy this requirement.
 8. Write every slide's `speech` with [references/speech-writing.md](references/speech-writing.md), then run `scripts/build_ghost_deck.py`. `build_speech.py` now also writes `speech_audit.md/json`; read [references/speech-deai.md](references/speech-deai.md) and treat A/B hits as rewrite candidates. Do not auto-change facts, numbers, citations, or X-level items. If the title chain plus claims cannot be understood without the full speech, fix the titles and leads before styling.
-9. Select or copy a theme. Use `assets/themes/academic_blue/theme.json` as the public default, `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, `assets/themes/tju_blue/theme.json` for the Tianjin University visual system, or `assets/themes/nanjing_purple/theme.json` for the official calligraphic-wordmark example. Use `document` for dense handouts, `projection` or `lecture` for teaching, and `defense` for a projected defense deck with 24 pt body text, 32–40 pt headings, and semantic body bold. Read [references/defense-readability.md](references/defense-readability.md) before diagnosing an existing PPTX or using the `defense` profile.
+9. Select or copy a theme. Use `assets/themes/academic_blue/theme.json` as the public default, `assets/themes/cn_defense/theme.json` for the Chinese defense / award-application look (measured palette, card header bars, no icon badges — see references/cn-defense-style.md), `assets/themes/zju_blue/theme.json` as a Zhejiang University editorial example, `assets/themes/tju_blue/theme.json` for the Tianjin University visual system, or `assets/themes/nanjing_purple/theme.json` for the official calligraphic-wordmark example. Use `document` for dense handouts, `projection` or `lecture` for teaching, and `defense` for a projected defense deck with 24 pt body text, 32–40 pt headings, and semantic body bold. Read [references/defense-readability.md](references/defense-readability.md) before diagnosing an existing PPTX or using the `defense` profile.
 10. If the user provides an existing PPTX template, run `scripts/import_pptx_theme.py` to extract its theme colors and major/minor fonts into a `theme.json` draft. Review the draft before using it. If the user provides an official seal or school-name lockup, place it in the theme folder and update `brand.lockup`. If the emblem is a local file or a public URL, run `scripts/build_brand_lockup.py` to remove the white background, crop it, compose the "emblem + name" lockup, and write the asset paths back to `theme.json`. Prefer an official horizontal lockup via `--lockup` (with `--lockup-crop` and `--recolor-lockup`) so the school name uses its official calligraphic wordmark; typeset composition is only a fallback. Use `--search-query` to look up a candidate on Wikimedia Commons; always show the selected source to the user. Do not invent or redraw an official seal.
 11. Render a five-page sample first (`--sample 5`) and inspect it. After the visual direction is confirmed, render the full deck, export the native editable PowerPoint, and validate both:
 
@@ -48,6 +50,7 @@ python scripts/build_speech.py --deck path/to/deck.json --out path/to/output
 python scripts/build_ghost_deck.py --deck path/to/deck.json --out path/to/output
 python scripts/build_qa.py --deck path/to/deck.json --out path/to/output --count 10
 python scripts/validate_deck.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --render-dir path/to/output/rendered --out path/to/output --profile document
+python scripts/qa_design.py --deck path/to/deck.json --theme assets/themes/academic_blue/theme.json --render-dir path/to/output/rendered --out path/to/output
 python scripts/validate_pptx.py --pptx path/to/output/defense_deck.pptx --deck path/to/deck.json --out path/to/output
 python scripts/check_accessibility.py --pptx path/to/output/defense_deck.pptx --out path/to/output
 python scripts/render_pptx_preview.py --pptx path/to/output/defense_deck.pptx --out path/to/output/pptx_preview --compare-dir path/to/output/rendered --strict
@@ -63,10 +66,32 @@ python scripts/import_pptx_theme.py --pptx path/to/school_template.pptx --out pa
 python scripts/build_brand_lockup.py --theme path/to/theme/theme.json --name "学校名称" --latin "UNIVERSITY NAME" --emblem path/to/emblem.png
 python scripts/build_brand_lockup.py --theme path/to/theme/theme.json --name "学校名称" --lockup path/to/official_lockup.png --lockup-crop "0,0,236,88" --recolor-lockup
 python scripts/find_figures.py --query "vision language action robot" --out path/to/figure_pack
+python scripts/resolve_emblem.py --name "学校名称" --latin "UNIVERSITY NAME" --out path/to/emblem
 python scripts/suggest_figures.py --deck path/to/deck.json --figures path/to/figure_pack/figures.json --out path/to/figure_suggestions --query "vision language action robot"
 ```
 
 12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.
+
+
+## Brand and Type Hygiene
+
+These are the defects that make a generated deck look machine-made even when the layout is sound. They are cheap to prevent and expensive to notice late.
+
+- **Overflowing header titles.** The PowerPoint header title box must be at least `title_size × 1.28` tall. A box shorter than its font renders fine in the PNG preview (PIL does not clip) and spills into the divider in PowerPoint. The exporter now derives the height from the measured size; keep it that way when editing.
+- **Nothing below 18.75 pt.** At the `lecture` profile the smallest step is 40 px (≈18.75 pt). Footnotes, captions and symbol rows included. If a page cannot fit its content at that floor, cut content or split the page.
+- **No ASCII pseudo-formulas in visible text.** `N_s`, `E_p`, `f_prf` read as code, not math. Use real subscripts (`Nₛ`, `Eₚ`, `fₚᵣ`) or keep the expression in `formula_latex`. `validate_deck.py` warns on the underscore form.
+- **The school name needs a hand-written face.** Set `fonts.brand` to a calligraphic CJK font (Windows: `C:/Windows/Fonts/STXINGKA.TTF`, 华文行楷) and `pptx_fonts.brand` to its family name (`STXingkai`). Never let the brand line fall back to the body sans — a typed school name is the single most obvious "this was generated" tell.
+- **The emblem must come from a real source.** Run `scripts/resolve_emblem.py --name 学校名 --latin "University Name"` first; it walks Wikimedia Commons → zh.wikipedia → the school homepage → favicon and reports what each step returned. If it finds nothing, ask the user for the official file. Drawing a seal is forbidden.
+- **Covers default to `editorial`.** A left accent bar, left-aligned wordmark, a vertical rule and a quiet right column read as designed; a centred stack of title + subtitle + three info lines reads as a form.
+
+## Style Families
+
+Two reference families pull in opposite directions, and both are legitimate:
+
+- **Institutional cover templates** (school VI decks) are sparse: about 9 elements and 90 characters per page. Use them as the ceiling for *decoration*, not the target for content density.
+- **Chinese defense / award decks** are dense: four cards, nested boxes, a conclusion band. Their palette is measurable and lives in a narrow range — see [references/cn-defense-style.md](references/cn-defense-style.md) before inventing a "deep blue".
+
+Pick one family per deck and stay in it. Mixing a sparse cover template's whitespace with a defense deck's card stack is what makes output feel assembled rather than designed.
 
 ## Fixed Visual Contract
 
@@ -77,7 +102,8 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - The cover may be centered or editorial; choose once in the theme. The editorial variant uses a left title column and a faint watermark, but still keeps one institutional identity.
 - Outline: only the five or six section titles, with no descriptions, page ranges, or mini-directory.
 - Content-only mode: omit both cover and outline when explicitly requested; start directly with the first content page while keeping the fixed header, footer, identity, and mini-directory.
-- Content pages: fixed header, fixed upper-right identity, fixed footer rule, and a five-item mini-directory from the third page onward.
+- Content pages: fixed header, fixed upper-right identity, fixed footer rule, and a five-item mini-directory from the third page onward. The mini-directory is configurable through `layout.sidebar_mode`: `always` (historical default), `section` (only where a new section starts), or `off` (removed, with `layout.content_no_sidebar` widening the text column). A directory repeated on fifteen pages is furniture, not navigation — prefer `section` or `off` for anything shorter than a thesis defense, and reserve `always` for decks that are read non-linearly.
+- The takeaway band is optional and should be rare. Write `takeaway` only when the page's conclusion differs from its `lead` and turns the argument; a takeaway that repeats the lead or the title is decoration.
 - Every slide must have a real PowerPoint title placeholder; pictures and charts need semantic alt text; background textures, lockups used as decoration, and non-text chrome must be marked decorative; comparison tables need header-row semantics.
 - Treat `source_manifest.json` as the evidence index: every figure used in a slide should be traceable to a source file and page/section.
 - A theme imported from a PPTX is a draft. Review the mapped palette, fonts, and identity assets before delivery; do not assume a template's accent colors are semantically correct for a new topic.
@@ -109,6 +135,7 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Generated illustrations may clarify a mechanism, but never carry exact Chinese labels, numbers, axes, or citations. Those belong in the deterministic layer.
 - For formulas, store the portable plain fallback in `formula` and the LaTeX source in `formula_latex`. The renderer uses LaTeX-style math typesetting when available and falls back to the plain string without failing.
 - Use real subscript characters or LaTeX math for symbol rows such as `tₑ` or `uₑ`; do not leave code-like `t_e` in the visible slide.
+- `scripts/qa_design.py` is the design gate. It scores ten structural proxies (dominant-object ratio, card-only ratio, emphasis density, assertion ratio, takeaway ratio, layout runs, image pages, characters per line, ink-coverage rhythm, chrome share) and grades the deck A–D. A deck below 85 is not finished, whatever the overflow report says. `validate_deck.py` already surfaces the failing checks as warnings.
 - Treat `render_report.json` warnings as delivery blockers when they indicate overflow, missing assets, or incomplete content. Use `render_pptx_preview.py` for a real PowerPoint/LibreOffice rendering check; do not rely on the PIL preview alone.
 - Use `projection` or `lecture` for teaching and `defense` for a defense-room deck. If a projected profile reports overflow, split the page or remove secondary text; do not shrink below the profile minimum to force it. Read [references/defense-readability.md](references/defense-readability.md) for the university accessibility and scientific-presentation evidence behind these sizes.
 - Keep 24 pt defense body text sans-serif and bold, titles at least 32 pt, and every substantive visible run at least 18 pt. Leave footnotes, reference metadata, captions, and micro-labels regular; `text.body_bold_min_px` / `text.body_bold_max_px` define the semantic body range. In native PPTX output, pre-wrap Chinese runs to their text-box width and use 1.0 line spacing so PowerPoint does not repack measured lines; reserve a full line height for headings and micro-labels instead of shrinking below 18 pt. `validate_deck.py --profile defense` rejects themes whose type scale, font family, bold range, or paper-figure provenance violates these rules. Use `audit_pptx.py` and `render_pptx_preview.py` to check the exported PPTX, not just the PNG preview.

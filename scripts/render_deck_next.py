@@ -110,6 +110,30 @@ class DeckRenderer:
         self.panel_shadow_alpha = int(self.layout.get("panel_shadow_alpha", 20))
         self.warnings: list[dict] = []
         self.section_map = {section["id"]: index for index, section in enumerate(self.deck.get("sections", []))}
+        # Sidebar (mini directory) policy: "always" keeps the historical behaviour,
+        # "section" shows it only where a new section starts, "off" removes it and
+        # lets the content box widen to `layout.content_no_sidebar`.
+        self.sidebar_mode = str(self.layout.get("sidebar_mode", "always")).strip().lower() or "always"
+        self.section_openers: set[str] = set()
+        previous_section = None
+        for item in self.deck.get("slides", []):
+            if item.get("layout") in {"cover", "outline"}:
+                continue
+            current_section = item.get("section")
+            if current_section != previous_section:
+                self.section_openers.add(str(item.get("id", "")))
+                previous_section = current_section
+        import design as _design_module
+
+        _design_module.DRAW_ICONS = str(self.layout.get("block_icons", "on")).strip().lower() != "off"
+        _design_module.DRAW_CORNER_MARKS = bool((self.theme.get("panel", {}) or {}).get("corner_marks", True))
+        _panel_cfg = self.theme.get("panel", {}) or {}
+        self.card_index = bool(_panel_cfg.get("card_index", True))
+        self.card_highlight = bool(_panel_cfg.get("card_highlight", True))
+        if self.sidebar_mode == "off":
+            wide = self.layout.get("content_no_sidebar")
+            if isinstance(wide, (list, tuple)) and len(wide) == 4:
+                self.layout["content"] = [int(value) for value in wide]
         self.lockup = self.load_lockup()
         self.emblem = self.load_emblem()
 
@@ -208,7 +232,7 @@ class DeckRenderer:
         font, lines, _, fits = self.fit_text(
             draw,
             text,
-            self.theme["fonts"]["title"],
+            self.theme["fonts"].get("brand") or self.theme["fonts"]["title"],
             inside_width,
             bottom - top,
             fallback_size,
@@ -296,10 +320,19 @@ class DeckRenderer:
         self.draw_brand(image, tuple(self.theme["brand"]["header_box"]))
         draw.rectangle((24, int(self.layout["footer_y"]), self.width - 24, int(self.layout["footer_y"]) + 3), fill=blue)
 
-    def draw_sidebar(self, image: Image.Image, active_section: str | None) -> None:
+    def draw_sidebar(self, image: Image.Image, active_section: str | None, slide_id: str | None = None) -> None:
         sections = self.deck.get("sections", [])
         if not sections:
             return
+        if self.sidebar_mode == "off":
+            return
+        if self.sidebar_mode == "section":
+            if str(slide_id or "") not in self.section_openers:
+                return
+            # The directory needs 300 px of left margin. If the theme widened the
+            # text box into that margin, drawing it would overlap the body text.
+            if float(self.layout["content"][0]) < 300:
+                return
         draw = ImageDraw.Draw(image)
         left, top, right, bottom = map(int, self.layout["sidebar"])
         gap = 10
@@ -365,16 +398,17 @@ class DeckRenderer:
         draw = ImageDraw.Draw(image)
         left, _, right, _ = map(int, self.layout["content"])
         height = int(self.layout.get("lead_height", 88))
-        draw_gradient_panel(
-            image,
-            draw,
-            (left, top, right, top + height),
-            mix_color(self.color("blue_wash"), self.color("white"), 0.12),
-            self.color("white"),
-            self.color("line"),
-            radius=self.panel_radius,
-            width=1,
-        )
+        if self.layout.get("lead_panel", True):
+            draw_gradient_panel(
+                image,
+                draw,
+                (left, top, right, top + height),
+                mix_color(self.color("blue_wash"), self.color("white"), 0.12),
+                self.color("white"),
+                self.color("line"),
+                radius=self.panel_radius,
+                width=1,
+            )
         label = str(self.layout.get("lead_label", "")).strip()
         if label:
             label_width = int(self.layout.get("lead_label_width", 168))
@@ -790,9 +824,26 @@ class DeckRenderer:
         sections = self.deck.get("sections", [])
         spine_x = left - 34
         last_row_bottom = top + len(sections) * (row_height + gap) - gap
-        draw.line((spine_x, top + 15, spine_x, last_row_bottom - 15), fill=self.color("line"), width=2)
+        lines_style = str(self.layout.get("outline_style", "cards")).strip().lower() == "lines"
+        if not lines_style:
+            draw.line((spine_x, top + 15, spine_x, last_row_bottom - 15), fill=self.color("line"), width=2)
         for index, section in enumerate(sections):
             row_top = top + index * (row_height + gap)
+            if lines_style:
+                number_font, _, _, _ = self.fit_text(
+                    draw, f"{index + 1:02d}", self.theme["fonts"]["title"], 130, row_height - 8,
+                    self.type_size("header_title", 46), 20, max_lines=1,
+                )
+                draw.text((left, row_top + (row_height - line_height(number_font)) // 2), f"{index + 1:02d}",
+                          font=number_font, fill=self.color("blue"))
+                title_font, title_lines, _, _ = self.fit_text(
+                    draw, str(section["title"]), self.theme["fonts"]["title"], width - 210, row_height - 8,
+                    self.type_size("block_title", 44), 20, max_lines=1,
+                )
+                draw.text((left + 140, row_top + (row_height - line_height(title_font)) // 2),
+                          title_lines[0] if title_lines else str(section["title"]), font=title_font, fill=self.color("ink"))
+                draw.line((left, row_top + row_height - 6, left + width, row_top + row_height - 6), fill=self.color("line"), width=2)
+                continue
             draw.ellipse((spine_x - 6, row_top + row_height // 2 - 6, spine_x + 6, row_top + row_height // 2 + 6), fill=self.color("blue_mid"))
             draw_shadowed_panel(
                 image,
@@ -880,7 +931,7 @@ class DeckRenderer:
         self.current_slide = slide
         image = self.background(page_number)
         self.draw_header(image, slide)
-        self.draw_sidebar(image, slide.get("section"))
+        self.draw_sidebar(image, slide.get("section"), str(slide.get("id", "")))
         draw = ImageDraw.Draw(image)
         return image, draw
 
@@ -921,7 +972,7 @@ class DeckRenderer:
             draw.rectangle((header_box[0], header_box[3] - 1, header_box[2], header_box[3]), fill=self.color("blue"))
         heading_font = self.fonts.get(TextStyle(bold=True), self.type_size("block_title", 26))
         text_left = left + 16
-        if index:
+        if index and getattr(self, "card_index", True):
             index_font = self.fonts.get(TextStyle(bold=True), 20)
             index_y = top + (height - line_height(index_font)) // 2
             draw.text((left + 18, index_y), index, font=index_font, fill=self.color("blue_pale"))
@@ -2164,47 +2215,34 @@ class DeckRenderer:
             column_gap = 18
             column_width = (left_right - left - column_gap * (columns - 1)) // columns
             rows = math.ceil(len(variables) / columns)
-            symbol_height = max(38, int(self.type_size("body", 22) * 0.72))
-            meaning_size = self.type_size("small", 16)
-            min_row_height = symbol_height + meaning_size + 22
-            row_height = max(min_row_height, (bottom - variables_top - title_height - 18) // max(1, rows))
-            for index, item in enumerate(variables):
-                column = index % columns
-                row = index // columns
+            line_count = max(1, rows)
+            # Keep these numbers identical to export_editable_pptx.py so the PNG
+            # preview and the delivered PPTX put each line in the same place.
+            block_height = max(48, bottom - variables_top - 52)
+            line_height = block_height // line_count
+            body_size = self.type_size("small", 16)
+            for column in range(columns):
+                chunk = variables[column * rows : (column + 1) * rows]
+                if not chunk:
+                    continue
                 x = left + column * (column_width + column_gap)
-                y = variables_top + title_height + 10 + row * row_height
-                draw.line((x, y + row_height - 6, x + column_width, y + row_height - 6), fill=mix_color(self.color("line"), self.color("white"), 0.35), width=1)
-                symbol = str(item.get("symbol", "")).strip()
-                meaning = str(item.get("meaning", "")).strip()
-                symbol_font, symbol_lines, _, symbol_fits = self.fit_text(
-                    draw,
-                    symbol,
-                    self.formula_fonts,
-                    column_width - 10,
-                    symbol_height,
-                    26,
-                    13,
-                    max_lines=1,
-                )
-                if not symbol_fits:
-                    self.warn(str(slide.get("id", "")), f"Formula symbol overflowed: {symbol}")
-                draw.text((x, y), symbol_lines[0] if symbol_lines else symbol, font=symbol_font, fill=self.color("blue"))
-                meaning_top = y + symbol_height + 2
-                fits, _ = draw_rich_block(
-                    draw,
-                    meaning,
-                    (x, meaning_top),
-                    column_width - 10,
-                    max(24, row_height - symbol_height - 10),
-                    self.fonts,
-                    self.colors,
-                    meaning_size,
-                    max(20, int(meaning_size * 0.72)),
-                    max_lines=2,
-                    line_ratio=1.16,
-                )
-                if not fits:
-                    self.warn(str(slide.get("id", "")), f"Formula variable meaning overflowed: {symbol}")
+                for row_index, item in enumerate(chunk):
+                    symbol = str(item.get("symbol", "")).strip()
+                    meaning = str(item.get("meaning", "")).strip()
+                    y = variables_top + 42 + row_index * line_height
+                    font, lines, _, fits = self.fit_text(
+                        draw,
+                        f"{symbol}　{meaning}",
+                        self.theme["fonts"]["body"],
+                        column_width - 6,
+                        line_height - 4,
+                        body_size,
+                        max(12, body_size - 6),
+                        max_lines=1,
+                    )
+                    if not fits:
+                        self.warn(str(slide.get("id", "")), f"Formula variable overflowed: {symbol}")
+                    draw.text((x, y), lines[0] if lines else f"{symbol}　{meaning}", font=font, fill=self.color("ink"))
 
         panels = slide.get("panels") or []
         if panels:
@@ -3427,7 +3465,6 @@ class DeckRenderer:
                         text_width_available,
                         reference_meta_size * 1.4,
                         max(16, int(reference_meta_size * 0.9)),
-                        11,
                         11,
                         max_lines=1,
                         line_ratio=1.1,
