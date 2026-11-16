@@ -89,6 +89,20 @@ These are the defects that make a generated deck look machine-made even when the
 
 
 
+
+## Titles: describe the page, argue in the body
+
+Default `title_mode` is **`summary`**. A page title says *what this page is about* (6-18 characters, noun phrase), the way a paper's subsection heading does. The judgment goes into `lead` (first sentence) and `claim`.
+
+Why: seven claim-titles in a row read as seven slogans, and the reader stops seeing the argument. A descriptive heading gives the map; the claim stays where the evidence can hold it up.
+
+- `summary` — headings are descriptive; `validate_deck` requires a `claim` on every content page, rejects assertion cues in the heading, and checks length.
+- `assertion` — opt-in for defense panels and executive briefings, where a conclusion must hit the reader in ten seconds. The cost is that every page then owes immediate evidence.
+
+Cover titles are a separate regime and may carry tension (`Solving olympiad geometry without human demonstrations`); the six Nature-style patterns are catalogued in `references/titles.md`. Panel headings are a third regime: two to six characters, nouns only (现象 / 机制 / 约束), never questions like 看到什么.
+
+`qa_design.py` skips `assertion_ratio` when the deck is in `summary` mode — a deck should not be scored for how punchy its headings are.
+
 ## Register: the slide is not the transcript
 
 A deck fails academically before it fails visually. Two community skills — `zLanqing/codex-claude-academic-skills` (6.0k★) and `AIScientists-Dev/academic-humanizer` (5.3k★) — converge on the same rule: **claims carry evidence, and hype is a defect**. Their guidance is rewritten for Chinese decks in `references/academic-register.md`.

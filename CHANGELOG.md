@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Titles describe, claims move into the body (2026-11-16, sixth pass)
+
+- **`title_mode: summary` is now the default.** Page headings summarise what the page covers (6-18 characters); the judgment lives in `lead` and `claim`. Seven claim-titles in a row read as seven slogans.
+- `validate_deck.py`: summary mode checks heading length, rejects assertion cues in the heading, and requires a `claim` on every page — the judgment may not vanish from both places.
+- `qa_design.py`: `assertion_ratio` is skipped in summary/topic mode; punchy headings are no longer scored.
+- **`references/titles.md` (new).** Three regimes — cover titles (six Nature patterns, constraint-as-contribution), page titles (descriptive), panel headings (two to six character nouns) — with before/after examples.
+
+
 ### Academic register is now enforced (2026-11-16, fifth pass)
 
 - **`references/academic-register.md` (new).** Structure for a literature review (five moves, each page carrying claim/evidence/boundary) plus eleven categories of AI-writing tells translated into Chinese: over-claiming, significance hype, empty intensifiers, novelty padding, formulaic openers, connective overuse, contribution cliches, citation dumping, hedging-by-vagueness, boilerplate emphasis, clause stacking. Distilled from `zLanqing/codex-claude-academic-skills` (6.0k★) and `AIScientists-Dev/academic-humanizer` (5.3k★).

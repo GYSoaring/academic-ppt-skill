@@ -252,6 +252,11 @@ def audit_design(deck: dict, theme: dict | None, render_dir: Path | None = None)
     }
 
     checks = []
+    # `summary` decks deliberately keep headings descriptive and put the judgment in
+    # the body, so the assertion metric does not apply to them.
+    title_mode = str((deck.get("meta") or {}).get("title_mode", "")).strip().lower()
+    if title_mode in {"summary", "topic"}:
+        metrics.pop("assertion_ratio", None)
     have_rhythm = bool(ink_coverage_values)
     have_prose = bool([value for value in (chars_per_line(slide, theme or {}) for slide in content) if value is not None])
     for name, target in TARGETS.items():

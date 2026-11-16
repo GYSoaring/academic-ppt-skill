@@ -311,8 +311,8 @@ def main() -> None:
     if not deck.get("meta", {}).get("title"):
         add_issue(issues, "error", "meta", "Missing meta.title.")
     title_mode = str(deck.get("meta", {}).get("title_mode", "topic")).strip().lower()
-    if title_mode not in {"topic", "assertion"}:
-        add_issue(issues, "error", "meta", "meta.title_mode must be 'topic' or 'assertion'.")
+    if title_mode not in {"topic", "assertion", "summary"}:
+        add_issue(issues, "error", "meta", "meta.title_mode must be 'topic', 'assertion' or 'summary'.")
     genre = str(deck.get("meta", {}).get("genre", "general")).strip().lower()
     if genre not in GENRES:
         add_issue(issues, "error", "meta", f"meta.genre must be one of {sorted(GENRES)}.")
@@ -404,6 +404,30 @@ def main() -> None:
                     "warning",
                     page_id,
                     "title_mode is 'assertion' but this title reads as a topic label, not a claim.",
+                )
+        if title_mode == "summary" and layout not in {"cover", "outline", "section", "closing", "references"}:
+            title_text = str(slide.get("title", "")).strip()
+            length = len(re.sub(r"\s", "", title_text))
+            if not 6 <= length <= 18:
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    f"summary title should be 6-18 characters, got {length}.",
+                )
+            if is_assertion_title(title_text):
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    "summary title reads like a claim; move the judgment into lead/claim and keep the heading descriptive.",
+                )
+            if not str(slide.get("claim", "")).strip():
+                add_issue(
+                    issues,
+                    "error",
+                    page_id,
+                    "summary title mode requires a claim in the body - the judgment must live somewhere.",
                 )
         if layout not in {"cover", "outline"} and slide.get("section") not in section_ids:
             add_issue(issues, "error", page_id, f"Unknown or missing section: {slide.get('section')}")
