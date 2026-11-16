@@ -955,22 +955,24 @@ class DeckRenderer:
         num_top = int(height * 0.222)
         num_w = int(width * 0.335)
         num_h = int(height * 0.44)
-        size = int(num_h * 1.34)
-        number_font = self.fonts.get(TextStyle(bold=True), size)
-        while text_width(draw, number, number_font) > num_w and number_font.size > 60:
-            number_font = self.fonts.get(TextStyle(bold=True), int(number_font.size * 0.94))
-        mask = Image.new("L", (num_w, num_h), 0)
-        ImageDraw.Draw(mask).text(((num_w - text_width(draw, number, number_font)) // 2, int(num_h * 0.02)),
-                                  number, font=number_font, fill=255)
-        gradient = Image.new("RGB", (num_w, num_h))
+        probe = 400
+        base_font = self.fonts.get(TextStyle(bold=True), probe)
+        temp = Image.new("L", (probe * 3, probe * 2), 0)
+        ImageDraw.Draw(temp).text((probe // 2, probe // 4), number, font=base_font, fill=255)
+        bbox = temp.getbbox()
+        glyph = temp.crop(bbox) if bbox else temp
+        scale = min(num_w / glyph.width, num_h / glyph.height)
+        size = (max(1, int(glyph.width * scale)), max(1, int(glyph.height * scale)))
+        mask = glyph.resize(size, Image.Resampling.LANCZOS)
+        gradient = Image.new("RGB", size)
         gdraw = ImageDraw.Draw(gradient)
         top_rgb = self.color("blue_dark")
         bottom_rgb = mix_color(self.color("blue_mid"), self.color("white"), 0.55)
-        for row in range(num_h):
-            t = row / max(1, num_h - 1)
-            gdraw.line((0, row, num_w, row),
-                       fill=tuple(int(top_rgb[c] * (1 - t) + bottom_rgb[c] * t) for c in range(3)))
-        image.paste(gradient, (num_left, num_top), mask)
+        for row in range(size[1]):
+            p = row / max(1, size[1] - 1)
+            gdraw.line((0, row, size[0], row),
+                       fill=tuple(int(top_rgb[c] * (1 - p) + bottom_rgb[c] * p) for c in range(3)))
+        image.paste(gradient, (num_left + (num_w - size[0]) // 2, num_top + (num_h - size[1]) // 2), mask)
         draw = ImageDraw.Draw(image)
 
         # 中文标题 + 英文 + 细线

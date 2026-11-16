@@ -1817,36 +1817,45 @@ class EditableDeckExporter:
         self.add_rect(slide, (line_right - 7, line_y - 5, 14, 14), "white")
 
     def _build_number_asset(self, path: Path, number: str, box_w: int, box_h: int) -> None:
-        """生成竖向渐变的数字 PNG（上深下浅），供分隔页与 PPTX 共用。"""
+        """生成填满画布的渐变数字 PNG（上深下浅），供分隔页与 PPTX 共用。
+
+        做法：先在临时画布上渲染 → 按墨迹裁切 → 等比缩放到目标框。
+        直接按字号估算会把字裁掉（数字被切边就是这个原因）。
+        """
         from PIL import ImageDraw as _ImageDraw
         from PIL import ImageFont as _ImageFont
 
-        font_path = self.fonts.get("title")
-        size = int(box_h * 1.34)
+        font_path = first_existing(self.theme.get("fonts", {}).get("title"))
+        if font_path is None:
+            font_path = first_existing(self.theme.get("fonts", {}).get("display"))
+        probe = 400
         try:
-            font = _ImageFont.truetype(font_path, size)
+            font = _ImageFont.truetype(font_path, probe)
         except Exception:
             font = _ImageFont.load_default()
-        measure = _ImageDraw.Draw(Image.new("RGB", (4, 4)))
-        while measure.textlength(number, font=font) > box_w and size > 60:
-            size = int(size * 0.94)
-            try:
-                font = _ImageFont.truetype(font_path, size)
-            except Exception:
-                break
-        mask = Image.new("L", (box_w, box_h), 0)
-        text_width = measure.textlength(number, font=font)
-        _ImageDraw.Draw(mask).text(((box_w - text_width) / 2, box_h * 0.02), number, font=font, fill=255)
-        top_rgb, bottom_rgb = self.color("blue_dark"), self.color("blue_mid")
-        bottom_rgb = tuple(int(bottom_rgb[i] * 0.45 + 255 * 0.55) for i in range(3))
-        gradient = Image.new("RGB", (box_w, box_h))
+
+        temp = Image.new("L", (probe * 3, probe * 2), 0)
+        _ImageDraw.Draw(temp).text((probe // 2, probe // 4), number, font=font, fill=255)
+        bbox = temp.getbbox()
+        if bbox:
+            glyph = temp.crop(bbox)
+        else:
+            glyph = temp
+        scale = min(box_w / glyph.width, box_h / glyph.height)
+        size = (max(1, int(glyph.width * scale)), max(1, int(glyph.height * scale)))
+        mask = glyph.resize(size, Image.Resampling.LANCZOS)
+
+        top_rgb = self.color("blue_dark")
+        mid_rgb = self.color("blue_mid")
+        bottom_rgb = tuple(int(mid_rgb[i] * 0.45 + 255 * 0.55) for i in range(3))
+        gradient = Image.new("RGB", size)
         gdraw = _ImageDraw.Draw(gradient)
-        for row in range(box_h):
-            t = row / max(1, box_h - 1)
-            gdraw.line((0, row, box_w, row),
-                       fill=tuple(int(top_rgb[c] * (1 - t) + bottom_rgb[c] * t) for c in range(3)))
+        for row in range(size[1]):
+            p = row / max(1, size[1] - 1)
+            gdraw.line((0, row, size[0], row),
+                       fill=tuple(int(top_rgb[c] * (1 - p) + bottom_rgb[c] * p) for c in range(3)))
         layer = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 0))
-        layer.paste(gradient, (0, 0), mask)
+        layer.paste(gradient, ((box_w - size[0]) // 2, (box_h - size[1]) // 2), mask)
         layer.save(path, optimize=True)
 
     def draw_grid(self, slide, s: dict) -> None:
