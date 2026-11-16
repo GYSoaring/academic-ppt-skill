@@ -262,7 +262,7 @@ class DeckRenderer:
         resized = image.resize(size, Image.Resampling.LANCZOS)
         return resized, (left + (width - size[0]) // 2, top + (height - size[1]) // 2)
 
-    def draw_header(self, image: Image.Image, slide: dict) -> None:
+    def draw_header(self, image: Image.Image, slide: dict, with_title: bool = True) -> None:
         draw = ImageDraw.Draw(image)
         blue = self.color("blue")
         blue_mid = self.color("blue_mid")
@@ -920,49 +920,54 @@ class DeckRenderer:
 
     def draw_section(self, slide: dict, page_number: int) -> Image.Image:
         image = self.background(page_number)
-        self.draw_header(image, slide)
+        # 分隔页不画页眉标题：标题在版心居中，重复一次就是噪音
+        self.draw_header(image, {**slide, "title": "", "eyebrow": ""})
         draw = ImageDraw.Draw(image)
         sections = self.deck.get("sections", []) or []
         section_id = str(slide.get("section", ""))
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
         total = max(1, len(sections))
+        centre = self.width // 2
 
-        # 左侧深色块：数字反白，标题白色，整块压住版面左三分之一
-        panel_right = 828
-        panel_top = int(self.layout.get("header_height", 132)) - 2
-        panel_bottom = int(self.layout.get("footer_y", self.height - 96)) - 40   # 让出页脚，保持像素一致
-        draw.rectangle((0, panel_top, panel_right, panel_bottom), fill=self.color("blue"))
-        # 右侧一条细强调线
-        draw.rectangle((panel_right, panel_top, panel_right + 10, panel_bottom), fill=self.color("blue_mid"))
+        # 校徽作背景水印：居中、低透明度，不抢标题
+        if self.emblem is not None:
+            wm_w = 560
+            wm = self.emblem.resize((wm_w, max(1, int(wm_w * self.emblem.height / self.emblem.width))),
+                                    Image.Resampling.LANCZOS)
+            wm.putalpha(wm.split()[3].point(lambda value: int(value * 0.09)))
+            image.paste(wm, (centre - wm.width // 2, 196), wm)
+            draw = ImageDraw.Draw(image)
 
-        counter_font = self.fonts.get(TextStyle(bold=True), 34)
-        draw.text((96, panel_top + 74), f"{index + 1:02d}", font=self.fonts.get(TextStyle(bold=True), 128),
-                  fill=self.color("white"))
-        draw.text((96 + 138, panel_top + 168), f"/ {total:02d}", font=counter_font, fill=self.color("blue_pale"))
+        counter_font = self.fonts.get(TextStyle(bold=True), 38)
+        draw.text((centre, 300), f"{index + 1:02d}  /  {total:02d}", font=counter_font,
+                  fill=self.color("blue_mid"), anchor="mm")
 
         title = str(slide.get("section_title") or slide.get("title") or "")
         font, lines, _, fits = self.fit_text(draw, title, self.theme["fonts"]["title"],
-                                             panel_right - 190, 300, 84, 46, max_lines=3)
+                                             1400, 300, 96, 52, max_lines=2)
         if not fits:
             self.warn(str(slide.get("id", "")), "Section title overflowed.")
-        draw_lines(draw, lines, (96, panel_top + 300), font, self.color("white"), 1.14)
-        draw.rectangle((96, panel_top + 300 + line_height(font) * len(lines) + 34,
-                        336, panel_top + 300 + line_height(font) * len(lines) + 38), fill=self.color("blue_pale"))
+        block = line_height(font) * len(lines)
+        title_top = 360 + (260 - block) // 2
+        for offset, line in enumerate(lines):
+            draw.text((centre, title_top + offset * line_height(font)), line, font=font,
+                      fill=self.color("blue_dark"), anchor="ma")
 
-        # 右侧：本章要点，用主色小标题 + 说明
+        rule_y = title_top + block + 44
+        draw.rectangle((centre - 60, rule_y, centre + 60, rule_y + 4), fill=self.color("blue"))
+
         summary = str(slide.get("summary") or "")
         if summary:
-            label_font = self.fonts.get(TextStyle(bold=True), 28)
-            draw.text((912, panel_top + 96), "本 章 要 点", font=label_font, fill=self.color("blue_mid"))
-            draw_rich_block(draw, summary, (912, panel_top + 156), 980, 220,
-                            self.fonts, self.colors, 40, 26, max_lines=4, line_ratio=1.4)
+            draw_rich_block(draw, summary, (centre - 620, rule_y + 56), 1240, 160,
+                            self.fonts, self.colors, 34, 24, max_lines=3, line_ratio=1.4)
 
-        # 底部进度条（在左侧色块内，反白）
-        bar_y, seg_w, seg_gap = panel_bottom - 96, 132, 12
+        bar_y, seg_w, seg_gap = int(self.layout.get("footer_y", self.height - 96)) - 88, 108, 12
+        total_w = total * seg_w + (total - 1) * seg_gap
+        start_x = centre - total_w // 2
         for i in range(total):
-            x = 96 + i * (seg_w + seg_gap)
-            color = self.color("white") if i == index else mix_color(self.color("white"), self.color("blue"), 0.62)
-            draw.rectangle((x, bar_y, x + seg_w, bar_y + 6), fill=color)
+            x = start_x + i * (seg_w + seg_gap)
+            draw.rectangle((x, bar_y, x + seg_w, bar_y + 6),
+                           fill=self.color("blue") if i == index else self.color("line"))
         return image
 
     def draw_frame(self, slide: dict, page_number: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:

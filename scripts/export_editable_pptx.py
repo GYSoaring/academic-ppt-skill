@@ -1778,35 +1778,35 @@ class EditableDeckExporter:
             self.add_chevrons(slide, left + width - 52, row_top + row_height / 2 - 9, 18, "blue_pale", count=1)
 
     def draw_section(self, slide, s: dict) -> None:
-        self.add_header(slide, s)
+        self.add_header(slide, {**s, "title": "", "eyebrow": ""})
         sections = self.deck.get("sections", []) or []
         section_id = str(s.get("section", ""))
         index = next((i for i, item in enumerate(sections) if item.get("id") == section_id), 0)
         total = max(1, len(sections))
-        panel_right = 828
-        panel_top = int(self.layout.get("header_height", 132)) - 2
-        panel_bottom = int(self.layout.get("footer_y", self.height - 96)) - 40
-        self.add_rect(slide, (0, panel_top, panel_right, panel_bottom - panel_top), "blue")
-        self.add_rect(slide, (panel_right, panel_top, 10, panel_bottom - panel_top), "blue_mid")
+        centre = self.width / 2
 
-        self.add_text(slide, (96, panel_top + 74, 240, 150), f"{index + 1:02d}", 128, "white", bold=True, line_ratio=1.0)
-        self.add_text(slide, (234, panel_top + 168, 140, 44), f"/ {total:02d}", 34, "blue_pale", bold=True, line_ratio=1.0)
+        # 校徽水印：居中偏上
+        if getattr(self, "watermark_path", None):
+            self.add_picture_fit(slide, self.watermark_path, (centre - 280, 196, 560, 560),
+                                 name="emblem_watermark", decorative=True)
 
+        self.add_text(slide, (centre - 300, 282, 600, 44), f"{index + 1:02d}  /  {total:02d}",
+                      38, "blue_mid", bold=True, align="center", line_ratio=1.0)
         title = str(s.get("section_title") or s.get("title") or "")
-        self.add_fit_text(slide, (96, panel_top + 300, panel_right - 190, 300), title, "title", 84, 46,
-                          "white", bold=True, max_lines=3, line_ratio=1.14)
-        self.add_rect(slide, (96, panel_top + 660, 240, 4), "blue_pale")
-
+        self.add_fit_text(slide, (centre - 700, 350, 1400, 260), title, "title", 96, 52, "blue_dark",
+                          bold=True, max_lines=2, line_ratio=1.12, align="center")
+        self.add_rect(slide, (centre - 60, 640, 120, 4), "blue")
         summary = str(s.get("summary", ""))
         if summary:
-            self.add_text(slide, (912, panel_top + 92, 520, 40), "本 章 要 点", 30, "blue_mid", bold=True)
-            self.add_fit_text(slide, (912, panel_top + 156, 980, 220), summary, "body", 40, 26, "ink",
-                              max_lines=4, line_ratio=1.4)
+            self.add_fit_text(slide, (centre - 620, 700, 1240, 160), summary, "body", 34, 24, "ink",
+                              max_lines=3, line_ratio=1.4, align="center")
 
-        bar_y, seg_w, seg_gap = panel_bottom - 96, 132, 12
+        bar_y, seg_w, seg_gap = int(self.layout.get("footer_y", self.height - 96)) - 88, 108, 12
+        total_w = total * seg_w + (total - 1) * seg_gap
+        start_x = centre - total_w / 2
         for i in range(total):
-            x = 96 + i * (seg_w + seg_gap)
-            self.add_rect(slide, (x, bar_y, seg_w, 6), "white" if i == index else "blue_mid")
+            x = start_x + i * (seg_w + seg_gap)
+            self.add_rect(slide, (x, bar_y, seg_w, 6), "blue" if i == index else "line")
 
     def draw_grid(self, slide, s: dict) -> None:
         left, top, right, bottom = self.content_bounds(s)
