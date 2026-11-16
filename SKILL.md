@@ -88,6 +88,30 @@ These are the defects that make a generated deck look machine-made even when the
 - **Covers default to `editorial`.** A left accent bar, left-aligned wordmark, a vertical rule and a quiet right column read as designed; a centred stack of title + subtitle + three info lines reads as a form.
 
 
+
+## Register: the slide is not the transcript
+
+A deck fails academically before it fails visually. Two community skills — `zLanqing/codex-claude-academic-skills` (6.0k★) and `AIScientists-Dev/academic-humanizer` (5.3k★) — converge on the same rule: **claims carry evidence, and hype is a defect**. Their guidance is rewritten for Chinese decks in `references/academic-register.md`.
+
+Non-negotiables for text that appears on a slide:
+
+- **Review structure is five moves**: question and scope (with the search limits stated) → per-route survey with representative works and their limits → comparison on shared dimensions → consensus and disagreement → gap and next step. A review that lists papers without judging them is a bibliography.
+- **No spoken-language markers.** 各位老师, 大家好, 其实, 就是说, 挺好的 belong in `speech`, never in a text box.
+- **No significance hype.** 重大突破, 开辟新途径, 填补空白, 具有重要意义 — replace with the specific failure mode the work addresses.
+- **No unattributed attribution.** 相关研究表明 with no work named is an error, not a hedge.
+- **No number-free 显著.** If the sentence says a gain is significant, the number and the condition must be on the page.
+- **Each page states a claim, its evidence, and its boundary.** `boundary` is what stops a deck from reading like a brochure; the schema already has the field — use it.
+
+`scripts/lint_register.py` enforces the mechanical part:
+
+```bash
+python scripts/lint_register.py --deck deck.json --out out --strict
+```
+
+It scans visible text only (speech notes are exempt, because spoken language may be conversational), and reports the rule, the matched phrase, and the rewrite suggestion. Treat any `error` as blocking; `--strict` also fails on warnings.
+
+A review deck is text-dense by nature, so `qa_design.py` scores lower on `dominant_object_ratio` than a research deck. That is expected; do not manufacture figures to satisfy the rubric.
+
 ## Match a measured deck, not a vibe
 
 Before tuning a theme, measure. `scripts/analyze_reference.py` reads any .pptx and returns the numbers that actually make a deck look professional: objects per page, text boxes per page, text-area ratio, title size per inch, body size, size-step count, bold ratio, palette, fonts.

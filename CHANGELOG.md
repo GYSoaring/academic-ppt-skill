@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Academic register is now enforced (2026-11-16, fifth pass)
+
+- **`references/academic-register.md` (new).** Structure for a literature review (five moves, each page carrying claim/evidence/boundary) plus eleven categories of AI-writing tells translated into Chinese: over-claiming, significance hype, empty intensifiers, novelty padding, formulaic openers, connective overuse, contribution cliches, citation dumping, hedging-by-vagueness, boilerplate emphasis, clause stacking. Distilled from `zLanqing/codex-claude-academic-skills` (6.0k★) and `AIScientists-Dev/academic-humanizer` (5.3k★).
+- **`scripts/lint_register.py` (new).** Scans visible deck text for colloquial markers, hype, unattributed attribution, number-free "significant" and vague hedges. Speech notes are exempt. Reports rule, match and suggested rewrite; `--strict` fails on warnings too.
+- **First catch**: a closing line and a false positive on 及其实验变体; the 其实 rule now excludes 及/极/尤 and closing slides are exempt from the lectern-phrase rule.
+- Note recorded: a review deck legitimately scores lower on `dominant_object_ratio` than a research deck, so the rubric must not be satisfied by inventing figures.
+
+
 ### Reference measurement, not reference guessing (2026-11-16, fourth pass)
 
 - **`scripts/analyze_reference.py` (new).** Reads any .pptx and reports objects/page, text boxes/page, text-area ratio, title pt per inch, body size, size-step count, bold ratio, palette and fonts. `--aggregate` produces a Markdown profile across several decks.
