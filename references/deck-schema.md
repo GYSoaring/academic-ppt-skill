@@ -324,9 +324,111 @@ Use `concept` when a labeled schematic is the page's main evidence object.
 }
 ```
 
-`diagram.kind` accepts `sequence` (2–5), `branch` (2–4), `stack` (2–5), `ruler` (2–8), `matrix` (exactly 4), and `cycle` (3–5). `highlight` is a zero-based item index. `ruler` items need numeric `value`; `matrix` should provide `x_axis` and `y_axis`; `branch` should provide a `root` object. The diagram is rendered as native shapes in the PPTX, with all labels from this JSON.
+`diagram.kind` accepts `sequence` (2–5), `branch` (2–4), `stack` (2–5), `ruler` (2–8), `matrix` (exactly 4), `cycle` (3–5), and `relations` (2–8 nodes with 1–10 edges). `highlight` is a zero-based item index. `ruler` items need numeric `value`; `matrix` should provide `x_axis` and `y_axis`; `branch` should provide a `root` object. The diagram is rendered as native shapes in the PPTX, with all labels from this JSON.
 
 Do not use `concept` for measured plots or paper figures. Use `figure` or `figure_flow` when real evidence is available.
+
+### Relation maps
+
+Use `kind: "relations"` when the page's argument is a graph, not a list: a shared problem feeding two routes, a dependency chain with feedback, a cross-lane comparison, or a constraint that runs both ways. Each edge must encode a real relation; an arrow is not a substitute for grouping.
+
+```json
+{
+  "kind": "relations",
+  "arrangement": "free",
+  "nodes": [
+    {
+      "id": "problem",
+      "title": "共同问题",
+      "body": "任务约束无法直接验证",
+      "tone": "solid",
+      "x": 0.02,
+      "y": 0.36,
+      "w": 0.19,
+      "h": 0.28
+    },
+    {
+      "id": "method_a",
+      "title": "方法 A",
+      "body": "以结构先验生成候选",
+      "x": 0.31,
+      "y": 0.05,
+      "w": 0.23,
+      "h": 0.30
+    },
+    {
+      "id": "method_b",
+      "title": "方法 B",
+      "body": "以数据驱动补充对照",
+      "x": 0.31,
+      "y": 0.65,
+      "w": 0.23,
+      "h": 0.30
+    },
+    {
+      "id": "evidence",
+      "title": "证据接口",
+      "body": "统一指标与失效条件",
+      "x": 0.64,
+      "y": 0.05,
+      "w": 0.22,
+      "h": 0.30
+    },
+    {
+      "id": "decision",
+      "title": "综合判断",
+      "body": "保留收益、代价与边界",
+      "tone": "outline",
+      "x": 0.66,
+      "y": 0.65,
+      "w": 0.23,
+      "h": 0.30
+    }
+  ],
+  "relations": [
+    {"from": "problem", "to": "method_a", "label": "提出", "style": "ribbon"},
+    {"from": "problem", "to": "method_b", "label": "同源", "style": "block"},
+    {"from": "method_a", "to": "evidence", "label": "可检验", "style": "chevron"},
+    {
+      "from": "method_b",
+      "to": "evidence",
+      "label": "跨场景",
+      "style": "line",
+      "route": "orthogonal"
+    },
+    {
+      "from": "evidence",
+      "to": "decision",
+      "label": "相互约束",
+      "style": "double"
+    }
+  ],
+  "note": "箭头只表示论证关系，不代表实验流程或因果证明。"
+}
+```
+
+Node fields:
+
+- `id`: stable unique string, required.
+- `title`: content-bearing label, required in practice.
+- `body`: optional one-sentence explanation of what the node contributes.
+- `tone`: `pale` (default), `outline`, or `solid`; use `solid` for the single anchor problem or decision.
+- `accent`: optional `blue`, `red`, or `alert`.
+- `x / y / w / h`: normalized `0–1` coordinates for `arrangement: "free"`. Nodes must stay inside the diagram box; overlapping nodes produce a warning.
+
+Relation fields:
+
+- `from` / `to`: node ids, required; self-loops are rejected.
+- `label`: short verb or relation, such as `提出`, `约束`, `反馈`, `对照`.
+- `style`: `ribbon` (tapered primary flow), `block`, `chevron`, `line`, or `double`.
+- `route`: `straight` (default) or `orthogonal`. An orthogonal route is a native multi-segment connector path with one final arrowhead.
+- `tone`: `primary`, `muted`, or `alert`.
+- `start_side` / `end_side`: `auto`, `left`, `right`, `top`, or `bottom`.
+- `width`: optional arrow width. Values `0–1` are a fraction of diagram width; values above `1` are pixels. The renderer clamps the result to a readable range.
+
+Use `arrangement: "row"` or `"two_row"` only when an ordered fallback is preferable to hand-placed coordinates. Free layout is recommended for branching, reconvergence, cross-lane routes, and bidirectional links: those relations cannot be expressed faithfully by a simple row.
+
+Relation maps may omit the interpretation panels. In that case the map occupies the full content width; set `diagram_frame: false` when the arrows should sit directly on the page ground. Zero panels are allowed only for `relations`.
 
 ## Layout: formula
 

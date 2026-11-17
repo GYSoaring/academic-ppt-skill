@@ -1,0 +1,291 @@
+{
+  "name": "pku_red",
+  "display_name": "北大红学术汇报",
+  "canvas": {
+    "width": 2048,
+    "height": 1152
+  },
+  "colors": {
+    "paper": "#FDFCFB",
+    "paper_alt": "#F8F3F1",
+    "white": "#FFFFFF",
+    "ink": "#1D1B1A",
+    "muted": "#6A625D",
+    "blue": "#94070A",
+    "blue_dark": "#67070A",
+    "blue_mid": "#B8656A",
+    "blue_bright": "#EAD9D6",
+    "blue_pale": "#F8EAE7",
+    "blue_wash": "#FDF8F6",
+    "line": "#EADFDA",
+    "red": "#B3261E",
+    "green": "#6D6A5C"
+  },
+  "fonts": {
+    "title": [
+      "C:/Windows/Fonts/Noto Sans SC Bold (TrueType).otf",
+      "C:/Windows/Fonts/msyhbd.ttc",
+      "C:/Windows/Fonts/simhei.ttf",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
+    ],
+    "body": [
+      "C:/Windows/Fonts/Noto Sans SC Medium (TrueType).otf",
+      "C:/Windows/Fonts/msyh.ttc",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/PingFang.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+      "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+    ],
+    "serif": [
+      "C:/Windows/Fonts/NotoSerifSC-VF.ttf",
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"
+    ],
+    "display": [
+      "C:/Windows/Fonts/NotoSerifSC-VF.ttf",
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/simsun.ttc",
+      "/System/Library/Fonts/STHeiti Light.ttc",
+      "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc"
+    ],
+    "formula": [
+      "C:/Windows/Fonts/cambria.ttc",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Cambria.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"
+    ],
+    "latin": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/times.ttf",
+      "/System/Library/Fonts/Supplemental/Arial.ttf",
+      "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    ],
+    "brand": [
+      "C:/Windows/Fonts/STZHONGS.TTF",
+      "C:/Windows/Fonts/STKAITI.TTF",
+      "C:/Windows/Fonts/simkai.ttf"
+    ]
+  },
+  "pptx_fonts": {
+    "title": "Noto Sans SC",
+    "body": "Noto Sans SC",
+    "display": "Noto Serif SC",
+    "latin": "Arial",
+    "formula": "Cambria Math",
+    "brand": "STZhongsong"
+  },
+  "type_scale": {
+    "cover_kicker": 30,
+    "cover_title": 84,
+    "cover_subtitle": 34,
+    "cover_info": 30,
+    "header_title": 50,
+    "eyebrow": 50,
+    "lead": 28,
+    "takeaway": 27,
+    "sidebar": 27,
+    "block_title": 25,
+    "body": 22,
+    "bullet": 21,
+    "small": 18,
+    "micro": 15,
+    "metric_value": 58,
+    "metric_label": 24,
+    "table_header": 26,
+    "table_cell": 24,
+    "reference_title": 22,
+    "reference_meta": 16,
+    "footnote": 15
+  },
+  "type_profiles": {
+    "defense": {
+      "type_scale": {
+        "cover_kicker": 38,
+        "cover_title": 104,
+        "cover_subtitle": 39,
+        "cover_info": 34,
+        "header_title": 72,
+        "eyebrow": 72,
+        "lead": 54,
+        "lead_label": 31,
+        "takeaway": 48,
+        "sidebar": 44,
+        "block_title": 68.3,
+        "body": 52,
+        "bullet": 48,
+        "small": 39,
+        "micro": 39,
+        "metric_value": 104,
+        "metric_label": 40,
+        "quote_text": 60,
+        "table_header": 44,
+        "table_cell": 40,
+        "reference_title": 39,
+        "reference_meta": 39,
+        "footnote": 39
+      }
+    }
+  },
+  "brand": {
+    "lockup": "brand_lockup.png",
+    "emblem": "emblem_mark.png",
+    "cover_box": [
+      104,
+      52,
+      722,
+      240
+    ],
+    "header_box": [
+      1752,
+      8,
+      1996,
+      78
+    ],
+    "fallback_text": "北京大学"
+  },
+  "text": {
+    "body_bold": true,
+    "body_bold_min_px": 47,
+    "body_bold_max_px": 56
+  },
+  "background": {
+    "motif": "arcs",
+    "arc": true,
+    "cover_arc": false,
+    "noise": 0.9,
+    "motif_opacity": 0.12
+  },
+  "layout": {
+    "header_height": 132,
+    "divider_y": 120,
+    "footer_y": 1124,
+    "margin_x": 36,
+    "title_x": 238,
+    "title_y": 38,
+    "title_size": 50,
+    "chapter_x": 76,
+    "chapter_y": 38,
+    "chapter_size": 50,
+    "slash_x": 20,
+    "slash_y": 16,
+    "slash_width": 30,
+    "slash_height": 78,
+    "sidebar": [
+      40,
+      278,
+      260,
+      796
+    ],
+    "content": [
+      320,
+      186,
+      1992,
+      986
+    ],
+    "content_top": 186,
+    "lead_height": 88,
+    "takeaway_top": 996,
+    "takeaway_height": 68,
+    "sidebar_mode": "always",
+    "content_no_sidebar": [
+      96,
+      186,
+      1992,
+      986
+    ],
+    "panel_radius": 3,
+    "panel_shadow_alpha": 5,
+    "block_icons": "off",
+    "lead_panel": false,
+    "outline_style": "index",
+    "object_budget": 15
+  },
+  "cover": {
+    "style": "editorial",
+    "accent_x": 124,
+    "title_width": 1120,
+    "brand_box": [
+      104,
+      52,
+      722,
+      240
+    ],
+    "kicker_y": 252,
+    "title_y": 318,
+    "title_size": 84,
+    "subtitle_gap": 22,
+    "subtitle_size": 34,
+    "rule_gap": 34,
+    "info_gap": 34,
+    "info_y": 704,
+    "info_size": 29,
+    "bottom_band_y": 1002,
+    "bottom_band_height": 92,
+    "panel_left": 1280,
+    "watermark_box": [
+      1330,
+      196,
+      1950,
+      816
+    ],
+    "watermark_alpha": 0.075
+  },
+  "outline": {
+    "x": 300,
+    "y": 208,
+    "width": 1540,
+    "row_height": 122,
+    "gap": 27
+  },
+  "table": {
+    "header_height": 62,
+    "row_height": 88,
+    "font_size": 24,
+    "header_size": 26
+  },
+  "panel": {
+    "header_style": "gradient",
+    "header_tone": "mist",
+    "header_gradient_from": "blue_pale",
+    "header_gradient_mid": "blue_wash",
+    "header_gradient_to": "white",
+    "header_text": "blue_dark",
+    "header_index": "blue_mid",
+    "header_accent": "blue",
+    "header_hairline": "line",
+    "fill_style": "all_gradient",
+    "fill_gradient_colors": [
+      "blue_wash",
+      "blue_pale",
+      "white"
+    ],
+    "fill_gradient_to": "white",
+    "fill_gradient_fade": 0.74,
+    "white_gradient_to": "blue_wash",
+    "white_gradient_fade": 0.7,
+    "gradient_direction": "horizontal",
+    "takeaway_style": "mist",
+    "takeaway_gradient_from": "blue_wash",
+    "takeaway_gradient_mid": "white",
+    "takeaway_gradient_to": "white",
+    "takeaway_accent": "blue",
+    "sidebar_active_from": "blue_pale",
+    "sidebar_active_to": "blue_wash",
+    "sidebar_active_text": "blue_dark",
+    "sidebar_active_outline": "line",
+    "diagram_focus_style": "mist",
+    "diagram_focus_from": "blue_pale",
+    "diagram_focus_to": "white",
+    "label_style": "mist",
+    "label_gradient_from": "blue_pale",
+    "label_gradient_to": "blue_wash",
+    "corner_marks": false,
+    "card_index": false,
+    "card_highlight": false
+  }
+}

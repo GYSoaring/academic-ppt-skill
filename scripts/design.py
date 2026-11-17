@@ -338,6 +338,8 @@ def draw_shadowed_panel(
     shadow_offset: tuple[int, int] = (0, 7),
     shadow_blur: int = 12,
     shadow_alpha: int = 38,
+    gradient_to: tuple[int, int, int] | None = None,
+    gradient_direction: str = "horizontal",
 ) -> None:
     left, top, right, bottom = box
     w, h = right - left, bottom - top
@@ -356,7 +358,20 @@ def draw_shadowed_panel(
     )
     layer = layer.filter(ImageFilter.GaussianBlur(shadow_blur))
     image.paste(layer, (left - pad, top - pad), layer)
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+    if gradient_to is None:
+        draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+    else:
+        draw_gradient_panel(
+            image,
+            draw,
+            box,
+            fill,
+            gradient_to,
+            outline,
+            radius=radius,
+            width=width,
+            direction=gradient_direction,
+        )
 
 
 def draw_gradient_panel(
@@ -368,6 +383,95 @@ def draw_gradient_panel(
     outline: tuple[int, int, int] | None = None,
     radius: int = 8,
     width: int = 2,
+    direction: str = "horizontal",
+    stops: Sequence[tuple[float, tuple[int, int, int]]] | None = None,
+) -> None:
+    left, top, right, bottom = box
+    w, h = right - left, bottom - top
+    if w <= 0 or h <= 0:
+        return
+    palette = [(0.0, top_color), (1.0, bottom_color)]
+    if stops:
+        palette = sorted(
+            [(max(0.0, min(1.0, float(position))), color) for position, color in stops],
+            key=lambda item: item[0],
+        )
+        if palette[0][0] > 0:
+            palette.insert(0, (0.0, palette[0][1]))
+        if palette[-1][0] < 1:
+            palette.append((1.0, palette[-1][1]))
+
+    def sample(amount: float) -> tuple[int, int, int]:
+        for index in range(len(palette) - 1):
+            start_position, start_color = palette[index]
+            end_position, end_color = palette[index + 1]
+            if start_position <= amount <= end_position:
+                span = max(1e-6, end_position - start_position)
+                return mix_color(start_color, end_color, (amount - start_position) / span)
+        return palette[-1][1]
+
+    gradient = Image.new("RGB", (w, h))
+    gradient_draw = ImageDraw.Draw(gradient)
+    if str(direction).strip().lower() == "vertical":
+        for row in range(h):
+            amount = row / max(1, h - 1)
+            gradient_draw.line((0, row, w, row), fill=sample(amount))
+    else:
+        for column in range(w):
+            amount = column / max(1, w - 1)
+            gradient_draw.line((column, 0, column, h), fill=sample(amount))
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+    image.paste(gradient, (left, top), mask)
+    if outline is not None:
+        draw.rounded_rectangle(box, radius=radius, outline=outline, width=width)
+
+
+def draw_gradient_polygon(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    points: Sequence[tuple[float, float]],
+    start_color: tuple[int, int, int],
+    end_color: tuple[int, int, int],
+    direction: str = "horizontal",
+    outline: tuple[int, int, int] | None = None,
+    width: int = 1,
+) -> None:
+    if len(points) < 3:
+        return
+    xs = [int(round(point[0])) for point in points]
+    ys = [int(round(point[1])) for point in points]
+    left, top, right, bottom = min(xs), min(ys), max(xs), max(ys)
+    w, h = right - left, bottom - top
+    if w <= 0 or h <= 0:
+        return
+    gradient = Image.new("RGB", (w, h))
+    gradient_draw = ImageDraw.Draw(gradient)
+    if str(direction).strip().lower() == "vertical":
+        for row in range(h):
+            amount = row / max(1, h - 1)
+            gradient_draw.line((0, row, w, row), fill=mix_color(start_color, end_color, amount))
+    else:
+        for column in range(w):
+            amount = column / max(1, w - 1)
+            gradient_draw.line((column, 0, column, h), fill=mix_color(start_color, end_color, amount))
+    mask = Image.new("L", (w, h), 0)
+    local_points = [(int(round(x - left)), int(round(y - top))) for x, y in points]
+    ImageDraw.Draw(mask).polygon(local_points, fill=255)
+    image.paste(gradient, (left, top), mask)
+    if outline is not None:
+        draw.line([*points, points[0]], fill=outline, width=width)
+
+
+def draw_gradient_ellipse(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    start_color: tuple[int, int, int],
+    end_color: tuple[int, int, int],
+    direction: str = "vertical",
+    outline: tuple[int, int, int] | None = None,
+    width: int = 1,
 ) -> None:
     left, top, right, bottom = box
     w, h = right - left, bottom - top
@@ -375,14 +479,60 @@ def draw_gradient_panel(
         return
     gradient = Image.new("RGB", (w, h))
     gradient_draw = ImageDraw.Draw(gradient)
-    for row in range(h):
-        amount = row / max(1, h - 1)
-        gradient_draw.line((0, row, w, row), fill=mix_color(top_color, bottom_color, amount))
+    length = h if str(direction).strip().lower() == "vertical" else w
+    for position in range(max(1, length)):
+        amount = position / max(1, length - 1)
+        color = mix_color(start_color, end_color, amount)
+        if str(direction).strip().lower() == "vertical":
+            gradient_draw.line((0, position, w, position), fill=color)
+        else:
+            gradient_draw.line((position, 0, position, h), fill=color)
     mask = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+    ImageDraw.Draw(mask).ellipse((0, 0, w - 1, h - 1), fill=255)
     image.paste(gradient, (left, top), mask)
     if outline is not None:
-        draw.rounded_rectangle(box, radius=radius, outline=outline, width=width)
+        draw.ellipse(box, outline=outline, width=width)
+
+
+def draw_gradient_tag(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    start_color: tuple[int, int, int],
+    end_color: tuple[int, int, int],
+    text_fill: tuple[int, int, int],
+    outline: tuple[int, int, int] | None = None,
+    radius: int = 5,
+    align: str = "left",
+    direction: str = "horizontal",
+) -> None:
+    draw_gradient_panel(
+        image,
+        draw,
+        box,
+        start_color,
+        end_color,
+        outline=outline,
+        radius=radius,
+        width=1,
+        direction=direction,
+    )
+    left, top, right, bottom = box
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    if align == "center":
+        x = left + (right - left - tw) // 2
+    elif align == "right":
+        x = right - 10 - tw
+    else:
+        x = left + 10
+    y = top + (bottom - top - th) // 2 - bbox[1]
+    if align == "center":
+        y = top + (bottom - top - th) // 2 - bbox[1]
+    draw.text((x, y), text, font=font, fill=text_fill)
 
 
 def draw_tag(
@@ -440,6 +590,386 @@ def draw_arrow(
         x = end[0] + head * math.cos(angle + delta)
         y = end[1] + head * math.sin(angle + delta)
         draw.line((*end, int(x), int(y)), fill=color, width=width)
+
+
+def relation_node_boxes(
+    diagram: dict,
+    left: float,
+    top: float,
+    width: float,
+    height: float,
+) -> dict[str, tuple[float, float, float, float]]:
+    """Return stable normalized node geometry for a relations diagram.
+
+    A relation map is a graph, not a list of cards. ``arrangement: free`` uses
+    each node's normalized ``x / y / w / h``. ``row`` and ``two_row`` are
+    deterministic fallbacks so a model can author a readable map without
+    guessing pixel coordinates.
+    """
+    nodes = [
+        node
+        for node in (diagram.get("nodes") or diagram.get("items") or [])
+        if isinstance(node, dict)
+    ][:8]
+    if not nodes:
+        return {}
+    arrangement = str(diagram.get("arrangement", "")).strip().lower()
+    has_coordinates = all(
+        all(key in node for key in ("x", "y", "w", "h"))
+        for node in nodes
+    )
+    if arrangement not in {"row", "two_row", "free"}:
+        arrangement = "free" if has_coordinates else "row"
+    if arrangement == "free" and not has_coordinates:
+        arrangement = "row"
+
+    boxes: dict[str, tuple[float, float, float, float]] = {}
+    used_ids: set[str] = set()
+    if arrangement == "free":
+        for index, node in enumerate(nodes, start=1):
+            raw_id = str(node.get("id") or f"n{index}").strip() or f"n{index}"
+            node_id = raw_id
+            duplicate = 2
+            while node_id in used_ids:
+                node_id = f"{raw_id}_{duplicate}"
+                duplicate += 1
+            used_ids.add(node_id)
+            x = max(0.0, min(1.0, float(node.get("x", 0.0))))
+            y = max(0.0, min(1.0, float(node.get("y", 0.0))))
+            node_width = max(0.08, min(1.0 - x, float(node.get("w", 0.24))))
+            node_height = max(0.10, min(1.0 - y, float(node.get("h", 0.28))))
+            boxes[node_id] = (
+                left + x * width,
+                top + y * height,
+                left + (x + node_width) * width,
+                top + (y + node_height) * height,
+            )
+        return boxes
+
+    count = len(nodes)
+    margin = 0.028
+    gap = 0.105 if count <= 3 else 0.082 if count == 4 else 0.064
+    node_width = (1.0 - margin * 2.0 - gap * (count - 1)) / count
+    if arrangement == "row":
+        positions = [
+            (margin + index * (node_width + gap), 0.17, node_width, 0.60)
+            for index in range(count)
+        ]
+    else:
+        top_count = math.ceil(count / 2)
+        bottom_count = count - top_count
+        max_count = max(top_count, bottom_count, 1)
+        two_gap = 0.085
+        two_width = (1.0 - margin * 2.0 - two_gap * (max_count - 1)) / max_count
+        top_span = top_count * two_width + max(0, top_count - 1) * two_gap
+        bottom_span = bottom_count * two_width + max(0, bottom_count - 1) * two_gap
+        top_left = (1.0 - top_span) / 2.0
+        bottom_left = (1.0 - bottom_span) / 2.0
+        positions = [
+            (top_left + index * (two_width + two_gap), 0.055, two_width, 0.34)
+            for index in range(top_count)
+        ]
+        positions.extend(
+            (
+                bottom_left + index * (two_width + two_gap),
+                0.605,
+                two_width,
+                0.34,
+            )
+            for index in range(bottom_count)
+        )
+
+    for index, node in enumerate(nodes, start=1):
+        raw_id = str(node.get("id") or f"n{index}").strip() or f"n{index}"
+        node_id = raw_id
+        duplicate = 2
+        while node_id in used_ids:
+            node_id = f"{raw_id}_{duplicate}"
+            duplicate += 1
+        used_ids.add(node_id)
+        x, y, node_width_ratio, node_height_ratio = positions[index - 1]
+        boxes[node_id] = (
+            left + x * width,
+            top + y * height,
+            left + (x + node_width_ratio) * width,
+            top + (y + node_height_ratio) * height,
+        )
+    return boxes
+
+
+def _rect_center(box: tuple[float, float, float, float]) -> tuple[float, float]:
+    left, top, right, bottom = box
+    return ((left + right) / 2.0, (top + bottom) / 2.0)
+
+
+def _side_anchor(
+    box: tuple[float, float, float, float],
+    side: str,
+) -> tuple[float, float]:
+    left, top, right, bottom = box
+    cx, cy = _rect_center(box)
+    if side == "right":
+        return right, cy
+    if side == "left":
+        return left, cy
+    if side == "bottom":
+        return cx, bottom
+    return cx, top
+
+
+def _boundary_anchor(
+    box: tuple[float, float, float, float],
+    toward: tuple[float, float],
+) -> tuple[float, float]:
+    """Find where a center-to-center ray leaves a rectangle."""
+    left, top, right, bottom = box
+    cx, cy = _rect_center(box)
+    dx, dy = toward[0] - cx, toward[1] - cy
+    if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+        return cx, cy
+    scale_x = ((right - cx) / dx) if dx > 0 else ((left - cx) / dx) if dx < 0 else math.inf
+    scale_y = ((bottom - cy) / dy) if dy > 0 else ((top - cy) / dy) if dy < 0 else math.inf
+    scale = min(scale_x, scale_y)
+    return cx + dx * scale, cy + dy * scale
+
+
+def relation_connector_geometry(
+    source_box: tuple[float, float, float, float],
+    target_box: tuple[float, float, float, float],
+    start_side: str = "auto",
+    end_side: str = "auto",
+    gap: float = 5.0,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    source_center = _rect_center(source_box)
+    target_center = _rect_center(target_box)
+    start = (
+        _side_anchor(source_box, start_side)
+        if start_side in {"left", "right", "top", "bottom"}
+        else _boundary_anchor(source_box, target_center)
+    )
+    end = (
+        _side_anchor(target_box, end_side)
+        if end_side in {"left", "right", "top", "bottom"}
+        else _boundary_anchor(target_box, source_center)
+    )
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = math.hypot(dx, dy)
+    if length <= 1e-6:
+        return start, end
+    ux, uy = dx / length, dy / length
+    start = (start[0] + ux * min(gap * 0.4, length * 0.06), start[1] + uy * min(gap * 0.4, length * 0.06))
+    end = (end[0] - ux * min(gap, length * 0.14), end[1] - uy * min(gap, length * 0.14))
+    return start, end
+
+
+def relation_route_points(
+    route: str,
+    start: tuple[float, float],
+    end: tuple[float, float],
+) -> list[tuple[float, float]]:
+    if str(route).strip().lower() != "orthogonal":
+        return [start, end]
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    if abs(dx) >= abs(dy):
+        middle_x = (start[0] + end[0]) / 2.0
+        return [
+            start,
+            (middle_x, start[1]),
+            (middle_x, end[1]),
+            end,
+        ]
+    middle_y = (start[1] + end[1]) / 2.0
+    return [
+        start,
+        (start[0], middle_y),
+        (end[0], middle_y),
+        end,
+    ]
+
+
+def relation_arrow_polygon(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    width: float,
+    style: str = "ribbon",
+) -> list[tuple[float, float]]:
+    """Build a native-editable arrow silhouette from a line segment."""
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = math.hypot(dx, dy)
+    if length <= 1e-6:
+        return []
+    ux, uy = dx / length, dy / length
+    nx, ny = -uy, ux
+    style = str(style).strip().lower()
+    head_length = min(max(14.0, width * 0.95), length * 0.40)
+    head_half = width * 0.50
+    if style == "double":
+        head_length = min(max(12.0, width * 0.78), length * 0.24)
+        shaft_half = width * 0.18
+        return [
+            start,
+            (
+                start[0] + ux * head_length + nx * head_half,
+                start[1] + uy * head_length + ny * head_half,
+            ),
+            (
+                start[0] + ux * head_length + nx * shaft_half,
+                start[1] + uy * head_length + ny * shaft_half,
+            ),
+            (
+                end[0] - ux * head_length + nx * shaft_half,
+                end[1] - uy * head_length + ny * shaft_half,
+            ),
+            (
+                end[0] - ux * head_length + nx * head_half,
+                end[1] - uy * head_length + ny * head_half,
+            ),
+            end,
+            (
+                end[0] - ux * head_length - nx * head_half,
+                end[1] - uy * head_length - ny * head_half,
+            ),
+            (
+                end[0] - ux * head_length - nx * shaft_half,
+                end[1] - uy * head_length - ny * shaft_half,
+            ),
+            (
+                start[0] + ux * head_length - nx * shaft_half,
+                start[1] + uy * head_length - ny * shaft_half,
+            ),
+            (
+                start[0] + ux * head_length - nx * head_half,
+                start[1] + uy * head_length - ny * head_half,
+            ),
+        ]
+
+    if style == "chevron":
+        half = width * 0.50
+        notch = min(width * 0.48, length * 0.16)
+        head_depth = min(max(width * 0.68, 10.0), length * 0.34)
+        head_start = min(
+            length * 0.90,
+            max(notch + length * 0.12, length - head_depth),
+        )
+        return [
+            start,
+            (
+                start[0] + ux * notch + nx * half,
+                start[1] + uy * notch + ny * half,
+            ),
+            (
+                start[0] + ux * head_start + nx * half,
+                start[1] + uy * head_start + ny * half,
+            ),
+            end,
+            (
+                start[0] + ux * head_start - nx * half,
+                start[1] + uy * head_start - ny * half,
+            ),
+            (
+                start[0] + ux * notch - nx * half,
+                start[1] + uy * notch - ny * half,
+            ),
+        ]
+
+    tail_half = width * (0.45 if style != "block" else 0.34)
+    neck_half = width * (0.16 if style != "block" else 0.34)
+    neck_position = min(0.52, max(0.18, (length - head_length) / max(1.0, length)))
+    neck_x = start[0] + ux * length * neck_position
+    neck_y = start[1] + uy * length * neck_position
+    head_base_x = end[0] - ux * head_length
+    head_base_y = end[1] - uy * head_length
+    return [
+        (start[0] + nx * tail_half, start[1] + ny * tail_half),
+        (neck_x + nx * neck_half, neck_y + ny * neck_half),
+        (head_base_x + nx * neck_half, head_base_y + ny * neck_half),
+        (head_base_x + nx * head_half, head_base_y + ny * head_half),
+        end,
+        (head_base_x - nx * head_half, head_base_y - ny * head_half),
+        (head_base_x - nx * neck_half, head_base_y - ny * neck_half),
+        (neck_x - nx * neck_half, neck_y - ny * neck_half),
+        (start[0] - nx * tail_half, start[1] - ny * tail_half),
+    ]
+
+
+def _paste_gradient_polygon(
+    image: Image.Image,
+    polygon: Sequence[tuple[float, float]],
+    start_color: tuple[int, int, int],
+    end_color: tuple[int, int, int],
+    start: tuple[float, float],
+    end: tuple[float, float],
+) -> None:
+    if len(polygon) < 3:
+        return
+    left = max(0, int(math.floor(min(point[0] for point in polygon))) - 1)
+    top = max(0, int(math.floor(min(point[1] for point in polygon))) - 1)
+    right = min(image.width, int(math.ceil(max(point[0] for point in polygon))) + 1)
+    bottom = min(image.height, int(math.ceil(max(point[1] for point in polygon))) + 1)
+    width, height = right - left, bottom - top
+    if width <= 0 or height <= 0:
+        return
+    scale = 2
+    mask = Image.new("L", (width * scale, height * scale), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.polygon(
+        [
+            (
+                int(round((point[0] - left) * scale)),
+                int(round((point[1] - top) * scale)),
+            )
+            for point in polygon
+        ],
+        fill=255,
+    )
+    mask = mask.resize((width, height), Image.Resampling.LANCZOS)
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = max(1.0, math.hypot(dx, dy))
+    ux, uy = dx / length, dy / length
+    ys, xs = np.mgrid[0:height, 0:width]
+    projection = ((xs + left + 0.5 - start[0]) * ux + (ys + top + 0.5 - start[1]) * uy) / length
+    amount = np.clip(projection, 0.0, 1.0)[:, :, None]
+    colors = np.array(start_color, dtype=np.float32) * (1.0 - amount) + np.array(
+        end_color,
+        dtype=np.float32,
+    ) * amount
+    gradient = Image.fromarray(np.clip(colors, 0, 255).astype(np.uint8), mode="RGB")
+    image.paste(gradient, (left, top), mask)
+
+
+def relation_arrow_colors(
+    tone: str,
+    colors: dict[str, tuple[int, int, int]],
+) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
+    tone = str(tone).strip().lower()
+    if tone in {"alert", "risk", "red"}:
+        return mix_color(colors["white"], colors["red"], 0.68), colors["red"]
+    if tone in {"muted", "quiet"}:
+        return mix_color(colors["white"], colors["blue_pale"], 0.32), colors["blue_mid"]
+    return mix_color(colors["white"], colors["blue_pale"], 0.55), colors["blue"]
+
+
+def relation_label_box(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    width: float,
+    height: float,
+    arrow_width: float,
+) -> tuple[float, float, float, float]:
+    cx, cy = (start[0] + end[0]) / 2.0, (start[1] + end[1]) / 2.0
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = max(1.0, math.hypot(dx, dy))
+    nx, ny = -dy / length, dx / length
+    offset = arrow_width * 0.62 + height * 0.55
+    if abs(dx) >= abs(dy):
+        sign = -1.0 if ny > 0 else 1.0
+        cx += nx * offset * sign
+        cy += ny * offset * sign
+    else:
+        sign = 1.0 if nx > 0 else -1.0
+        cx += nx * offset * sign
+        cy += ny * offset * sign
+    return cx - width / 2.0, cy - height / 2.0, cx + width / 2.0, cy + height / 2.0
 
 
 def draw_dashed_line(
@@ -985,6 +1515,296 @@ def _diagram_index(
     draw.text((left + 12, top + (height - font.size) // 2 - 2), text, font=font, fill=text_fill)
 
 
+def _draw_relation_node(
+    draw: ImageDraw.ImageDraw,
+    box: tuple[float, float, float, float],
+    node: dict,
+    colors: dict[str, tuple[int, int, int]],
+    fonts: FontBook,
+    min_size: int,
+) -> None:
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    if width < 40 or height < 34:
+        return
+    tone = str(node.get("tone", "pale")).strip().lower()
+    accent = str(node.get("accent", "")).strip().lower()
+    if tone in {"solid", "primary", "strong"}:
+        fill = colors["blue"]
+        outline = colors["blue_dark"]
+        title_color = colors["white"]
+        body_color = mix_color(colors["white"], colors["blue_pale"], 0.42)
+    elif tone == "outline":
+        fill = colors["white"]
+        outline = colors["blue_mid"]
+        title_color = colors["blue_dark"]
+        body_color = colors["ink"]
+    else:
+        fill = colors["blue_wash"]
+        outline = colors["line"]
+        title_color = colors["blue_dark"]
+        body_color = colors["ink"]
+    if accent in {"red", "alert"}:
+        outline = colors["red"]
+    radius = max(3, min(7, int(min(width, height) * 0.035)))
+    draw.rounded_rectangle(
+        (left, top, right, bottom),
+        radius=radius,
+        fill=fill,
+        outline=outline,
+        width=2 if outline in {colors["blue_mid"], colors["red"], colors["blue_dark"]} else 1,
+    )
+    accent_width = max(4, min(8, int(width * 0.018)))
+    if tone not in {"solid", "primary", "strong"}:
+        draw.rounded_rectangle(
+            (left + 1, top + 7, left + 1 + accent_width, bottom - 7),
+            radius=max(1, accent_width // 2),
+            fill=colors["red"] if accent in {"red", "alert"} else colors["blue"],
+        )
+
+    pad_x = max(10, min(24, int(width * 0.07)))
+    pad_y = max(8, min(20, int(height * 0.07)))
+    text_left = left + pad_x + (accent_width + 5 if tone not in {"solid", "primary", "strong"} else 0)
+    text_right = right - pad_x
+    title_text = str(node.get("title") or node.get("label") or "").strip()
+    body_text = str(node.get("body", "")).strip()
+    title_min = max(int(min_size), 22)
+    body_min = max(int(min_size), 18)
+    title_max = max(title_min, min(52, int(max(42, width * 0.16))))
+    body_max = max(body_min, min(40, int(max(34, width * 0.095))))
+    title_box_top = top + pad_y
+    if body_text:
+        title_box_bottom = top + max(
+            pad_y + int(title_min * 1.45),
+            min(height * 0.46, pad_y + int(title_max * 1.35 * 2)),
+        )
+        _diagram_fit_text(
+            draw,
+            title_text,
+            (
+                int(text_left),
+                int(title_box_top),
+                int(text_right),
+                int(title_box_bottom),
+            ),
+            fonts,
+            title_color,
+            title_max,
+            title_min,
+            bold=True,
+            max_lines=2 if height >= 150 else 1,
+            line_ratio=1.08,
+            valign="middle",
+        )
+        _diagram_fit_text(
+            draw,
+            body_text,
+            (
+                int(text_left),
+                int(title_box_bottom + 4),
+                int(text_right),
+                int(bottom - pad_y),
+            ),
+            fonts,
+            body_color,
+            body_max,
+            body_min,
+            max_lines=3 if height >= 240 else 2,
+            line_ratio=1.13,
+            valign="top",
+        )
+    else:
+        _diagram_fit_text(
+            draw,
+            title_text,
+            (
+                int(text_left),
+                int(title_box_top),
+                int(text_right),
+                int(bottom - pad_y),
+            ),
+            fonts,
+            title_color,
+            title_max,
+            title_min,
+            bold=True,
+            max_lines=2,
+            line_ratio=1.08,
+            valign="middle",
+        )
+
+
+def _draw_polyline_arrow(
+    draw: ImageDraw.ImageDraw,
+    points: Sequence[tuple[float, float]],
+    color: tuple[int, int, int],
+    width: float,
+    head: float,
+) -> None:
+    if len(points) < 2:
+        return
+    for start, end in zip(points[:-1], points[1:]):
+        draw.line(
+            (
+                int(round(start[0])),
+                int(round(start[1])),
+                int(round(end[0])),
+                int(round(end[1])),
+            ),
+            fill=color,
+            width=max(1, int(round(width))),
+        )
+    draw_arrow(
+        draw,
+        (int(round(points[-2][0])), int(round(points[-2][1]))),
+        (int(round(points[-1][0])), int(round(points[-1][1]))),
+        color,
+        width=max(1, int(round(width))),
+        head=max(5, int(round(head))),
+    )
+
+
+def _draw_relations_diagram(
+    image: Image.Image | None,
+    draw: ImageDraw.ImageDraw,
+    box: tuple[float, float, float, float],
+    diagram: dict,
+    colors: dict[str, tuple[int, int, int]],
+    fonts: FontBook,
+    min_size: int,
+) -> None:
+    left, top, right, bottom = box
+    width, height = right - left, bottom - top
+    if width < 160 or height < 100:
+        return
+    node_boxes = relation_node_boxes(diagram, left, top, width, height)
+    if not node_boxes:
+        return
+    nodes_by_id = {
+        str(node.get("id") or f"n{index}"): node
+        for index, node in enumerate(diagram.get("nodes") or diagram.get("items") or [], start=1)
+        if isinstance(node, dict)
+    }
+    node_ids = list(node_boxes)
+    relations = [
+        relation
+        for relation in (diagram.get("relations") or diagram.get("edges") or [])
+        if isinstance(relation, dict)
+    ]
+    if not relations and len(node_ids) > 1:
+        relations = [
+            {"from": source_id, "to": target_id}
+            for source_id, target_id in zip(node_ids[:-1], node_ids[1:])
+        ]
+
+    labels: list[tuple[str, tuple[float, float], str]] = []
+    for relation in relations:
+        source_id = str(relation.get("from", "")).strip()
+        target_id = str(relation.get("to", "")).strip()
+        if source_id not in node_boxes or target_id not in node_boxes:
+            continue
+        width_value = float(relation.get("width", 0.052) or 0.052)
+        arrow_width = width_value if width_value > 1.0 else width * width_value
+        arrow_width = max(24.0, min(96.0, arrow_width))
+        style = str(relation.get("style", "ribbon")).strip().lower()
+        route = str(relation.get("route", "straight")).strip().lower()
+        gap = (
+            max(10.0, arrow_width * 0.25)
+            if route == "orthogonal"
+            else max(6.0, arrow_width * 0.10)
+        )
+        start, end = relation_connector_geometry(
+            node_boxes[source_id],
+            node_boxes[target_id],
+            start_side=str(relation.get("start_side", "auto")).strip().lower(),
+            end_side=str(relation.get("end_side", "auto")).strip().lower(),
+            gap=gap,
+        )
+        arrow_start, arrow_end = relation_arrow_colors(str(relation.get("tone", "primary")), colors)
+        if route == "orthogonal":
+            points = relation_route_points(route, start, end)
+            _draw_polyline_arrow(
+                draw,
+                points,
+                arrow_end,
+                max(4.0, arrow_width * 0.12),
+                arrow_width * 0.55,
+            )
+        elif style == "line" or math.hypot(end[0] - start[0], end[1] - start[1]) < max(24.0, arrow_width * 0.8):
+            draw_arrow(
+                draw,
+                (int(round(start[0])), int(round(start[1]))),
+                (int(round(end[0])), int(round(end[1]))),
+                arrow_end,
+                width=max(3, int(round(arrow_width * 0.11))),
+                head=max(7, int(round(arrow_width * 0.52))),
+            )
+        else:
+            polygon = relation_arrow_polygon(start, end, arrow_width, style)
+            if image is not None:
+                _paste_gradient_polygon(
+                    image,
+                    polygon,
+                    arrow_start,
+                    arrow_end,
+                    start,
+                    end,
+                )
+            else:
+                draw.polygon(polygon, fill=arrow_end)
+        label = str(relation.get("label", "")).strip()
+        if label:
+            labels.append((label, start, end))
+
+    for node_id, node_box in node_boxes.items():
+        node = nodes_by_id.get(node_id) or {"title": node_id}
+        _draw_relation_node(draw, node_box, node, colors, fonts, min_size)
+
+    label_min = max(int(min_size), 18)
+    label_max = max(label_min, 26 if min_size < 30 else int(min_size))
+    for label, start, end in labels:
+        label_font = fonts.get(TextStyle(bold=True), label_max)
+        label_width = min(
+            max(56, int(width) - 8),
+            text_width(draw, label, label_font) + max(16, int(label_max * 0.8)),
+        )
+        label_height = min(
+            max(28, int(height) - 6),
+            max(28, int(label_font.size * 1.42)),
+        )
+        label_box = relation_label_box(start, end, label_width, label_height, label_max * 1.7)
+        lx1, ly1, lx2, ly2 = label_box
+        if lx1 < left or lx2 > right:
+            shift = left - lx1 if lx1 < left else right - lx2
+            lx1 += shift
+            lx2 += shift
+        if ly1 < top or ly2 > bottom:
+            shift = top - ly1 if ly1 < top else bottom - ly2
+            ly1 += shift
+            ly2 += shift
+        draw.rounded_rectangle(
+            (int(lx1), int(ly1), int(lx2), int(ly2)),
+            radius=4,
+            fill=colors["white"],
+            outline=colors["line"],
+            width=1,
+        )
+        _diagram_fit_text(
+            draw,
+            label,
+            (int(lx1 + 7), int(ly1 + 2), int(lx2 - 7), int(ly2 - 2)),
+            fonts,
+            colors["blue_dark"],
+            label_max,
+            label_min,
+            bold=True,
+            align="center",
+            max_lines=1,
+            line_ratio=1.0,
+            valign="middle",
+        )
+
+
 def draw_diagram(
     draw: ImageDraw.ImageDraw,
     box: tuple[int, int, int, int],
@@ -994,12 +1814,14 @@ def draw_diagram(
     label: str = "",
     frame: bool = True,
     min_size: int = 0,
+    image: Image.Image | None = None,
 ) -> None:
     """Draw a compact, data-driven academic concept diagram.
 
     The grammar is intentionally semantic rather than decorative. It supports
-    sequence, branch, stack, ruler, matrix, and cycle structures. Labels and
-    values come from deck.json; the renderer only owns geometry and typography.
+    sequence, branch, stack, ruler, matrix, cycle, and relations structures.
+    Labels and values come from deck.json; the renderer only owns geometry and
+    typography.
     """
     if not diagram:
         return
@@ -1007,12 +1829,21 @@ def draw_diagram(
     if right - left < 100 or bottom - top < 80:
         return
     if frame:
-        draw.rounded_rectangle(
+        draw_gradient_panel(
+            image,
+            draw,
             box,
-            radius=6,
-            fill=mix_color(colors["blue_wash"], colors["white"], 0.2),
+            mix_color(colors["blue_wash"], colors["white"], 0.12),
+            colors["white"],
             outline=colors["line"],
+            radius=6,
             width=1,
+            direction="horizontal",
+            stops=[
+                (0.0, colors["blue_pale"]),
+                (0.42, colors["blue_wash"]),
+                (1.0, colors["white"]),
+            ],
         )
     pad = max(10, min(18, int((right - left) * 0.018)))
     inner_left, inner_right = left + pad, right - pad
@@ -1024,12 +1855,19 @@ def draw_diagram(
         label_width = text_width(draw, label, label_font) + 22
         label_height = max(30, int(label_size * 1.45))
         label_box = (inner_left, inner_top, inner_left + label_width, inner_top + label_height)
-        draw.rounded_rectangle(label_box, radius=3, fill=colors["blue"])
-        draw.text(
-            (label_box[0] + 11, label_box[1] + max(2, (label_height - label_size) // 2 - 4)),
+        draw_gradient_tag(
+            image,
+            draw,
+            (int(label_box[0]), int(label_box[1]), int(label_box[2]), int(label_box[3])),
             label,
-            font=label_font,
-            fill=colors["white"],
+            label_font,
+            colors["blue_pale"],
+            colors["white"],
+            colors["blue_dark"],
+            outline=colors["line"],
+            radius=3,
+            align="left",
+            direction="horizontal",
         )
         inner_top += label_height + 10
     note = str(diagram.get("note", "")).strip()
@@ -1050,7 +1888,17 @@ def draw_diagram(
     muted = colors["muted"]
     white = colors["white"]
 
-    if kind == "sequence":
+    if kind == "relations":
+        _draw_relations_diagram(
+            image,
+            draw,
+            (inner_left, inner_top, inner_right, inner_bottom),
+            diagram,
+            colors,
+            fonts,
+            min_size,
+        )
+    elif kind == "sequence":
         items = items[:5]
         count = max(1, len(items))
         gap = max(20, min(34, int((inner_right - inner_left) * 0.035)))
@@ -1064,24 +1912,38 @@ def draw_diagram(
             x = inner_left + index * (node_width + gap)
             is_focus = index == highlight
             node_box = (x, node_top, x + node_width, node_top + node_height)
-            draw.rounded_rectangle(
+            draw_gradient_panel(
+                image,
+                draw,
                 node_box,
+                blue_pale if is_focus else colors["white"],
+                colors["white"] if is_focus else blue_wash,
+                outline=red if is_focus else colors["line"],
                 radius=5,
-                fill=blue if is_focus else white,
-                outline=blue if is_focus else colors["line"],
                 width=2 if is_focus else 1,
+                direction="horizontal",
             )
             if is_focus:
-                draw.rectangle((x + 1, node_top + 1, x + node_width - 1, node_top + 5), fill=blue_mid)
+                draw_gradient_panel(
+                    image,
+                    draw,
+                    (x + 1, node_top + 1, x + node_width - 1, node_top + 7),
+                    blue,
+                    blue_pale,
+                    None,
+                    radius=0,
+                    width=0,
+                    direction="horizontal",
+                )
             _diagram_index(
                 draw,
                 (x + 10, node_top + 10),
                 index + 1,
                 colors,
                 fonts,
-                dark=is_focus,
+                dark=False,
             )
-            text_fill = white if is_focus else blue_dark
+            text_fill = blue_dark
             index_font = fonts.get(TextStyle(bold=True), max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]))
             title_top = node_top + max(int(round(index_font.size * 1.3)) + 22, int(node_height * 0.2))
             title_height = max(34, int(title_size * 1.5))
@@ -1106,7 +1968,7 @@ def draw_diagram(
                     body,
                     (x + 14, title_top + title_height + 6, x + node_width - 14, node_top + node_height - 14),
                     fonts,
-                    mix_color(white, blue_pale, 0.42) if is_focus else muted,
+                    ink if is_focus else muted,
                     body_size,
                     max(20, int(min_size)),
                     align="center",
@@ -1136,12 +1998,16 @@ def draw_diagram(
         item_body_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["item_body"])
         root_width = int((inner_right - inner_left) * 0.31)
         root_box = (inner_left, inner_top + 18, inner_left + root_width, inner_bottom - 18)
-        draw.rounded_rectangle(
+        draw_gradient_panel(
+            image,
+            draw,
             root_box,
+            blue_pale,
+            colors["white"],
+            outline=red,
             radius=5,
-            fill=blue,
-            outline=blue,
-            width=1,
+            width=2,
+            direction="horizontal",
         )
         root_span = root_box[3] - root_box[1]
         root_title_top = root_box[1] + int(root_span * 0.30)
@@ -1151,7 +2017,7 @@ def draw_diagram(
             str(root.get("title") or diagram.get("center") or "共同问题"),
             (root_box[0] + 20, root_title_top, root_box[2] - 20, root_title_bottom),
             fonts,
-            white,
+            blue_dark,
             root_title_size,
             40,
             bold=True,
@@ -1171,7 +2037,7 @@ def draw_diagram(
                     root_box[3] - 28,
                 ),
                 fonts,
-                mix_color(white, blue_pale, 0.48),
+                ink,
                 root_body_size,
                 30,
                 align="center",
@@ -1187,15 +2053,19 @@ def draw_diagram(
             y = inner_top + index * (item_height + gap)
             is_focus = index == highlight
             item_box = (item_left, y, item_left + item_width, y + item_height)
-            draw.rounded_rectangle(
+            draw_gradient_panel(
+                image,
+                draw,
                 item_box,
-                radius=5,
-                fill=blue_wash if not is_focus else blue_pale,
+                blue_pale if is_focus else colors["white"],
+                colors["white"] if is_focus else blue_wash,
                 outline=red if is_focus else colors["line"],
+                radius=5,
                 width=2 if is_focus else 1,
+                direction="horizontal",
             )
             index_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["index"])
-            _diagram_index(draw, (item_left + 14, y + 16), index + 1, colors, fonts, dark=is_focus, size=index_size)
+            _diagram_index(draw, (item_left + 14, y + 16), index + 1, colors, fonts, dark=False, size=index_size)
             index_font = fonts.get(TextStyle(bold=True), index_size)
             branch_text_left = item_left + 28 + text_width(draw, f"{index + 1:02d}", index_font) + 24
             _diagram_fit_text(
@@ -1241,12 +2111,16 @@ def draw_diagram(
             is_focus = index == highlight
             indent = min(34, index * 10)
             row_box = (inner_left + indent, y, inner_right, y + row_height)
-            draw.rounded_rectangle(
+            draw_gradient_panel(
+                image,
+                draw,
                 row_box,
+                blue_pale if is_focus else (colors["white"] if index % 2 == 0 else blue_wash),
+                colors["white"],
+                outline=red if is_focus else colors["line"],
                 radius=4,
-                fill=blue if is_focus else (white if index % 2 == 0 else blue_wash),
-                outline=blue_mid if is_focus else colors["line"],
-                width=1,
+                width=2 if is_focus else 1,
+                direction="horizontal",
             )
             draw.rectangle((row_box[0], row_box[1], row_box[0] + 5, row_box[3]), fill=blue if not is_focus else red)
             _diagram_index(
@@ -1255,12 +2129,12 @@ def draw_diagram(
                 index + 1,
                 colors,
                 fonts,
-                dark=is_focus,
+                dark=False,
                 size=max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]),
             )
             stack_index_font = fonts.get(TextStyle(bold=True), max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]))
             text_left = row_box[0] + 26 + text_width(draw, f"{index + 1:02d}", stack_index_font) + 24
-            text_color = white if is_focus else blue_dark
+            text_color = blue_dark
             _diagram_fit_text(
                 draw,
                 str(item.get("title") or item.get("label") or ""),
@@ -1280,7 +2154,7 @@ def draw_diagram(
                     body,
                     (text_left + int((row_box[2] - text_left) * 0.36), row_box[1] + 5, row_box[2] - 10, row_box[3] - 5),
                     fonts,
-                    mix_color(white, blue_pale, 0.45) if is_focus else muted,
+                    ink if is_focus else muted,
                     14,
                     10,
                     max_lines=1,
@@ -1387,15 +2261,19 @@ def draw_diagram(
             y = grid_top + row * (cell_height + gap)
             is_focus = index == highlight
             cell_box = (x, y, x + cell_width, y + cell_height)
-            draw.rounded_rectangle(
+            draw_gradient_panel(
+                image,
+                draw,
                 cell_box,
-                radius=4,
-                fill=blue if is_focus else (white if row == column else blue_wash),
+                blue_pale if is_focus else (colors["white"] if row == column else blue_wash),
+                colors["white"],
                 outline=red if is_focus else colors["line"],
+                radius=4,
                 width=2 if is_focus else 1,
+                direction="horizontal",
             )
             matrix_index_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["index"])
-            _diagram_index(draw, (x + 9, y + 8), index + 1, colors, fonts, dark=is_focus, size=matrix_index_size)
+            _diagram_index(draw, (x + 9, y + 8), index + 1, colors, fonts, dark=False, size=matrix_index_size)
             matrix_index_font = fonts.get(TextStyle(bold=True), matrix_index_size)
             matrix_text_left = x + 21 + text_width(draw, f"{index + 1:02d}", matrix_index_font) + 24
             _diagram_fit_text(
@@ -1403,7 +2281,7 @@ def draw_diagram(
                 str(item.get("title") or item.get("label") or ""),
                 (matrix_text_left, y + 8, x + cell_width - 8, y + 38),
                 fonts,
-                white if is_focus else blue_dark,
+                blue_dark,
                 16,
                 11,
                 bold=True,
@@ -1416,7 +2294,7 @@ def draw_diagram(
                     body,
                     (x + 10, y + 40, x + cell_width - 8, y + cell_height - 7),
                     fonts,
-                    mix_color(white, blue_pale, 0.5) if is_focus else ink,
+                    ink,
                     13,
                     9,
                     max_lines=2,
@@ -1452,19 +2330,23 @@ def draw_diagram(
         for index, (item, point) in enumerate(zip(items, points)):
             is_focus = index == highlight
             node_box = (point[0] - node_width // 2, point[1] - 28, point[0] + node_width // 2, point[1] + 28)
-            draw.rounded_rectangle(
+            draw_gradient_panel(
+                image,
+                draw,
                 node_box,
-                radius=5,
-                fill=blue if is_focus else white,
+                blue_pale if is_focus else white,
+                colors["white"],
                 outline=red if is_focus else colors["line"],
+                radius=5,
                 width=2 if is_focus else 1,
+                direction="horizontal",
             )
             _diagram_fit_text(
                 draw,
                 str(item.get("title") or item.get("label") or ""),
                 (node_box[0] + 8, node_box[1] + 5, node_box[2] - 8, node_box[3] - 5),
                 fonts,
-                white if is_focus else blue_dark,
+                blue_dark,
                 16,
                 11,
                 bold=True,
@@ -1501,7 +2383,17 @@ def draw_figure_card(
     scale: float = 1.0,
 ) -> None:
     left, top, right, bottom = box
-    draw_shadowed_panel(image, draw, box, colors["white"], colors["line"], radius=radius, width=1)
+    draw_shadowed_panel(
+        image,
+        draw,
+        box,
+        colors["white"],
+        colors["line"],
+        radius=radius,
+        width=1,
+        gradient_to=colors["blue_wash"],
+        gradient_direction="horizontal",
+    )
     label_size = max(20, int(round(20 * scale)))
     label_font = fonts.get(TextStyle(bold=True), label_size)
     label_height = max(34, int(round(label_size * 1.28)))
@@ -1512,7 +2404,19 @@ def draw_figure_card(
     if label:
         label_width = text_width(draw, label, label_font) + 34
         label_box = (left + 18, label_top, left + 18 + label_width, label_top + label_height)
-        draw_shadowed_panel(image, draw, label_box, colors["blue"], None, radius=5, width=0, shadow_blur=8, shadow_alpha=30)
+        draw_shadowed_panel(
+            image,
+            draw,
+            label_box,
+            colors["blue_pale"],
+            colors["line"],
+            radius=5,
+            width=1,
+            shadow_blur=8,
+            shadow_alpha=30,
+            gradient_to=colors["white"],
+            gradient_direction="horizontal",
+        )
         text_bbox = draw.textbbox((0, 0), label, font=label_font)
         draw.text(
             (
@@ -1521,7 +2425,7 @@ def draw_figure_card(
             ),
             label,
             font=label_font,
-            fill=colors["white"],
+            fill=colors["blue_dark"],
         )
         label_bottom = label_box[3]
     badge_bottom = top + 26
@@ -1530,7 +2434,20 @@ def draw_figure_card(
         badge_width = text_width(draw, badge, badge_font) + 26
         badge_height = max(26, int(round(17 * scale * 1.55)))
         badge_box = (right - 18 - badge_width, label_top, right - 18, label_top + badge_height)
-        draw_tag(draw, badge_box, badge, badge_font, badge_color or colors["blue_pale"], colors["blue_dark"], radius=4)
+        draw_gradient_tag(
+            image,
+            draw,
+            badge_box,
+            badge,
+            badge_font,
+            badge_color or colors["blue_pale"],
+            colors["white"],
+            colors["blue_dark"],
+            outline=colors["line"],
+            radius=4,
+            align="left",
+            direction="horizontal",
+        )
         badge_bottom = badge_box[3]
     image_top = max(top + 26, label_bottom, badge_bottom) + 6
     caption_size = max(17, int(round(17 * scale)))

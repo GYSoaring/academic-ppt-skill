@@ -1,0 +1,24 @@
+{
+  "name": "北京大学",
+  "latin": "PEKING UNIVERSITY",
+  "kind": "official_lockup",
+  "source_page": "https://vim.pku.edu.cn/xzzq/",
+  "lockup": {
+    "archive": "https://vim.pku.edu.cn/docs/20240527144451726806.zip",
+    "file": "标志与中英文校名组合规范_左右.png",
+    "mode": "official_lockup",
+    "recolor": false
+  },
+  "emblem": {
+    "archive": "https://vim.pku.edu.cn/docs/20240527144201516364.zip",
+    "file": "标志_红色.png"
+  },
+  "color": {
+    "name": "北大红 / Beida Red",
+    "web": "#94070A",
+    "rgb": "R139 G0 B18",
+    "cmyk": "C0 M100 Y100 K45",
+    "pantone": "PMS DS 821C / DS 821U"
+  },
+  "typographic_fallback": false
+}

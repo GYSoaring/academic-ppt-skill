@@ -19,7 +19,8 @@ The theme's `text.body_bold_min_px` / `body_bold_max_px` bound semantic body bol
 - Comparison tables.
 - Bar, histogram, column, line, and curve charts. The chart is a native PowerPoint chart object with an editable data sheet; the chart label, badge, axis labels, caption, and annotation are native text.
 - Pipeline nodes, timeline cards, hub cards, references, and closing blocks.
-- Semantic `concept` diagrams as native shapes and text boxes: `sequence`, `branch`, `stack`, `ruler`, `matrix`, and `cycle`.
+- Semantic `concept` diagrams as native shapes and text boxes: `sequence`, `branch`, `stack`, `ruler`, `matrix`, `cycle`, and `relations`.
+- Relation maps export as editable freeform arrows, native connectors, and labeled text boxes. Names follow `relation_node_N`, `relation_arrow_N`, and `relation_label_N`; tapered arrows use PowerPoint gradient fills rather than a flattened image.
 - Formula-led pages: the equation as OMML, symbol definitions as native text, and condition/boundary panels as native shapes.
 - Real title placeholders, semantic alt text, decorative markers, header-row table semantics, and document core properties.
 - Speaker notes.

@@ -12,7 +12,7 @@ Choose a layout by the page's evidence role, not by visual habit. A deck should 
 | `balance` | Two opposing rails around one dominant system figure | `left`, `right`, `image` or `chart`, `image_role`, `image_boundary`, `lead` | There is no real tradeoff or shared system object |
 | `figure` | One real paper figure is the argument | `image` or `chart`, `panels`, `lead`, `takeaway` | The figure is only decorative |
 | `figure_flow` | A 3–5 step principle above one main figure | `flow`, `image` or `chart`, `panels` | The flow is not a real sequence |
-| `concept` | A labeled causal, structural, threshold, or feedback diagram | `diagram`, `panels`, `lead`, `takeaway` | Real measured evidence exists and should be a `figure` |
+| `concept` | A labeled causal, structural, threshold, feedback, or directed relation diagram | `diagram`, optional `panels`, `lead`, `takeaway` | Real measured evidence exists and should be a `figure` |
 | `formula` | One equation is the page's main object | `formula_latex` and `formula`, `variables`, `panels`, `formula_condition` | The formula is decorative or has no traceable variable definitions |
 | `pipeline` | Four or five ordered method steps | `steps`, optional `footer_row` | The steps are not sequential |
 | `compare` | Real comparison of methods, conditions, or cases | `columns`, `rows`, optional `notes` | The rows are not comparable |
@@ -49,7 +49,7 @@ Each block supports:
 - `formula`: one-line formula.
 - `formula_latex`: optional LaTeX source for the same formula; keep `formula` as the portable plain fallback.
 - `image`: one figure path.
-- `diagram`: an inline semantic diagram object. Use one kind from `sequence`, `branch`, `stack`, `ruler`, `matrix`, or `cycle`; see the `concept` section below.
+- `diagram`: an inline semantic diagram object. Use one kind from `sequence`, `branch`, `stack`, `ruler`, `matrix`, `cycle`, or `relations`; see the `concept` section below.
 - `footer` / `output`: one short content-derived judgement, deliverable, or metric shown as a bottom strip. Prefer this when no real image exists.
 - `footer_label`: short label such as `判断`, `交付`, `输出`, `指标`, or `消融`.
 - `visual`: optional concept schematic. Use only when the relation is genuinely spatial or quantitative and label it as a concept/mechanism schematic. Do not use as a generic placeholder.
@@ -63,7 +63,7 @@ If the user supplies no figure and the page is mainly prose, omit `visual`. Fill
 
 ## `concept`
 
-Use `concept` for a real relation that benefits from spatial encoding: an ordered evidence chain, a shared bottleneck with several routes, a hierarchy, a scale, a two-axis tradeoff, or a feedback loop. It is not a generic empty-card replacement.
+Use `concept` for a real relation that benefits from spatial encoding: an ordered evidence chain, a shared bottleneck with several routes, a hierarchy, a scale, a two-axis tradeoff, a feedback loop, or a directed relation graph. It is not a generic empty-card replacement.
 
 ```json
 {
@@ -101,8 +101,11 @@ Diagram kinds:
 - `ruler`: 2–8 numeric ticks; every item needs a numeric `value`.
 - `matrix`: exactly four quadrants plus `x_axis` and `y_axis`.
 - `cycle`: 3–5 nodes in a closed loop.
+- `relations`: 2–8 nodes and 1–10 explicit directed edges; use `ribbon`, `block`, `chevron`, `line`, or `double` arrows, with optional orthogonal routing and visible relation labels.
 
 Keep `highlight` at one item or omit it. Every node needs a `title`; `body` should explain the relation rather than repeat the title. A diagram is always labeled `机制示意`, `研究接口`, or `概念示意`; never describe it as measured evidence.
+
+For a relation map, make the arrow vocabulary carry the argument rather than decorate it. Use `ribbon` for the main tapered flow, `block` for a parallel route, `chevron` for stage-to-stage movement, `line` + `route: "orthogonal"` for a cross-lane link, and `double` for a mutual constraint. Place `label` on the edge with the actual relation (`提出`, `可检验`, `反馈`), not with a generic word such as `关系`. When the graph is the page, omit the interpretation panels and use the full content width.
 
 ## `formula`
 

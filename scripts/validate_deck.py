@@ -64,7 +64,12 @@ SUPPORTED_LAYOUTS = {
 }
 
 REQUIRES_IMAGE_OR_CHART = {"figure", "figure_flow", "metrics", "balance"}
-DIAGRAM_KINDS = {"sequence", "branch", "stack", "ruler", "matrix", "cycle"}
+DIAGRAM_KINDS = {"sequence", "branch", "stack", "ruler", "matrix", "cycle", "relations"}
+RELATION_NODE_TONES = {"pale", "outline", "solid"}
+RELATION_ARROW_STYLES = {"ribbon", "block", "chevron", "line", "double"}
+RELATION_ROUTES = {"straight", "orthogonal"}
+RELATION_SIDES = {"auto", "left", "right", "top", "bottom"}
+RELATION_TONES = {"primary", "muted", "alert"}
 IMAGE_ORIGINS = {"own", "generated", "template", "borrowed", "public"}
 SOURCE_POLICIES = {"off", "advisory", "strict"}
 GENRES = {"general", "experiment", "systems", "theory", "empirical", "survey", "design", "humanities", "clinical"}
@@ -180,7 +185,9 @@ def content_units(slide: dict) -> int:
     if layout == "figure_flow":
         return len(slide.get("flow") or []) + len(slide.get("panels") or [])
     if layout == "concept":
-        return len((slide.get("diagram") or {}).get("items") or []) + len(slide.get("panels") or [])
+        diagram = slide.get("diagram") or {}
+        nodes = diagram.get("nodes") or diagram.get("items") or []
+        return len(nodes) + len(slide.get("panels") or [])
     if layout == "formula":
         return len(slide.get("variables") or []) + len(slide.get("panels") or [])
     if layout == "pipeline":
@@ -207,7 +214,7 @@ def slide_text_volume(slide: dict) -> int:
         len(str(slide.get(key, "")).strip())
         for key in ("lead", "takeaway", "claim", "evidence", "boundary", "quote", "commentary")
     )
-    for key in ("blocks", "steps", "panels", "rows", "items", "metrics", "phases", "points"):
+    for key in ("blocks", "steps", "panels", "rows", "items", "nodes", "metrics", "phases", "points"):
         for item in slide.get(key) or []:
             if isinstance(item, str):
                 total += len(item.strip())
@@ -219,6 +226,15 @@ def slide_text_volume(slide: dict) -> int:
             for field in ("bullets", "items", "conditions"):
                 for value in item.get(field) or []:
                     total += len(str(value).strip())
+    diagram = slide.get("diagram") or {}
+    if isinstance(diagram, dict) and str(diagram.get("kind", "")).strip().lower() == "relations":
+        for node in diagram.get("nodes") or diagram.get("items") or []:
+            if isinstance(node, dict):
+                for field in ("title", "label", "body"):
+                    total += len(str(node.get(field, "")).strip())
+        for relation in diagram.get("relations") or diagram.get("edges") or []:
+            if isinstance(relation, dict):
+                total += len(str(relation.get("label", "")).strip())
     return total
 
 
@@ -236,6 +252,183 @@ def visual_anchor(slide: dict) -> bool:
             any(block.get("footer") or block.get("output") or block.get("stat") for block in slide.get("blocks") or [] if isinstance(block, dict)),
         )
     )
+
+
+def validate_relations_diagram(
+    diagram: dict,
+    page_id: str,
+    issues: list[dict],
+    label: str,
+) -> None:
+    nodes = [
+        node
+        for node in (diagram.get("nodes") or diagram.get("items") or [])
+        if isinstance(node, dict)
+    ]
+    if not 2 <= len(nodes) <= 8:
+        add_issue(issues, "error", page_id, f"{label} needs two to eight relation nodes.")
+
+    arrangement = str(diagram.get("arrangement", "")).strip().lower()
+    has_coordinates = bool(nodes) and all(
+        all(key in node for key in ("x", "y", "w", "h"))
+        for node in nodes
+    )
+    if arrangement and arrangement not in {"free", "row", "two_row"}:
+        add_issue(issues, "error", page_id, f"{label} arrangement must be free, row, or two_row.")
+    if arrangement not in {"free", "row", "two_row"}:
+        arrangement = "free" if has_coordinates else "row"
+
+    node_ids: list[str] = []
+    normalized_boxes: list[tuple[str, float, float, float, float]] = []
+    for node_index, node in enumerate(nodes, start=1):
+        node_id = str(node.get("id", "")).strip()
+        if not node_id:
+            add_issue(issues, "error", page_id, f"{label} node {node_index} needs a stable id.")
+            continue
+        if node_id in node_ids:
+            add_issue(issues, "error", page_id, f"{label} node id '{node_id}' is duplicated.")
+        node_ids.append(node_id)
+        if not str(node.get("title") or node.get("label") or "").strip():
+            add_issue(issues, "warning", page_id, f"{label} node '{node_id}' has no title/label.")
+        tone = str(node.get("tone", "pale")).strip().lower()
+        if tone not in RELATION_NODE_TONES:
+            add_issue(
+                issues,
+                "error",
+                page_id,
+                f"{label} node '{node_id}' tone must be one of {sorted(RELATION_NODE_TONES)}.",
+            )
+        accent = str(node.get("accent", "")).strip().lower()
+        if accent and accent not in {"blue", "red", "alert"}:
+            add_issue(issues, "warning", page_id, f"{label} node '{node_id}' has an unknown accent.")
+
+        if arrangement != "free":
+            continue
+        missing = [key for key in ("x", "y", "w", "h") if key not in node]
+        if missing:
+            add_issue(
+                issues,
+                "error",
+                page_id,
+                f"{label} free-layout node '{node_id}' is missing {', '.join(missing)}.",
+            )
+            continue
+        try:
+            x = float(node["x"])
+            y = float(node["y"])
+            node_width = float(node["w"])
+            node_height = float(node["h"])
+        except (TypeError, ValueError):
+            add_issue(issues, "error", page_id, f"{label} node '{node_id}' coordinates must be numeric.")
+            continue
+        if not all(0.0 <= value <= 1.0 for value in (x, y, node_width, node_height)):
+            add_issue(issues, "error", page_id, f"{label} node '{node_id}' coordinates must stay in 0–1.")
+            continue
+        if node_width <= 0.0 or node_height <= 0.0:
+            add_issue(issues, "error", page_id, f"{label} node '{node_id}' needs positive width and height.")
+            continue
+        if x + node_width > 1.0001 or y + node_height > 1.0001:
+            add_issue(issues, "error", page_id, f"{label} node '{node_id}' escapes the diagram bounds.")
+            continue
+        normalized_boxes.append((node_id, x, y, node_width, node_height))
+
+    for first_index, first in enumerate(normalized_boxes):
+        first_id, first_x, first_y, first_width, first_height = first
+        first_area = first_width * first_height
+        for second in normalized_boxes[first_index + 1 :]:
+            second_id, second_x, second_y, second_width, second_height = second
+            overlap_width = max(
+                0.0,
+                min(first_x + first_width, second_x + second_width) - max(first_x, second_x),
+            )
+            overlap_height = max(
+                0.0,
+                min(first_y + first_height, second_y + second_height) - max(first_y, second_y),
+            )
+            if overlap_width <= 0.0 or overlap_height <= 0.0:
+                continue
+            overlap_ratio = (overlap_width * overlap_height) / max(0.0001, min(first_area, second_width * second_height))
+            if overlap_ratio > 0.08:
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    f"{label} nodes '{first_id}' and '{second_id}' overlap; adjust x/y/w/h.",
+                )
+
+    relations = [
+        relation
+        for relation in (diagram.get("relations") or diagram.get("edges") or [])
+        if isinstance(relation, dict)
+    ]
+    if not 1 <= len(relations) <= 10:
+        add_issue(issues, "error", page_id, f"{label} needs one to ten explicit relations.")
+    node_id_set = set(node_ids)
+    known_edges: set[tuple[str, str]] = set()
+    for relation_index, relation in enumerate(relations, start=1):
+        source_id = str(relation.get("from", "")).strip()
+        target_id = str(relation.get("to", "")).strip()
+        if source_id not in node_id_set or target_id not in node_id_set:
+            add_issue(
+                issues,
+                "error",
+                page_id,
+                f"{label} relation {relation_index} must reference existing node ids.",
+            )
+        if source_id and source_id == target_id:
+            add_issue(issues, "error", page_id, f"{label} relation {relation_index} cannot be a self-loop.")
+        edge = (source_id, target_id)
+        if source_id and target_id and edge in known_edges:
+            add_issue(issues, "warning", page_id, f"{label} relation {source_id}→{target_id} is duplicated.")
+        known_edges.add(edge)
+        style = str(relation.get("style", "ribbon")).strip().lower()
+        if style not in RELATION_ARROW_STYLES:
+            add_issue(
+                issues,
+                "error",
+                page_id,
+                f"{label} relation {relation_index} style must be one of {sorted(RELATION_ARROW_STYLES)}.",
+            )
+        route = str(relation.get("route", "straight")).strip().lower()
+        if route not in RELATION_ROUTES:
+            add_issue(
+                issues,
+                "error",
+                page_id,
+                f"{label} relation {relation_index} route must be one of {sorted(RELATION_ROUTES)}.",
+            )
+        if route == "orthogonal" and style != "line":
+            add_issue(
+                issues,
+                "warning",
+                page_id,
+                f"{label} relation {relation_index} uses an orthogonal route; style '{style}' is ignored.",
+            )
+        tone = str(relation.get("tone", "primary")).strip().lower()
+        if tone not in RELATION_TONES:
+            add_issue(
+                issues,
+                "error",
+                page_id,
+                f"{label} relation {relation_index} tone must be one of {sorted(RELATION_TONES)}.",
+            )
+        for side_key in ("start_side", "end_side"):
+            side = str(relation.get(side_key, "auto")).strip().lower()
+            if side not in RELATION_SIDES:
+                add_issue(
+                    issues,
+                    "error",
+                    page_id,
+                    f"{label} relation {relation_index} {side_key} must be one of {sorted(RELATION_SIDES)}.",
+                )
+        if "width" in relation:
+            try:
+                arrow_width = float(relation["width"])
+            except (TypeError, ValueError):
+                add_issue(issues, "error", page_id, f"{label} relation {relation_index} width is not numeric.")
+            else:
+                if arrow_width <= 0:
+                    add_issue(issues, "error", page_id, f"{label} relation {relation_index} width must be positive.")
 
 
 def validate_diagram(diagram: dict, page_id: str, issues: list[dict], label: str = "Diagram") -> None:
@@ -256,6 +449,9 @@ def validate_diagram(diagram: dict, page_id: str, issues: list[dict], label: str
             page_id,
             f"{label} has unsupported kind: {kind}. Use one of {sorted(DIAGRAM_KINDS)}.",
         )
+        return
+    if kind == "relations":
+        validate_relations_diagram(diagram, page_id, issues, label)
         return
     items = [item for item in (diagram.get("items") or []) if isinstance(item, dict)]
     limits = {
@@ -577,8 +773,13 @@ def main() -> None:
             else:
                 validate_diagram(diagram, page_id, issues, label="Concept diagram")
             panels = slide.get("panels") or []
-            if not 1 <= len(panels) <= 3:
+            relation_map = isinstance(diagram, dict) and str(diagram.get("kind", "")).strip().lower() == "relations"
+            if relation_map and not 0 <= len(panels) <= 3:
+                add_issue(issues, "error", page_id, "Relation maps allow zero to three interpretation panels.")
+            if not relation_map and not 1 <= len(panels) <= 3:
                 add_issue(issues, "error", page_id, "Concept layout needs one to three interpretation panels.")
+            if "diagram_frame" in slide and not isinstance(slide.get("diagram_frame"), bool):
+                add_issue(issues, "warning", page_id, "diagram_frame should be true or false.")
             if slide.get("image") or slide.get("chart"):
                 add_issue(issues, "warning", page_id, "Concept layout is diagram-led; use figure/figure_flow for real evidence.")
         if layout == "formula":
@@ -903,6 +1104,22 @@ def main() -> None:
         for block in slide.get("blocks") or []:
             if isinstance(block, dict):
                 probes.extend([block.get("heading"), block.get("body"), block.get("footer")])
+                diagram = block.get("diagram")
+                if isinstance(diagram, dict):
+                    for node in diagram.get("nodes") or diagram.get("items") or []:
+                        if isinstance(node, dict):
+                            probes.extend([node.get("title"), node.get("label"), node.get("body")])
+                    for relation in diagram.get("relations") or diagram.get("edges") or []:
+                        if isinstance(relation, dict):
+                            probes.append(relation.get("label"))
+        diagram = slide.get("diagram")
+        if isinstance(diagram, dict):
+            for node in diagram.get("nodes") or diagram.get("items") or []:
+                if isinstance(node, dict):
+                    probes.extend([node.get("title"), node.get("label"), node.get("body")])
+            for relation in diagram.get("relations") or diagram.get("edges") or []:
+                if isinstance(relation, dict):
+                    probes.append(relation.get("label"))
         for panel in slide.get("panels") or []:
             if isinstance(panel, dict):
                 probes.extend([panel.get("heading"), panel.get("body")])

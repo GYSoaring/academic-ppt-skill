@@ -409,6 +409,104 @@
     },
     {
       "id": "10",
+      "layout": "concept",
+      "section": "diagram",
+      "eyebrow": "2.5",
+      "title": "关系地图",
+      "lead": "把共同问题、两条方法路径、证据接口与综合判断放进同一张可编辑关系图。",
+      "diagram_label": "研究路径",
+      "diagram_frame": false,
+      "diagram": {
+        "kind": "relations",
+        "arrangement": "free",
+        "nodes": [
+          {
+            "id": "problem",
+            "title": "共同问题",
+            "body": "任务约束无法直接验证",
+            "tone": "solid",
+            "x": 0.015,
+            "y": 0.39,
+            "w": 0.19,
+            "h": 0.22
+          },
+          {
+            "id": "method_a",
+            "title": "方法 A",
+            "body": "以结构先验生成候选",
+            "x": 0.3,
+            "y": 0.04,
+            "w": 0.23,
+            "h": 0.27
+          },
+          {
+            "id": "method_b",
+            "title": "方法 B",
+            "body": "以数据驱动补充对照",
+            "x": 0.3,
+            "y": 0.69,
+            "w": 0.23,
+            "h": 0.27
+          },
+          {
+            "id": "evidence",
+            "title": "证据接口",
+            "body": "统一指标与失效条件",
+            "x": 0.63,
+            "y": 0.04,
+            "w": 0.22,
+            "h": 0.27
+          },
+          {
+            "id": "decision",
+            "title": "综合判断",
+            "body": "保留收益、代价与边界",
+            "tone": "outline",
+            "x": 0.66,
+            "y": 0.69,
+            "w": 0.23,
+            "h": 0.27
+          }
+        ],
+        "relations": [
+          {
+            "from": "problem",
+            "to": "method_a",
+            "label": "提出",
+            "style": "ribbon"
+          },
+          {
+            "from": "problem",
+            "to": "method_b",
+            "label": "同源",
+            "style": "block"
+          },
+          {
+            "from": "method_a",
+            "to": "evidence",
+            "label": "可检验",
+            "style": "chevron"
+          },
+          {
+            "from": "method_b",
+            "to": "evidence",
+            "label": "跨场景",
+            "style": "line",
+            "route": "orthogonal"
+          },
+          {
+            "from": "evidence",
+            "to": "decision",
+            "label": "相互约束",
+            "style": "double"
+          }
+        ],
+        "note": "版式示例；箭头只表示论证关系，不代表实验流程或因果证明。"
+      },
+      "speech": "关系图适合把共同问题、并行方法、证据接口和结论放在同一张图里；箭头方向与标签都来自真实逻辑。"
+    },
+    {
+      "id": "11",
       "layout": "formula",
       "section": "content",
       "eyebrow": "2.3",
@@ -457,7 +555,7 @@
       "speech": "公式页要同时给出符号定义和适用条件。"
     },
     {
-      "id": "11",
+      "id": "12",
       "layout": "quote",
       "section": "content",
       "eyebrow": "2.4",
@@ -472,7 +570,7 @@
       "speech": "引文页适合人文学科的细读与论证。"
     },
     {
-      "id": "12",
+      "id": "13",
       "layout": "pipeline",
       "section": "structure",
       "eyebrow": "3.1",
@@ -519,7 +617,7 @@
       "speech": "五步流程适合展示从输入到输出的完整链路。"
     },
     {
-      "id": "13",
+      "id": "14",
       "layout": "compare",
       "section": "structure",
       "eyebrow": "3.2",
@@ -573,7 +671,7 @@
       "speech": "对比页适合把多条路线放在同一组维度下。"
     },
     {
-      "id": "14",
+      "id": "15",
       "layout": "hub",
       "section": "structure",
       "eyebrow": "3.3",
@@ -621,7 +719,7 @@
       "speech": "全景图适合一个核心对象加四到六个分支。"
     },
     {
-      "id": "15",
+      "id": "16",
       "layout": "metrics",
       "section": "data",
       "eyebrow": "4.1",
@@ -665,7 +763,7 @@
       "speech": "指标页必须绑定条件，示例值不能当成实测结果。"
     },
     {
-      "id": "16",
+      "id": "17",
       "layout": "figure",
       "section": "data",
       "eyebrow": "4.2",
@@ -709,7 +807,7 @@
       "speech": "图表页把数据、单位、样本量和条件放在同一张卡里。"
     },
     {
-      "id": "17",
+      "id": "18",
       "layout": "figure",
       "section": "data",
       "eyebrow": "4.3",
@@ -739,7 +837,7 @@
       "speech": "图文变体把主图放在右侧，适合先给判断再读图。"
     },
     {
-      "id": "18",
+      "id": "19",
       "layout": "figure_flow",
       "section": "data",
       "eyebrow": "4.3",
@@ -786,7 +884,7 @@
       "speech": "图组页把流程和图放在同一页，适合系统链路。"
     },
     {
-      "id": "19",
+      "id": "20",
       "layout": "balance",
       "section": "data",
       "eyebrow": "4.4",
@@ -833,7 +931,7 @@
       "speech": "平衡页把收益和代价放在同一个中心对象两侧。"
     },
     {
-      "id": "20",
+      "id": "21",
       "layout": "timeline",
       "section": "structure",
       "eyebrow": "5.1",
@@ -888,7 +986,7 @@
       "speech": "时间线适合把计划拆成可检查的里程碑。"
     },
     {
-      "id": "21",
+      "id": "22",
       "layout": "closing",
       "section": "closing",
       "eyebrow": "5.2",
@@ -913,7 +1011,7 @@
       "speech": "结束页要带着结论、边界和下一步离开。"
     },
     {
-      "id": "22",
+      "id": "23",
       "layout": "references",
       "section": "closing",
       "eyebrow": "5.3",

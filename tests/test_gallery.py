@@ -35,7 +35,7 @@ def test_gallery_covers_layouts_and_diagram_kinds() -> None:
         for block in slide.get("blocks") or []:
             if isinstance(block.get("diagram"), dict):
                 diagram_kinds.add(block["diagram"].get("kind"))
-    assert {"sequence", "branch", "stack", "ruler", "matrix", "cycle"} <= diagram_kinds
+    assert {"sequence", "branch", "stack", "ruler", "matrix", "cycle", "relations"} <= diagram_kinds
 
 
 def test_gallery_slides_have_speech_and_quote_contract() -> None:

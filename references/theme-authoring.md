@@ -94,7 +94,12 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
     "corner_marks": false,      // 面板四角的小折角（每块 4 个对象）
     "card_index": false,        // 卡片左上角的 01 / 02
     "card_highlight": false,    // 标题条顶部那条高光
-    "header_style": "gradient"  // gradient = 深蓝标题条；flat = 纯色，会与 PPTX 导出不一致
+    "header_style": "gradient", // gradient = 渐变标题条；flat = 纯色
+    "fill_style": "soft_gradient",
+    "fill_gradient_colors": ["blue_wash", "blue_pale"],
+    "fill_gradient_to": "white",
+    "fill_gradient_fade": 0.86,
+    "gradient_direction": "horizontal"
   },
   "layout": {
     "block_icons": "off",       // 圆形图标徽章
@@ -110,7 +115,10 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
 单页最低 21。作为参照，一份真人做的同题材答辩 deck 是 15.8 对象/页。
 
 **注意**：`lead_panel: false` 会让版面明显变松。这是审美选择，不是优化，用之前请先看渲染结果。
-`header_style: "flat"` 只在 PNG 预览里生效，PPTX 导出器不读它——需要扁平卡片就得改导出器。
+`header_style: "flat"` 与 `"gradient"` 现在都由 PNG 和 PPTX 共用。渐变标题条可用
+`header_gradient_from` / `header_gradient_to` 指定颜色；浅色卡片用 `fill_style: "soft_gradient"`
+从 `fill_gradient_colors` 中的底色渐隐到 `fill_gradient_to`，`fill_gradient_fade` 控制淡化强度。
+`gradient_direction` 支持 `horizontal`（PPTX `ang=0`）和 `vertical`（PPTX `ang=90`）。
 
 ## Minimum Theme Contract
 
@@ -122,6 +130,7 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
 - `type_profiles` is optional. If omitted, built-in scales cover `projection`, `lecture`, and `defense`. A theme may override a profile with `type_profiles.<name>.type_scale` to match its own layout density. `text.body_bold_min_px` and `text.body_bold_max_px` constrain semantic body bolding; do not use `body_bold` as a global bold-all switch.
 - `layout.sidebar_mode`: `always` | `section` | `off`. This is the low-level renderer policy, not the user-facing choice. Writers set `meta.navigation_mode` to `sidebar`, `dividers`, or `hybrid`; the renderer maps it to this field. `off` also uses `layout.content_no_sidebar` as the text box, which is how a theme buys back the 260 px the directory occupied.
 - `layout.panel_radius` and `layout.panel_shadow_alpha`: a designed academic theme is flat. Defaults are `8` px and `20`; `2` / `0` with `panel.header_style = "flat"` removes the dashboard feel without touching any layout code.
+- `panel.fill_style`, `panel.fill_gradient_colors`, `panel.fill_gradient_to`, and `panel.fill_gradient_fade`: optional soft-gradient cards. The renderer and native exporter use the same color endpoints; `gradient_direction` controls both. Keep the light endpoint dark enough for white header text or use a dark text color.
 - `brand.lockup` or `brand.fallback_text`
 - `cover.style`: `centered` or `editorial`
 

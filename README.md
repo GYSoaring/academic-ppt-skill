@@ -45,7 +45,7 @@
 - **版式变体**：同一内容契约可用不同构图，例如 `figure` 的 `image_left` / `image_right` / `chart`，`quote` 的 `centered` / `split`。
 - **人文学科引文页**：`quote` 版式承载引文、出处、版本说明和解读，不再把人文论证硬塞进三卡网格。
 - **论文图优先**：用户提供论文时先从 `figures.json` 选图；没有论文时用 `find_figures.py` 检索 arXiv 公开论文，按 caption 渲染完整 figure 区域，并保留来源、caption 和边界。
-- **语义示意图**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle` 六种图理由内容驱动，渲染器只负责几何与排版；PPTX 中仍是原生形状和文本。
+- **语义示意图与关系箭头**：`sequence`、`branch`、`stack`、`ruler`、`matrix`、`cycle`、`relations` 七种图理由内容驱动。`relations` 用 `ribbon` / `block` / `chevron` / `line` / `double` 箭头和直线 / 正交路径表达方向、依赖、反馈或对照；PPTX 中仍是可编辑自由形状、连接线和文本。
 - **短标题与幽灵稿**：默认页眉只写 10 字以内的主题词，完整判断放在 lead；`title_mode: assertion` 是可选模式。`build_ghost_deck.py` 输出一条可在五分钟内读完的标题主张链。
 - **引用与来源可追溯**：deck 级 `citations` + 页级 `cites` / `source`，页脚自动生成来源行；`source_policy` 可把缺来源的图表和借用图片升级为错误。
 - **图表口径齐全**：`unit`、`sample_size`、`condition`、`source`、`error_bar` 与图表绑定，避免数字脱离实验条件。
@@ -59,7 +59,8 @@
 - **defense 字号档与可读性体检**：答辩投影正文目标 24 pt、标题 32–40 pt；`scripts/audit_pptx.py` 按 PPTX 实际 run 检查全篇字号、表格和参考文献，正文达标但大量小字仍会判定 `font_upgrade`。
 - **南京大学紫色主题与 16 页样例**：`assets/themes/nanjing_purple/` 使用官方书法字标与校徽（来源见 `SOURCE.md`），`examples/nanjing_optics/` 演示官方字标、真实论文图、`defense` 档与语义加粗。
 - **清华紫答辩主题**：`assets/themes/tsinghua_purple/` 内置 `defense` 字号档与官方字标来源，并用 12 页 GM-APD 答辩 deck 做过 PPTX 与无障碍回归（见 Showcase）。
-- **版式画廊**：`scripts/build_gallery.py` 生成 20+ 页 layout / diagram / chart 画廊，覆盖六种关系图、引文页和图文变体。
+- **北大红学术主题**：`assets/themes/pku_red/` 使用官方横式锁版与校徽、北大红 `#94070A`、米色纸张、柔化横向渐变卡片和 `defense` 字号档；官方素材来源、字体回退和署名边界见 [`references/pku-theme.md`](references/pku-theme.md) 与主题目录下的 `SOURCE.md`。仅表示汇报模板，不代表作者单位或官方背书。
+- **版式画廊**：`scripts/build_gallery.py` 生成 20+ 页 layout / diagram / chart 画廊，覆盖七种关系图、引文页和图文变体。
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。
 - **真实成品质检**：`render_pptx_preview.py` 通过 PowerPoint COM 或 LibreOffice 渲染 PPTX，并与 PIL 预览做差异比较，避免“预览能过、交付跑版”。
@@ -252,6 +253,7 @@ outputs/<project>/
 | `assets/themes/zju_blue/theme.json` | 求是蓝开题报告示例 |
 | `assets/themes/tju_blue/theme.json` | 北洋蓝答辩示例 |
 | `assets/themes/tsinghua_purple/theme.json` | 清华紫答辩示例，含 `defense` 字号档 |
+| `assets/themes/pku_red/theme.json` | 北大红学术汇报示例，官方锁版/校徽与 `defense` 字号档 |
 
 新增学校主题时，请复制最接近的主题目录，替换颜色、身份资产和字体候选；不要修改共享渲染器。主题契约见 [`references/theme-authoring.md`](references/theme-authoring.md)。
 

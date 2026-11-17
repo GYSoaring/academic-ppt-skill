@@ -95,7 +95,7 @@ Use a concept visual only when it explains a relationship that prose cannot expl
 
 Every concept visual must be labeled as a concept or mechanism schematic. It must not look like an unlabeled measured plot.
 
-For a concept-led page, prefer the `concept` layout. Its `diagram` must use one of the semantic kinds `sequence`, `branch`, `stack`, `ruler`, `matrix`, or `cycle`; the renderer will not invent labels or values. A `sequence` is only for a real order; a `matrix` is only for a real two-axis tradeoff; a `ruler` needs numeric values.
+For a concept-led page, prefer the `concept` layout. Its `diagram` must use one of the semantic kinds `sequence`, `branch`, `stack`, `ruler`, `matrix`, `cycle`, or `relations`; the renderer will not invent labels or values. A `sequence` is only for a real order; a `matrix` is only for a real two-axis tradeoff; a `ruler` needs numeric values. Use `relations` only when explicit directed edges carry the argument: each edge needs a source, target, and preferably a short relation label.
 
 If there is no real figure and the content is mainly prose, do not invent a chart. Use a content-derived `footer` strip instead:
 

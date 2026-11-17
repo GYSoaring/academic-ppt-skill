@@ -86,6 +86,7 @@ If no real image exists, use a content-derived `footer` / `output` strip, a form
 | `ruler` | A scale, interval, threshold, or timeline | 2–8 positioned ticks with optional pairs |
 | `matrix` | A two-dimensional tradeoff | Exactly four quadrants with labeled axes |
 | `cycle` | A closed feedback or iteration | 3–5 nodes on a ring |
+| `relations` | A directed graph of dependencies, routes, constraints, or feedback | 2–8 nodes and 1–10 labeled edges |
 
 Rules:
 
@@ -94,6 +95,8 @@ Rules:
 - The highlight is one node at most.
 - A `ruler` must use numeric `value` fields; do not position ticks by prose.
 - A `matrix` must label both axes and all four quadrants.
+- A `relations` map must earn every edge: direction, route, and label encode a real dependency, sequence, comparison, constraint, or feedback relation. Start from the argument, then choose the arrow.
+- Prefer `ribbon` for a primary tapered flow, `block` for a parallel or explicit route, `chevron` for stage-to-stage movement, `line` with `route: orthogonal` for cross-lane paths, and `double` for mutual constraint. Keep relation labels short and verb-like.
 - A diagram is a concept schematic. If the page contains real measured evidence, use `figure` or `figure_flow` instead.
 - The native PPTX renderer uses shapes and text boxes for the same diagram. It does not flatten the diagram into an image.
 

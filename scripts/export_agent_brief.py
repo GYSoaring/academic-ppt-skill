@@ -127,7 +127,7 @@ def main() -> None:
             "",
             "- `figure`：一张实测图或论文原图占主导，右侧放 2–3 条解释；主图应占内容区约 65%–80%。",
             "- `figure_flow`：顶部 3–5 步流程，下方一张主图和侧栏解释；适合“原理 + 机制”。",
-            "- `concept`：一张带标签的语义示意图 + 2–3 个解释面板；只用于真实存在的时间顺序、分支、层级、刻度、二维取舍或闭环关系。",
+            "- `concept`：一张带标签的语义示意图 + 0–3 个解释面板；只用于真实存在的时间顺序、分支、层级、刻度、二维取舍、闭环或自由关系网络。关系网络用 `kind: relations`，箭头方向必须来自真实逻辑。",
             "- `formula`：一个公式 + 符号表 + 适用条件 + 读法/边界/验证面板；公式页不是装饰性代码块，也不能替代实测证据。",
             "- `grid`：3–6 个证据或机制块，可用 `span` 让系统图或公式跨列；不要全部做成同样大小。",
             "- `balance`：左栏收益、右栏代价、中间一张系统主图；只有真实权衡关系时才使用。",
@@ -192,22 +192,41 @@ def main() -> None:
                     lines.append(
                         f"- 信息块 {block_index} 语义示意图：`{diagram.get('kind', 'sequence')}`"
                     )
-                    for item_index, item in enumerate(diagram.get("items", []), start=1):
+                    diagram_nodes = diagram.get("nodes") or diagram.get("items") or []
+                    for item_index, item in enumerate(diagram_nodes, start=1):
                         lines.append(
                             f"- 信息块 {block_index} 图示节点 {item_index}「{item.get('title', '')}」："
                             f"{item.get('body', '') or item.get('label', '')}"
                         )
+                    if str(diagram.get("kind", "")).strip().lower() == "relations":
+                        for relation_index, relation in enumerate(diagram.get("relations") or [], start=1):
+                            lines.append(
+                                f"- 信息块 {block_index} 关系 {relation_index}："
+                                f"`{relation.get('from', '')}` → `{relation.get('to', '')}`，"
+                                f"{relation.get('label', '') or '未标注'}；"
+                                f"style={relation.get('style', 'ribbon')}，route={relation.get('route', 'straight')}"
+                            )
                 if block.get("stat"):
                     lines.append(f"- 信息块 {block_index} 关键数字：{block['stat']}（{block.get('stat_label', '')}）")
         if slide.get("layout") == "concept":
             diagram = slide.get("diagram") or {}
             lines.append(f"- 示意图类型：`{diagram.get('kind', 'sequence')}`")
             lines.append(f"- 示意图标签：{slide.get('diagram_label', '机制示意')}")
-            for item_index, item in enumerate(diagram.get("items", []), start=1):
+            diagram_nodes = diagram.get("nodes") or diagram.get("items") or []
+            for item_index, item in enumerate(diagram_nodes, start=1):
                 lines.append(
                     f"- 示意图节点 {item_index}「{item.get('title', '') or item.get('label', '')}」："
                     f"{item.get('body', '')}"
                 )
+            if str(diagram.get("kind", "")).strip().lower() == "relations":
+                for relation_index, relation in enumerate(diagram.get("relations") or [], start=1):
+                    lines.append(
+                        f"- 关系 {relation_index}：`{relation.get('from', '')}` → `{relation.get('to', '')}`，"
+                        f"{relation.get('label', '') or '未标注'}；"
+                        f"style={relation.get('style', 'ribbon')}，"
+                        f"route={relation.get('route', 'straight')}，"
+                        f"tone={relation.get('tone', 'primary')}"
+                    )
             if diagram.get("note"):
                 lines.append(f"- 示意图边界：{diagram['note']}")
         if slide.get("layout") == "formula":

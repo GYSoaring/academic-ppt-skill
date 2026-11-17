@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Semantic relation maps and arrow vocabulary (2026-11-17)
+
+- Added the seventh `concept` diagram kind, `relations`: 2–8 nodes, 1–10 explicit directed edges, and optional `arrangement: free | row | two_row`.
+- Added five semantic arrow styles — tapered `ribbon`, `block`, `chevron`, `line`, and bidirectional `double` — plus `straight` / `orthogonal` routes, `auto | left | right | top | bottom` anchors, and `primary | muted | alert` tones.
+- Relation maps draw arrows behind nodes and labels above them, so a card cannot hide an arrowhead and a relation label cannot disappear under a gradient.
+- PNG and native PowerPoint now share the same relation geometry. The PPTX uses editable freeform polygons with a real linear gradient, native connectors for orthogonal paths, and named `relation_node_N`, `relation_arrow_N`, and `relation_label_N` objects.
+- Relation maps may omit interpretation panels; they then occupy the full content width and default to `diagram_frame: false`. Zero panels remain valid only for this diagram kind.
+- Added edge validation for missing endpoints, self-loops, duplicate edges, unknown styles/routes/tones/sides, non-positive widths, out-of-bounds nodes, and overlapping cards. The agent brief now records `from → to` semantics and edge labels.
+- Added the relation-map gallery slide and regression tests for chevron geometry, PNG gradient direction, native gradients, diagonal gradient parity, orthogonal final arrowheads, connector width, node bounds, label clamping, and zero-panel concept pages.
+
 ### Iteration protocol for weaker models (2026-11-17)
 
 - Added a screenshot-feedback triage protocol: identify the element, defect class (family / size / weight / line height / baseline / overflow / alignment), peer reference, and shared rule before changing code; never start by replacing the global font or theme.
@@ -11,6 +21,18 @@
 - Added defense content budgets (4 condition pairs, 22–26-character single-line caption, single-line source footnote, 2 short closing bullets) and the rule that “it fits” is not the same as “it is readable at 100%”.
 - Added defect-to-geometric-invariant tests, a shared-function call-site checklist, the distinction between user feedback and internal convergence, the silent-gate rule, and a fill-in sprint card for weaker models.
 - Native parity is now executable: the exporter names `condition_label_N` and `figure_card`, and `validate_pptx.py` rejects condition label/value overlap, wrapped defense condition values, non-single-line figure chrome, and chrome that escapes its figure card. Regression tests cover each failure.
+
+### Peking University theme and defense geometry (2026-11-17)
+
+- Added `assets/themes/pku_red/`: 北大红 `#94070A`, paper ground, official horizontal lockup and emblem, fixed sidebar, flat red card headers, and the `defense` type profile. Official VI provenance is recorded in `BRAND_SOURCE.json`, `SOURCE.md`, and the new `references/pku-theme.md`; the wordmark stays an image and is never re-typeset or recolored.
+- Added `references/pku-theme.md` with the palette, asset URLs, font fallbacks (Noto Serif SC / Noto Sans SC when 方正大标宋 / 方正中等线 are absent), cover/header rules, figure and closing contracts, and the non-affiliation rule for papers written at other institutions.
+- Added `background.cover_arc` so an editorial cover can suppress the large background arc without disabling the subtle paper arcs on content pages.
+- Formula pages now reserve height for the real condition-strip font instead of a fixed strip, so the condition line cannot collide with the formula or the symbol list.
+- Native formula export now groups fenced operators so a Unicode minus stays a minus in OMML instead of becoming `m:sepChr` and painting as an arrow in PowerPoint.
+- Added theme-level `soft_gradient` graphics: card headers and pale card faces now share horizontal gradient endpoints between the PIL renderer and native PPTX. The PKU theme uses Beida Red fading toward a lighter rose, with pale card faces fading to paper white.
+- Figure captions and footnotes now reserve their measured glyph height; the footnote sits between the takeaway band and the footer rule instead of pressing into the rule.
+- Closing pages with boundary/next-step cards use the free band above the closing line, and the line is bounded by `layout.footer_y`, so the last bullet is no longer clipped by a fixed card height. The three conclusion rows use 88 px when bottom cards are present.
+- Figure-card badges now paint after the image mount, so a source tag cannot be half-covered by the white photo mount.
 
 ### Defense typography, atomic labels, and card chrome (2026-11-17)
 
