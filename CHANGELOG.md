@@ -24,7 +24,7 @@
 
 ### Peking University theme and defense geometry (2026-11-17)
 
-- Added `assets/themes/pku_red/`: 北大红 `#94070A`, paper ground, official horizontal lockup and emblem, fixed sidebar, flat red card headers, and the `defense` type profile. Official VI provenance is recorded in `BRAND_SOURCE.json`, `SOURCE.md`, and the new `references/pku-theme.md`; the wordmark stays an image and is never re-typeset or recolored.
+- Added `assets/themes/pku_red/`: 北大红 `#94070A`, paper ground, official horizontal lockup and emblem, fixed sidebar, pale red gradient card headers, and the `defense` type profile. Official VI provenance is recorded in `BRAND_SOURCE.json`, `SOURCE.md`, and the new `references/pku-theme.md`; the wordmark stays an image and is never re-typeset or recolored.
 - Added `references/pku-theme.md` with the palette, asset URLs, font fallbacks (Noto Serif SC / Noto Sans SC when 方正大标宋 / 方正中等线 are absent), cover/header rules, figure and closing contracts, and the non-affiliation rule for papers written at other institutions.
 - Added `background.cover_arc` so an editorial cover can suppress the large background arc without disabling the subtle paper arcs on content pages.
 - Formula pages now reserve height for the real condition-strip font instead of a fixed strip, so the condition line cannot collide with the formula or the symbol list.

@@ -46,7 +46,12 @@ The fallback is recorded in `fonts` and `pptx_fonts`. If the official fonts are 
 - Formula pages: one pale formula strip, a condition line, then a measured symbol list. The condition strip and footnote reserve their real glyph height.
 - Closing pages: the three numbered conclusions stay above two bottom cards; the closing line sits below the cards and above the footer. Do not shrink the cards to force extra bullets; cut or merge the copy instead.
 
-The soft gradient is part of the theme contract, not a one-off slide style. `panel.header_gradient_from: "blue"` and `header_gradient_to: "blue_bright"` keep white module labels legible while making the right edge visibly lighter. `panel.fill_style: "soft_gradient"` fades `blue_wash` and `blue_pale` card faces toward white. The PNG renderer and native PPTX exporter must use the same horizontal direction.
+The soft gradient is part of the theme contract, not a one-off slide style. `panel.header_tone: "mist"`,
+`header_gradient_from: "blue_pale"`, `header_gradient_mid: "blue_wash"`, and
+`header_gradient_to: "white"` keep the dark module labels legible while making the right edge visibly
+lighter; the separate `header_accent` rule stays in 北大红. `panel.fill_style: "soft_gradient"` fades
+`blue_wash` and `blue_pale` card faces toward white. The PNG renderer and native PPTX exporter must use
+the same horizontal direction.
 
 ## Usage
 
