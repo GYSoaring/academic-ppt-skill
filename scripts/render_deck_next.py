@@ -1164,9 +1164,9 @@ class DeckRenderer:
         """
         left, top, right, bottom = box
         configured_size = self.type_size("block_title", 26)
-        minimum_height = int(round(configured_size * 1.28))
+        minimum_height = int(round(configured_size * 1.1))
         if self.profile == "defense":
-            minimum_height = max(minimum_height, 84)
+            minimum_height = max(minimum_height, 76)
         height = max(int(height), minimum_height)
         header_box = (left + 2, top + 2, right - 2, top + height)
         header_style = str(self.theme.get("panel", {}).get("header_style", "gradient"))
@@ -1414,6 +1414,7 @@ class DeckRenderer:
                     self.colors,
                     self.fonts,
                     badge=str(block.get("badge", "")),
+                    scale=1.8 if self.profile == "defense" else 1.0,
                 )
                 draw = ImageDraw.Draw(image)
             else:
@@ -1428,6 +1429,7 @@ class DeckRenderer:
                     self.colors,
                     self.fonts,
                     badge=str(block.get("badge", "")),
+                    scale=1.8 if self.profile == "defense" else 1.0,
                 )
                 draw = ImageDraw.Draw(image)
                 content_top = image_box[3] + 10
@@ -1828,6 +1830,7 @@ class DeckRenderer:
             self.fonts,
             chart=slide.get("chart"),
             badge=str(slide.get("image_badge", "")),
+            scale=1.8 if self.profile == "defense" else 1.0,
         )
         self.draw_takeaway(image, slide, str(slide.get("id", "")))
         self.draw_footnote(image, slide.get("footnote", ""))
@@ -2062,7 +2065,7 @@ class DeckRenderer:
         panels = slide.get("panels") or []
         if not panels:
             panels = [{"heading": "图示", "body": slide.get("image_role", "请结合原图讲解。")}]
-        gap = 14
+        gap = 10
         panel_height = (bottom - top - gap * (len(panels) - 1)) // len(panels)
         for index, panel in enumerate(panels):
             panel_top = top + index * (panel_height + gap)
@@ -2154,6 +2157,7 @@ class DeckRenderer:
             self.fonts,
             chart=slide.get("chart"),
             badge=str(slide.get("image_badge", "")),
+            scale=1.8 if self.profile == "defense" else 1.0,
         )
         draw = ImageDraw.Draw(image)
         self.draw_figure_panels(image, draw, slide, text_box)
@@ -2238,6 +2242,7 @@ class DeckRenderer:
             self.fonts,
             chart=slide.get("chart"),
             badge=str(slide.get("image_badge", "")),
+            scale=1.8 if self.profile == "defense" else 1.0,
         )
         draw = ImageDraw.Draw(image)
         self.draw_figure_panels(image, draw, slide, (text_left, lower_top, right, lower_bottom))
@@ -2272,7 +2277,7 @@ class DeckRenderer:
         )
         if panels:
             panel_left = diagram_right + gap
-            panel_gap = 12
+            panel_gap = 10
             panel_height = (bottom - body_top - panel_gap * (len(panels) - 1)) // max(1, len(panels))
             for index, panel in enumerate(panels):
                 panel_top = body_top + index * (panel_height + panel_gap)
@@ -2358,17 +2363,53 @@ class DeckRenderer:
         )
         draw.rectangle((formula_box[0], formula_box[1], formula_box[0] + 6, formula_box[3]), fill=self.color("blue"))
         label = str(slide.get("formula_label", "核心关系"))
-        label_font = self.fonts.get(TextStyle(bold=True), 16)
-        label_width = text_width(draw, label, label_font) + 28
-        label_box = (formula_box[0] + 18, formula_box[1] + 14, formula_box[0] + 18 + label_width, formula_box[1] + 44)
+        label_size = max(16, self.type_size("small", 16))
+        label_font = self.fonts.get(TextStyle(bold=True), label_size)
+        label_width = min(
+            formula_box[2] - formula_box[0] - 36,
+            text_width(draw, label, label_font) + 28,
+        )
+        label_height = max(30, int(round(label_size * 1.12)))
+        label_top = formula_box[1] + 10
+        label_box = (
+            formula_box[0] + 18,
+            label_top,
+            formula_box[0] + 18 + label_width,
+            label_top + label_height,
+        )
         draw.rounded_rectangle(label_box, radius=3, fill=self.color("blue"))
-        draw.text((label_box[0] + 14, label_box[1] + 7), label, font=label_font, fill=self.color("white"))
+        draw.text(
+            (label_box[0] + 14, (label_box[1] + label_box[3]) // 2),
+            label,
+            font=label_font,
+            fill=self.color("white"),
+            anchor="lm",
+        )
 
         formula_text = str(slide.get("formula", "")).strip()
         formula_latex = str(slide.get("formula_latex", "")).strip()
         condition = str(slide.get("formula_condition", "")).strip()
-        math_bottom = formula_box[3] - (58 if condition else 22)
-        math_box = (formula_box[0] + 28, formula_box[1] + 58, formula_box[2] - 28, math_bottom)
+        condition_size = self.type_size("micro", 14)
+        condition_height = 0
+        if condition:
+            condition_width = formula_box[2] - formula_box[0] - 56
+            condition_font, condition_lines, _, _ = self.fit_text(
+                draw,
+                condition,
+                self.theme["fonts"]["body"],
+                condition_width,
+                int(round(condition_size * 2.8)),
+                condition_size,
+                max(18, condition_size - 4),
+                max_lines=2,
+                line_ratio=1.05,
+            )
+            condition_height = int(
+                round(line_height(condition_font, 1.05) * max(1, len(condition_lines)) + 12)
+            )
+        math_bottom = formula_box[3] - (condition_height + 12 if condition else 22)
+        math_top = label_box[3] + 8
+        math_box = (formula_box[0] + 28, math_top, formula_box[2] - 28, math_bottom)
         math_image = (
             render_math_image(formula_latex, self.color("blue_dark"), font_size=48)
             if formula_latex
@@ -2411,7 +2452,12 @@ class DeckRenderer:
                 max_width=math_box[2] - math_box[0],
             )
         if condition:
-            condition_box = (formula_box[0] + 18, formula_box[3] - 42, formula_box[2] - 18, formula_box[3] - 10)
+            condition_box = (
+                formula_box[0] + 18,
+                formula_box[3] - condition_height - 6,
+                formula_box[2] - 18,
+                formula_box[3] - 6,
+            )
             draw.rounded_rectangle(
                 condition_box,
                 radius=3,
@@ -2419,19 +2465,21 @@ class DeckRenderer:
                 outline=mix_color(self.color("line"), self.color("white"), 0.15),
                 width=1,
             )
-            draw_rich_block(
+            condition_fits, _ = draw_rich_block(
                 draw,
                 condition,
-                (condition_box[0] + 10, condition_box[1] + 5),
+                (condition_box[0] + 10, condition_box[1] + 4),
                 condition_box[2] - condition_box[0] - 20,
-                condition_box[3] - condition_box[1] - 8,
+                condition_box[3] - condition_box[1] - 6,
                 self.fonts,
                 self.colors,
-                self.type_size("micro", 14),
-                10,
-                max_lines=1,
-                line_ratio=1.08,
+                condition_size,
+                max(18, condition_size - 4),
+                max_lines=2,
+                line_ratio=1.05,
             )
+            if not condition_fits:
+                self.warn(str(slide.get("id", "")), "Formula condition overflowed.")
 
         variables_top = formula_box[3] + 18
         variables = [item for item in (slide.get("variables") or []) if isinstance(item, dict)]
@@ -2491,7 +2539,7 @@ class DeckRenderer:
 
         panels = slide.get("panels") or []
         if panels:
-            panel_gap = 12
+            panel_gap = 10
             panel_height = (bottom - body_top - panel_gap * (len(panels) - 1)) // max(1, len(panels))
             panel_width = right - right_left
             for index, panel in enumerate(panels):
@@ -2895,12 +2943,19 @@ class DeckRenderer:
         left, top, right, bottom = box
         if not conditions:
             return
+        defense = str(getattr(self, "profile", "")).strip().lower() == "defense"
         rows = math.ceil(len(conditions) / columns)
-        gap = 12
+        gap = 16 if defense else 12
         cell_width = (right - left - gap * (columns - 1)) // columns
-        row_height = min(58, (bottom - top) // max(1, rows))
-        label_font = self.fonts.get(TextStyle(), 15)
-        value_font = self.fonts.get(TextStyle(bold=True), 18)
+        available = bottom - top
+        if defense:
+            # Defense type cannot go below ~18 pt. Give each label/value pair
+            # its own band instead of stacking them into a 58 px row.
+            row_height = min(104, max(72, available // max(1, rows)))
+        else:
+            row_height = min(58, available // max(1, rows))
+        label_font = self.fonts.get(TextStyle(), 38 if defense else 15)
+        value_font = self.fonts.get(TextStyle(bold=True), 40 if defense else 18)
         for index, item in enumerate(conditions):
             row = index // columns
             column = index % columns
@@ -2925,15 +2980,17 @@ class DeckRenderer:
                 value,
                 self.theme["fonts"]["title"],
                 value_width,
-                row_height - 20,
-                18,
-                12,
-                max_lines=2,
+                row_height - (2 if not label else line_height(label_font, 1.0) + 2),
+                40 if defense else 18,
+                14 if defense else 12,
+                max_lines=1 if defense else 2,
             )
             if not value_fits:
                 self.warn("conditions", f"Condition value overflowed: {value}")
-            draw_lines(draw, value_lines, (x, y + 20), value_rendered, self.color("blue_dark"), 1.15)
-            draw.line((x, y + row_height - 5, x + cell_width, y + row_height - 5), fill=self.color("line"), width=1)
+            value_top = y + (line_height(label_font, 1.0) + 3 if label else 3)
+            draw_lines(draw, value_lines, (x, value_top), value_rendered, self.color("blue_dark"), 1.05)
+            if not defense:
+                draw.line((x, y + row_height - 6, x + cell_width, y + row_height - 6), fill=self.color("line"), width=1)
 
     def draw_metrics(self, slide: dict, page_number: int) -> Image.Image:
         image, draw = self.draw_frame(slide, page_number)
@@ -2955,7 +3012,7 @@ class DeckRenderer:
         for index, metric in enumerate(metrics):
             x = left + index * (card_width + gap)
             self.draw_metric_card(image, draw, (x, body_top, x + card_width, body_top + card_height), metric, index)
-        lower_top = body_top + card_height + 18
+        lower_top = body_top + card_height + 40
         lower_bottom = bottom
         image_path = resolve_path(slide.get("image"), self.deck_path.parent)
         if image_path is not None or slide.get("chart"):
@@ -2971,6 +3028,7 @@ class DeckRenderer:
                 self.fonts,
                 chart=slide.get("chart"),
                 badge=str(slide.get("image_badge", "")),
+                scale=1.8 if self.profile == "defense" else 1.0,
             )
             draw = ImageDraw.Draw(image)
             side_box = (left + image_width + 18, lower_top, right, lower_bottom)
@@ -3057,7 +3115,9 @@ class DeckRenderer:
         left = int(self.layout["content"][0])
         right = int(self.layout["content"][2])
         size = self.type_size("footnote", 20)
-        height = max(24, int(round(size * 1.18)))
+        text_y = int(self.layout["takeaway_top"]) + int(self.layout["takeaway_height"]) + 6
+        available_height = max(24, int(self.layout["footer_y"]) - text_y - 6)
+        height = min(max(24, int(round(size * 1.18))), available_height)
         font, lines, _, fits = self.fit_text(
             draw,
             text,
@@ -3072,7 +3132,6 @@ class DeckRenderer:
         if not fits:
             self.warn("footnote", f"Footnote overflowed: {text}")
         ascent, descent = font.getmetrics()
-        text_y = int(self.layout["takeaway_top"]) + int(self.layout["takeaway_height"]) + 8
         text_y += max(0, (height - (ascent + descent)) // 2)
         draw.text(
             (left, text_y),
@@ -3227,7 +3286,7 @@ class DeckRenderer:
         )
         if not points and not has_bottom_cards:
             points = ["结论待补充"]
-        row_height = 88 if has_bottom_cards and len(points) >= 4 else 104
+        row_height = 88 if has_bottom_cards else 104
         gap = 14
         points_bottom = body_top + len(points) * (row_height + gap) - gap if points else body_top
         for index, point in enumerate(points):
@@ -3286,9 +3345,12 @@ class DeckRenderer:
             )
         cards_top = points_bottom + (16 if points else 0)
         # Give the closing cards the whole band between the lead and the
-        # closing line. The old fixed 372 px height clipped the fourth boundary
-        # bullet while leaving a large empty strip below the cards.
-        cards_bottom = bottom - (100 if points else 94)
+        # closing line. A fixed 100 px reserve for the closing line left the
+        # second boundary bullet outside the card while the area below the
+        # closing line stayed empty. Stop the cards above the footer and keep
+        # the closing line in the paper margin.
+        footer_y = int(self.layout.get("footer_y", self.height - 80))
+        cards_bottom = min(bottom - 26, footer_y - 132)
         if cards and cards_bottom - cards_top > 80:
             gap_cards = 16
             card_width = (right - left - gap_cards * (len(cards) - 1)) // len(cards)
@@ -3353,7 +3415,7 @@ class DeckRenderer:
         if not closing_fits:
             self.warn(str(slide.get("id", "")), "Closing line overflowed.")
         closing_y = cards_bottom + 30 if cards and cards_bottom - cards_top > 80 else bottom - 62
-        closing_y = min(closing_y, bottom - 52)
+        closing_y = min(closing_y, footer_y - 96)
         draw.line(
             (left, closing_y - 24, right, closing_y - 24),
             fill=mix_color(self.color("line"), self.color("white"), 0.2),

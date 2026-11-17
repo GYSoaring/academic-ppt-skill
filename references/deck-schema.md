@@ -573,6 +573,7 @@ Use when one shared object or question has four to six parallel branches. The ce
   ],
   "image": "assets/result.png",
   "image_label": "测量结果",
+  "image_caption": "场景与三维重建结果；图像来自论文。",
   "image_badge": "实测",
   "conditions_title": "实验条件",
   "conditions": [
@@ -588,6 +589,8 @@ Use when one shared object or question has four to six parallel branches. The ce
 ```
 
 Use two to four metrics. `conditions` can be a list of `{label, value}` objects or short strings. `conditions_note` is the mandatory boundary when the numbers do not generalize.
+
+Under `profile: defense`, the metrics side panel shows at most four conditions in a 2×2 grid; move extra conditions into `speech` or a following page. Each pair is rendered as a label band above a value band, so both stay above the 18 pt floor. `image_label` and `image_badge` are single-line tokens; `image_caption` must fit one line at the defense floor (roughly 22–26 Chinese characters for a 58%-width card), so write a compact description and keep the full citation in `source` / `citations`.
 
 ## Layout: quote
 

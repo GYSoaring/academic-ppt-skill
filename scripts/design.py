@@ -11,6 +11,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from common import (
+    CLOSING_PUNCTUATION,
     PUNCTUATION,
     draw_lines,
     fit_text_block,
@@ -158,33 +159,61 @@ def wrap_styled(
     size: int,
     max_width: int,
 ) -> list[list[Token]]:
+    def chunk_tokens(tokens: Sequence[Token | None]) -> list[list[Token] | None]:
+        """Keep closing punctuation with the semantic unit before it."""
+        chunks: list[list[Token] | None] = []
+        for token in tokens:
+            if token is None:
+                chunks.append(None)
+                continue
+            if token.text.isspace():
+                chunks.append([token])
+                continue
+            closing = token.text in PUNCTUATION or token.text in CLOSING_PUNCTUATION
+            if (
+                closing
+                and chunks
+                and chunks[-1] is not None
+                and not chunks[-1][-1].text.isspace()
+            ):
+                chunks[-1].append(token)
+            else:
+                chunks.append([token])
+        return chunks
+
     lines: list[list[Token]] = []
     line: list[Token] = []
     width = 0.0
-    for token in _iter_tokens(runs):
-        if token is None:
+    for chunk in chunk_tokens(list(_iter_tokens(runs))):
+        if chunk is None:
             lines.append(line)
             line = []
             width = 0.0
             continue
-        if token.text.isspace() and not line:
+        if len(chunk) == 1 and chunk[0].text.isspace() and not line:
             continue
-        font = fonts.get(token.style, size)
-        token_width = float(text_width(draw, token.text, font))
-        if line and width + token_width > max_width:
-            if token.text in PUNCTUATION:
+        chunk_width = sum(
+            float(text_width(draw, token.text, fonts.get(token.style, size)))
+            for token in chunk
+        )
+        if line and width + chunk_width > max_width:
+            lines.append(line)
+            line = []
+            width = 0.0
+            if len(chunk) == 1 and chunk[0].text.isspace():
+                continue
+        if not line and chunk_width > max_width:
+            for token in chunk:
+                token_width = float(text_width(draw, token.text, fonts.get(token.style, size)))
+                if line and width + token_width > max_width:
+                    lines.append(line)
+                    line = []
+                    width = 0.0
                 line.append(token)
-                lines.append(line)
-                line = []
-                width = 0.0
-                continue
-            lines.append(line)
-            line = []
-            width = 0.0
-            if token.text.isspace():
-                continue
-        line.append(token)
-        width += token_width
+                width += token_width
+            continue
+        line.extend(chunk)
+        width += chunk_width
     if line:
         lines.append(line)
     return lines
@@ -206,12 +235,14 @@ def fit_styled(
         font = fonts.get(TextStyle(), min_size)
         return min_size, [], line_height(font, line_ratio), True
     size = max_size
-    while size >= min_size:
+    while True:
         lines = wrap_styled(draw, runs, fonts, size, max_width)
         height = line_height(fonts.get(TextStyle(), size), line_ratio) * max(1, len(lines))
         if height <= max_height and (max_lines is None or len(lines) <= max_lines):
             return size, lines, height, True
-        size -= 2
+        if size <= min_size:
+            break
+        size = max(min_size, size - 2)
     size = min_size
     lines = wrap_styled(draw, runs, fonts, size, max_width)
     height = line_height(fonts.get(TextStyle(), size), line_ratio) * max(1, len(lines))
@@ -1467,22 +1498,44 @@ def draw_figure_card(
     badge: str = "",
     badge_color: tuple[int, int, int] | None = None,
     radius: int = 12,
+    scale: float = 1.0,
 ) -> None:
     left, top, right, bottom = box
     draw_shadowed_panel(image, draw, box, colors["white"], colors["line"], radius=radius, width=1)
-    label_font = fonts.get(TextStyle(bold=True), 20)
+    label_size = max(20, int(round(20 * scale)))
+    label_font = fonts.get(TextStyle(bold=True), label_size)
+    label_height = max(34, int(round(label_size * 1.28)))
+    # Large defense tabs sit inside the card; small tabs keep the editorial
+    # half-outside treatment without colliding with the row above.
+    label_top = top + 10 if scale > 1.2 else top - 15
+    label_bottom = top + 26
     if label:
         label_width = text_width(draw, label, label_font) + 34
-        label_box = (left + 18, top - 15, left + 18 + label_width, top + 19)
+        label_box = (left + 18, label_top, left + 18 + label_width, label_top + label_height)
         draw_shadowed_panel(image, draw, label_box, colors["blue"], None, radius=5, width=0, shadow_blur=8, shadow_alpha=30)
-        draw.text((label_box[0] + 17, label_box[1] + 7), label, font=label_font, fill=colors["white"])
+        text_bbox = draw.textbbox((0, 0), label, font=label_font)
+        draw.text(
+            (
+                label_box[0] + 16,
+                label_box[1] + (label_height - (text_bbox[3] - text_bbox[1])) // 2 - text_bbox[1],
+            ),
+            label,
+            font=label_font,
+            fill=colors["white"],
+        )
+        label_bottom = label_box[3]
+    badge_bottom = top + 26
     if badge:
-        badge_font = fonts.get(TextStyle(bold=True), 16)
-        badge_width = text_width(draw, badge, badge_font) + 22
-        badge_box = (right - 18 - badge_width, top + 13, right - 18, top + 39)
+        badge_font = fonts.get(TextStyle(bold=True), max(17, int(round(17 * scale))))
+        badge_width = text_width(draw, badge, badge_font) + 26
+        badge_height = max(26, int(round(17 * scale * 1.55)))
+        badge_box = (right - 18 - badge_width, label_top, right - 18, label_top + badge_height)
         draw_tag(draw, badge_box, badge, badge_font, badge_color or colors["blue_pale"], colors["blue_dark"], radius=4)
-    caption_height = 34 if caption else 0
-    image_box = (left + 14, top + 26, right - 14, bottom - 14 - caption_height)
+        badge_bottom = badge_box[3]
+    image_top = max(top + 26, label_bottom, badge_bottom) + 6
+    caption_size = max(17, int(round(17 * scale)))
+    caption_height = max(34, int(round(caption_size * 1.65))) if caption else 0
+    image_box = (left + 14, image_top, right - 14, bottom - 14 - caption_height)
     if chart:
         draw_chart(draw, image_box, chart, colors, fonts)
     elif image_path is not None and image_path.exists():
@@ -1503,12 +1556,14 @@ def draw_figure_card(
         text = "图片缺失"
         width = text_width(draw, text, missing_font)
         draw.text((image_box[0] + (image_box[2] - image_box[0] - width) // 2, image_box[1] + 30), text, font=missing_font, fill=colors["muted"])
+    # Corner marks sit above the caption band; paint them before it so the
+    # bottom pair never collides with caption glyphs.
+    draw_corner_marks(draw, (left + 8, top + 8, right - 8, bottom - 8), mix_color(colors["blue"], colors["white"], 0.55), length=max(16, int(round(16 * scale))), width=2)
     if caption:
-        caption_box = (left + 2, bottom - 36, right - 2, bottom - 2)
+        caption_box = (left + 2, bottom - caption_height - 2, right - 2, bottom - 2)
         draw.rectangle(caption_box, fill=colors["blue_wash"])
-        caption_font = fonts.get(TextStyle(), 17)
-        draw.text((left + 16, bottom - 29), caption, font=caption_font, fill=colors["muted"])
-    draw_corner_marks(draw, (left + 8, top + 8, right - 8, bottom - 8), mix_color(colors["blue"], colors["white"], 0.55), length=16, width=2)
+        caption_font = fonts.get(TextStyle(), caption_size)
+        draw.text((left + 16, bottom - caption_height + 4), caption, font=caption_font, fill=colors["muted"])
 
 
 def make_background(
@@ -1603,7 +1658,7 @@ def make_background(
                 fill=accent_color,
                 width=2,
             )
-    if cover:
+    if cover and settings.get("cover_arc", True):
         draw.arc((-860, 760, 2900, 1840), 200, 340, fill=mix_color(colors["line"], colors["paper"], 0.2) + (200,), width=9)
         draw.arc((-440, 950, 2480, 1680), 198, 342, fill=accent_color, width=4)
     return Image.alpha_composite(image, overlay).convert("RGB")

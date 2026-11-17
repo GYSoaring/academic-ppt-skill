@@ -3,16 +3,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from PIL import Image, ImageDraw
 from pptx import Presentation
 
 from design import DIAGRAM_BRANCH_TEXT
-from common import slide_display_title
+from common import resolve_font, slide_display_title, text_width, wrap_cjk_text
 from export_editable_pptx import EditableDeckExporter
 from validate_pptx import geometry_issues, minimum_editable_text_shapes
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 THEME = SKILL_ROOT / "assets" / "themes" / "tju_blue" / "theme.json"
+EMU_PER_PX = 914400.0 / 153.6
 
 
 def _shape_by_name(slide, name: str):
@@ -21,6 +23,19 @@ def _shape_by_name(slide, name: str):
 
 def _font_px(shape) -> int:
     return int(shape.text_frame.paragraphs[0].runs[0].font.size.pt * 153.6 / 72)
+
+
+def _shape_px(value: float) -> float:
+    return float(value) / EMU_PER_PX
+
+
+def _run(shape):
+    return next(
+        run
+        for paragraph in shape.text_frame.paragraphs
+        for run in paragraph.runs
+        if run.text
+    )
 
 
 def _deck(outline: bool) -> dict:
@@ -36,7 +51,7 @@ def _deck(outline: bool) -> dict:
             "id": "01",
             "layout": "bullets",
             "section": "background",
-            "eyebrow": "1.1",
+            "eyebrow": "1.2",
             "title": "探测链与退化",
             "lead": "测试页眉字号与基线。",
             "columns": [{"heading": "机制", "bullets": ["首触发竞争"]}],
@@ -86,6 +101,71 @@ def _sequence_deck() -> dict:
                     "note": "机制示意，不代表实测数据。",
                 },
                 "speech": "概念图几何回归。",
+            }
+        ],
+    }
+
+
+def _typography_deck() -> dict:
+    return {
+        "meta": {
+            "title": "字体与行高回归",
+            "type_profile": "defense",
+            "title_mode": "summary",
+        },
+        "sections": [{"id": "background", "title": "研究背景"}],
+        "slides": [
+            {
+                "id": "01",
+                "layout": "bullets",
+                "section": "background",
+                "eyebrow": "1.2",
+                "title": "字体与行高",
+                "lead": "两行导语必须按真实行数预留高度，不能靠缩小字号把内容勉强塞进单行面板。",
+                "columns": [{"heading": "机制", "bullets": ["首触发竞争"]}],
+                "claim": "粗体只改变字重，不切换字体家族。",
+                "evidence": "原生 PPTX 版式回归。",
+                "boundary": "仅验证版式。",
+                "footnote": "来源：版式回归。",
+                "speech": "字体、行高与脚注回归。",
+            }
+        ],
+    }
+
+
+def _concept_panel_deck() -> dict:
+    return {
+        "meta": {
+            "title": "模块标题回归",
+            "type_profile": "defense",
+            "title_mode": "summary",
+        },
+        "sections": [{"id": "mechanism", "title": "机理"}],
+        "slides": [
+            {
+                "id": "01",
+                "layout": "concept",
+                "section": "mechanism",
+                "eyebrow": "2.1",
+                "title": "三类场景",
+                "lead": "题号、标题与正文必须形成稳定的字号阶梯。",
+                "diagram_label": "场景分类",
+                "diagram": {
+                    "kind": "sequence",
+                    "items": [
+                        {"title": "门外", "body": "烟雾位于选通门外。"},
+                        {"title": "门内", "body": "烟雾与目标峰重叠。"},
+                        {"title": "全路径", "body": "背景与回波同时污染。"},
+                    ],
+                    "highlight": 1,
+                    "note": "机制示意。",
+                },
+                "diagram_width_ratio": 0.58,
+                "panels": [
+                    {"heading": "位置决定回波", "body": "同样是烟雾，落点不同会形成衰减、双峰或全局污染。"},
+                    {"heading": "论文重点", "body": "第二类聚焦局部双峰，第三类聚焦全局噪声。"},
+                ],
+                "speech": "模块题号与标题层级回归。",
             }
         ],
     }
@@ -141,6 +221,88 @@ def test_header_eyebrow_and_title_share_size_and_baseline(work_tmp: Path) -> Non
     title = _shape_by_name(slide, "header_title")
     assert _font_px(eyebrow) == _font_px(title)
     assert eyebrow.top == title.top
+
+
+def test_header_eyebrow_is_atomic_and_has_horizontal_gutter(work_tmp: Path) -> None:
+    pptx_path = _export(work_tmp, _deck(outline=False))
+    slide = Presentation(str(pptx_path)).slides[0]
+    eyebrow = _shape_by_name(slide, "chapter")
+    assert eyebrow.text == "1.2"
+    assert "\n" not in eyebrow.text
+    assert eyebrow.text_frame.word_wrap is False
+    assert _shape_px(eyebrow.width) >= 100
+
+
+def test_module_index_matches_heading_and_never_clips(work_tmp: Path) -> None:
+    pptx_path = _export(work_tmp, _concept_panel_deck())
+    presentation = Presentation(str(pptx_path))
+    slide = presentation.slides[0]
+    indices = [shape for shape in slide.shapes if shape.name == "module_index"]
+    headings = [shape for shape in slide.shapes if shape.name == "module_heading"]
+    assert indices and len(indices) == len(headings)
+    for index, heading in zip(indices, headings):
+        assert index.text in {"01", "02", "03"}
+        assert "\n" not in index.text
+        assert index.text_frame.word_wrap is False
+        assert _shape_px(index.width) >= 60
+        assert _font_px(index) == _font_px(heading)
+        assert index.top == heading.top
+    assert geometry_issues(slide, presentation.slide_width, presentation.slide_height) == []
+
+
+def test_concept_panel_heading_outranks_body(work_tmp: Path) -> None:
+    pptx_path = _export(work_tmp, _concept_panel_deck())
+    slide = Presentation(str(pptx_path)).slides[0]
+    headings = [shape for shape in slide.shapes if shape.name == "module_heading"]
+    bodies = [shape for shape in slide.shapes if shape.name == "concept_panel_body"]
+    assert headings and bodies
+    assert min(_font_px(shape) for shape in headings) > max(_font_px(shape) for shape in bodies)
+
+
+def test_two_line_lead_and_footnote_reserve_vertical_space(work_tmp: Path) -> None:
+    pptx_path = _export(work_tmp, _typography_deck())
+    slide = Presentation(str(pptx_path)).slides[0]
+    lead = _shape_by_name(slide, "lead_claim")
+    footnote = _shape_by_name(slide, "footnote")
+    assert lead.text.count("\n") == 1
+    assert _shape_px(lead.height) >= 2 * _font_px(lead) * 1.2 - 2
+    assert "\n" not in footnote.text
+    assert footnote.text_frame.word_wrap is False
+    theme = json.loads(THEME.read_text(encoding="utf-8"))
+    footer_y = float(theme["layout"]["footer_y"])
+    assert _shape_px(footnote.top + footnote.height) <= footer_y
+
+
+def test_cjk_punctuation_hang_does_not_exceed_measured_width() -> None:
+    text = "少帧时不再继续堆时间，而是把单像素直方图扩展为时空频非局部数据。"
+    theme = json.loads(THEME.read_text(encoding="utf-8"))
+    font = resolve_font(theme["fonts"]["title"], 56)
+    draw = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
+    max_width = 1778
+    lines = wrap_cjk_text(draw, text, font, max_width)
+    assert len(lines) == 2
+    assert all(text_width(draw, line, font) <= max_width for line in lines)
+
+
+def test_bold_text_does_not_switch_font_family(work_tmp: Path) -> None:
+    pptx_path = _export(work_tmp, _typography_deck())
+    slide = Presentation(str(pptx_path)).slides[0]
+    bold_run = _run(_shape_by_name(slide, "lead_claim"))
+    regular_run = _run(_shape_by_name(slide, "footnote"))
+    assert bold_run.font.bold is True
+    assert regular_run.font.bold is not True
+    assert bold_run.font.name
+    assert bold_run.font.name == regular_run.font.name
+
+
+def test_geometry_rejects_wrapped_module_index(work_tmp: Path) -> None:
+    pptx_path = _export(work_tmp, _concept_panel_deck())
+    presentation = Presentation(str(pptx_path))
+    slide = presentation.slides[0]
+    index = next(shape for shape in slide.shapes if shape.name == "module_index")
+    index.text = "0\n1"
+    issues = geometry_issues(slide, presentation.slide_width, presentation.slide_height)
+    assert any("Atomic index" in issue for issue in issues)
 
 
 def test_section_title_uses_nonempty_title_placeholder(work_tmp: Path) -> None:
@@ -261,3 +423,76 @@ def test_closing_card_title_outranks_body(work_tmp: Path) -> None:
     body = _shape_by_name(slide, "closing_card_body_1")
     assert _font_px(title) > _font_px(body)
     assert title.left == body.left
+
+
+def test_defense_condition_grid_keeps_label_and_value_on_separate_bands(work_tmp: Path) -> None:
+    deck_data = {
+        "meta": {"title": "条件网格回归", "type_profile": "defense", "title_mode": "summary"},
+        "sections": [{"id": "result", "title": "结果"}],
+        "slides": [
+            {
+                "id": "01",
+                "layout": "metrics",
+                "section": "result",
+                "eyebrow": "3.2",
+                "title": "指标与条件",
+                "lead": "验证防御版条件网格不会把标签和值叠在一起。",
+                "metrics": [{"value": "+20.9%", "label": "目标复原度", "note": "相对传统模型"}],
+                "conditions_title": "实验条件",
+                "conditions": [
+                    {"label": "衰减长度", "value": "AL = 1.8"},
+                    {"label": "信背比", "value": "SBR = 0.02"},
+                    {"label": "波长", "value": "1064 nm"},
+                    {"label": "阵元", "value": "64 × 64"},
+                ],
+                "conditions_note": "仅限室内条件。",
+                "speech": "条件网格回归。",
+            }
+        ],
+    }
+    pptx_path = _export(work_tmp, deck_data)
+    slide = Presentation(str(pptx_path)).slides[0]
+    labels = {
+        shape.text: shape
+        for shape in slide.shapes
+        if shape.has_text_frame and shape.text in {"衰减长度", "信背比", "波长", "阵元"}
+    }
+    assert len(labels) == 4
+    for index, label in enumerate(["衰减长度", "信背比", "波长", "阵元"], start=1):
+        value = _shape_by_name(slide, f"condition_value_{index}")
+        assert "\n" not in value.text
+        assert labels[label].top + labels[label].height <= value.top + 1
+
+
+def test_figure_label_and_caption_are_native_and_inside_the_card(work_tmp: Path) -> None:
+    deck_data = {
+        "meta": {"title": "图卡回归", "type_profile": "defense", "title_mode": "summary"},
+        "sections": [{"id": "background", "title": "背景"}],
+        "slides": [
+            {
+                "id": "01",
+                "layout": "figure",
+                "section": "background",
+                "eyebrow": "1.1",
+                "title": "探测链",
+                "lead": "验证图片卡的标签、来源角标和题注都留在卡片内。",
+                "image": str(SKILL_ROOT / "assets" / "themes" / "tju_blue" / "brand_lockup.png"),
+                "image_label": "GM-APD 时序",
+                "image_badge": "机制图",
+                "image_caption": "多周期累积形成飞行时间直方图。",
+                "panels": [{"heading": "要点", "body": "标签与题注不得浮出卡片。"}],
+                "speech": "图卡回归。",
+            }
+        ],
+    }
+    pptx_path = _export(work_tmp, deck_data)
+    presentation = Presentation(str(pptx_path))
+    slide = presentation.slides[0]
+    label = _shape_by_name(slide, "figure_label")
+    badge = _shape_by_name(slide, "figure_badge")
+    caption = _shape_by_name(slide, "figure_caption")
+    assert label.text == "GM-APD 时序"
+    assert badge.text == "机制图"
+    assert "\n" not in caption.text
+    assert label.top > 0 and badge.top > 0
+    assert caption.top + caption.height <= presentation.slide_height

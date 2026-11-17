@@ -13,6 +13,12 @@ from accessibility import get_alt_text, is_decorative
 from common import load_json, slide_display_title, write_json
 
 
+PX_PER_INCH = 153.6
+EMU_PER_PX = 914400.0 / PX_PER_INCH
+ATOMIC_TEXT_NAMES = {"chapter", "module_index", "diagram_index", "footnote"}
+ATOMIC_TEXT_PREFIXES = ("outline_number_", "diagram_index")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate native editable PowerPoint structure.")
     parser.add_argument("--pptx", required=True)
@@ -65,6 +71,20 @@ def minimum_editable_text_shapes(layout: str) -> int:
     return {"cover": 3, "section": 1}.get(str(layout).strip().lower(), 5)
 
 
+def is_atomic_text_shape(name: str) -> bool:
+    normalized = str(name or "").strip().lower()
+    return normalized in ATOMIC_TEXT_NAMES or normalized.startswith(ATOMIC_TEXT_PREFIXES)
+
+
+def shape_font_sizes(shape) -> list[float]:
+    return [
+        round(run.font.size.pt, 1)
+        for paragraph in shape.text_frame.paragraphs
+        for run in paragraph.runs
+        if run.font.size
+    ]
+
+
 def geometry_issues(slide, slide_width: int, slide_height: int) -> list[str]:
     """Return native-layout defects that PNG-only review cannot catch."""
     issues: list[str] = []
@@ -97,6 +117,44 @@ def geometry_issues(slide, slide_width: int, slide_height: int) -> list[str]:
     ]
     if wrapped_numbers:
         issues.append("Two-digit index text wrapped across lines: " + ", ".join(wrapped_numbers))
+    wrapped_atomic = [
+        shape.name
+        for shape in text_shapes
+        if is_atomic_text_shape(shape.name) and "\n" in shape.text.strip()
+    ]
+    if wrapped_atomic:
+        issues.append("Atomic index or source text contains a line break: " + ", ".join(wrapped_atomic))
+    wrapped_module_indices = [
+        shape.name
+        for shape in text_shapes
+        if shape.name == "module_index" and shape.text_frame.word_wrap is not False
+    ]
+    if wrapped_module_indices:
+        issues.append("Module index must disable word wrap: " + ", ".join(wrapped_module_indices))
+    narrow_module_indices = [
+        shape.name
+        for shape in text_shapes
+        if shape.name == "module_index" and shape.width < 60 * EMU_PER_PX
+    ]
+    if narrow_module_indices:
+        issues.append("Module index is narrower than 60 px: " + ", ".join(narrow_module_indices))
+    heading_sizes = [
+        size
+        for shape in text_shapes
+        if shape.name == "module_heading"
+        for size in shape_font_sizes(shape)
+    ]
+    concept_body_sizes = [
+        size
+        for shape in text_shapes
+        if shape.name == "concept_panel_body"
+        for size in shape_font_sizes(shape)
+    ]
+    if heading_sizes and concept_body_sizes and min(heading_sizes) <= max(concept_body_sizes):
+        issues.append(
+            "Concept panel heading must outrank its body text: "
+            f"heading min {min(heading_sizes)} pt, body max {max(concept_body_sizes)} pt"
+        )
 
     nodes = [
         shape

@@ -26,6 +26,18 @@ The university guidance addresses low-vision and projection accessibility; the s
 
 `scripts/audit_pptx.py` reads the actual PPTX text runs, so it catches cases that the PNG preview or a body-only median can hide.
 
+## Type Ladder And Atomic Labels
+
+- The module index and its heading are one line of type. Use the same family, measured size, top edge, and baseline. Do not leave `01` at a fixed 24 pt while the heading is 32 pt, and do not bold the index into a different face.
+- Every atomic token must be measured in its real face: page-header numbers, module indices, outline numbers, formula labels, metric values, figure badges, captions, footnotes, and source lines. Use `word_wrap=False`, add 16–24 px of horizontal slack, and give indices at least 60 px.
+- Defense captions and card labels are secondary chrome but still 18–24 pt. A 17 px PIL caption is roughly 8 pt when projected and is not acceptable; use the measured 30–38 px range instead.
+- Bold changes weight only. `**emphasis**` may turn a run bold and red, but it must not switch a Noto Sans body run into a serif or display face.
+- When a caption or condition line would wrap at the floor, shorten the copy. Splitting `，` onto the next line is also forbidden: bind closing punctuation to the previous semantic unit in both plain and rich-text wrapping.
+
+## Metrics Condition Grid
+
+Defense metrics pages have a lower evidence band, not a data sheet. Show at most four conditions in a 2×2 grid. Each label/value pair owns a full band: label above, value below, both measured. Do not stack both into a 58 px row, and do not draw a horizontal rule through the value's descenders. Extra conditions belong in the speaker notes or a following page. The PNG and PPTX paths must use the same row count and band heights.
+
 ```bash
 python scripts/audit_pptx.py --pptx path/to/existing.pptx --out path/to/audit
 ```

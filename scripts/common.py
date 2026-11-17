@@ -445,6 +445,7 @@ def wrap_cjk_text(
     text: str,
     font: ImageFont.FreeTypeFont,
     max_width: int,
+    min_last_line_chars: int = 0,
 ) -> list[str]:
     if not text:
         return []
@@ -466,40 +467,81 @@ def wrap_cjk_text(
             chunks.append(current)
         return chunks
 
+    def rebalance_last_line(paragraph_lines: list[str]) -> list[str]:
+        """Avoid a one- or two-character widow on the final line."""
+        if min_last_line_chars <= 1 or len(paragraph_lines) < 2:
+            return paragraph_lines
+        last = paragraph_lines[-1]
+        if len(last) >= min_last_line_chars:
+            return paragraph_lines
+        previous = paragraph_lines[-2].rstrip()
+        needed = min_last_line_chars - len(last)
+        if not previous or needed >= len(previous):
+            return paragraph_lines
+        moved = previous[-needed:]
+        candidate_previous = previous[:-needed].rstrip()
+        candidate_last = (moved + last).lstrip()
+        if not candidate_previous or not candidate_last:
+            return paragraph_lines
+        if (
+            draw.textbbox((0, 0), candidate_previous, font=font)[2] <= max_width
+            and draw.textbbox((0, 0), candidate_last, font=font)[2] <= max_width
+        ):
+            paragraph_lines[-2:] = [candidate_previous, candidate_last]
+        return paragraph_lines
+
+    def atoms(paragraph: str) -> list[str]:
+        """Attach closing punctuation to the preceding semantic token.
+
+        This is what keeps a comma or full stop from becoming the first
+        character of a line. The previous approach moved the last character
+        of the line forward with the punctuation, which produced lines that
+        started with the punctuation itself.
+        """
+        result: list[str] = []
+        for token in LATIN_CHUNK_RE.findall(paragraph):
+            if (
+                not token.isspace()
+                and keep_with_previous(token)
+                and result
+                and not result[-1].isspace()
+            ):
+                result[-1] += token
+            else:
+                result.append(token)
+        return result
+
     lines: list[str] = []
     for paragraph in text.split("\n"):
         if not paragraph:
             lines.append("")
             continue
+        paragraph_lines: list[str] = []
         current = ""
         pending_space = False
-        for token in LATIN_CHUNK_RE.findall(paragraph):
-            if token.isspace():
+        for atom in atoms(paragraph):
+            if atom.isspace():
                 pending_space = bool(current)
                 continue
             joiner = " " if pending_space and current else ""
-            candidate = current + joiner + token
+            candidate = current + joiner + atom
             width = draw.textbbox((0, 0), candidate, font=font)[2]
             if width <= max_width:
                 current = candidate
                 pending_space = False
                 continue
             if not current:
-                pieces = split_long_token(token)
-                lines.extend(pieces[:-1])
+                pieces = split_long_token(atom)
+                paragraph_lines.extend(pieces[:-1])
                 current = pieces[-1] if pieces else ""
                 pending_space = False
                 continue
-            if keep_with_previous(token) and len(token) <= 2:
-                current += token
-                lines.append(current)
-                current = ""
-            else:
-                lines.append(current.rstrip())
-                current = token
+            paragraph_lines.append(current.rstrip())
+            current = atom
             pending_space = False
         if current:
-            lines.append(current)
+            paragraph_lines.append(current)
+        lines.extend(rebalance_last_line(paragraph_lines))
     return lines
 
 
@@ -522,17 +564,32 @@ def fit_text_block(
     min_size: int,
     max_lines: int | None = None,
     line_ratio: float = 1.32,
+    min_last_line_chars: int = 0,
 ) -> tuple[ImageFont.FreeTypeFont, list[str], int, bool]:
     size = max_size
-    while size >= min_size:
+    while True:
         font = resolve_font(font_candidates, size)
-        lines = wrap_cjk_text(draw, text, font, max_width)
+        lines = wrap_cjk_text(
+            draw,
+            text,
+            font,
+            max_width,
+            min_last_line_chars=min_last_line_chars,
+        )
         height = line_height(font, line_ratio) * max(1, len(lines))
         if height <= max_height and (max_lines is None or len(lines) <= max_lines):
             return font, lines, height, True
-        size -= 2
+        if size <= min_size:
+            break
+        size = max(min_size, size - 2)
     font = resolve_font(font_candidates, min_size)
-    lines = wrap_cjk_text(draw, text, font, max_width)
+    lines = wrap_cjk_text(
+        draw,
+        text,
+        font,
+        max_width,
+        min_last_line_chars=min_last_line_chars,
+    )
     return font, lines, line_height(font, line_ratio) * max(1, len(lines)), False
 
 

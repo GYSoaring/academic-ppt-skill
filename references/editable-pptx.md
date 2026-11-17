@@ -34,10 +34,15 @@ The preview and editable paths share the same `(left, top, width, height)` geome
 
 - Every geometry box uses `(left, top, width, height)`. Do not pass a parent's width where a child width is expected; this produced a negative-width condition note that PIL masked but PowerPoint exposed.
 - Index tokens (`01`, `02`, chapter numbers) must use `wrap_explicit=False` in the native exporter. They are navigation tokens, not prose.
+- Header/module indices and their headings share one family, measured size, top edge, and baseline. A defense module index is measured in the bold face, at least 60 px wide, and `wrap_explicit=False`; a defense module header reserves at least 76 px.
+- Atomic labels — formula labels, metric values, figure badges, captions, footnotes, and source lines — also use `wrap_explicit=False`. Size their box from the measured face plus 16–24 px of padding; do not reuse a fixed 34 px strip for 38 px text.
+- Bold must not change font family. `run.font.bold = True` is the only change; the family stays the body/title face.
 - All visible text boxes must have positive width and height and remain inside the slide. `validate_pptx.py` treats non-positive text geometry as an error and outside-slide text as a warning.
 - Sequence diagram nodes compute title offsets relative to `node_top`; `body_height` is `node_height - relative_title_offset - title_height - padding`. Never mix absolute page coordinates with node-local height.
 - A concept node body must stay inside its named node shape. `validate_pptx.py` pairs `diagram_sequence_node_*` with `diagram_node_body` and fails if either edge escapes.
 - A metrics condition note uses `side_box[2]` as the available width, not as an x-coordinate. The note, condition grid, and evidence image share the same lower band.
+- A defense metrics condition grid is 2×2 with four label/value pairs. Each pair gets a full row band (label band above value band); do not put both into a 58 px row. Omit separator rules when they would cross descenders, and cap the slide at four conditions.
+- Defense figure cards draw `figure_label`, `figure_badge`, and `figure_caption` as native text inside the card. Label and badge share one header line; the caption sits in a measured bottom band and never wraps.
 - Closing cards align title and body on the same left edge; the title uses the block-title scale (`52+ px` under `defense`) and the body uses the small-text scale (`39 px`). Keep the icon at the trailing edge.
 
 ## Font Mapping

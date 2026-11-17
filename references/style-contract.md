@@ -22,6 +22,10 @@ Do not use the fixed header for a long sentence. Header titles should normally b
 
 - Semantic body text: sans-serif, about 24 pt, bold. Shorter micro-labels, captions, reference metadata, and source lines are secondary chrome: 18–24 pt, regular weight.
 - Headings: 32–40 pt and bold. Every substantive visible run is at least 18 pt.
+- Module index and heading are one typographic unit: same family, measured size, top edge, and baseline. A defense module header is at least 76 px tall; the index is at least 60 px wide and never wraps.
+- Bold means weight only. Do not switch a bold body run into a display or title family; that reads as a different typeface and breaks the ladder.
+- Footnotes, source lines, formula labels, metric values, and captions are atomic single lines. Measure their bold/regular face, add 16–24 px of box padding, and set `word_wrap=False`. If the line does not fit, shorten the copy rather than shrinking it.
+- Two-line leads and two-line notes reserve real glyph height. Never place a fixed 34 px caption band under 38 px text.
 - At least one `figure` / `figure_flow` page uses a paper-sourced image with `image_origin: own|public|borrowed`, `source`, `image_role`, and `image_boundary`; the source figure is contained, not cropped or redrawn, and occupies 65–80% of the content area.
 - Generated illustrations, template art, and concept diagrams never count as paper figures. `export_agent_brief.py` repeats this contract for external generators, and `audit_pptx.py` checks the delivered PPTX runs for the physical font/bold result.
 
@@ -123,11 +127,14 @@ The source line occupies the muted strip between the takeaway band and the foote
 - Use `concept` only when the relation is genuinely spatial, causal, structural, or cyclical. The diagram must have a labeled kind, content-bearing nodes, and a note stating that it is not measured evidence.
 - A `sequence` is not a decorative arrow chain: it must encode a real order. A `matrix` must have two named axes and four meaningful quadrants. A `ruler` must use numeric values from the source.
 - Use `formula` when one equation is the page's central object. The page must include the equation, symbol definitions, a condition strip, and a boundary panel; a formula without these is not a complete evidence page.
+- On a `metrics` page under `defense`, the side panel carries at most four conditions in a 2×2 grid. Each label/value pair owns a full row band; do not stack both into a 58 px row or draw a rule through the value. Move extra conditions to the speaker notes or a following page.
 
 ## Figures
 
 - Preserve the source aspect ratio with `contain`, never stretch or crop measured plots.
 - Use a thin neutral frame and a white interior.
+- Defense figure cards keep the blue label tab, source badge, and caption inside the card. Label and badge share one header line; the caption sits in a measured bottom band; neither may overlap the image mount or the metric row above.
+- Defense captions are one line. If a caption wraps at the 18 pt floor, shorten it; do not reduce it to a 8–10 pt micro-label.
 - Do not add `论文 Fig. x` captions below figures unless the user explicitly asks.
 - Do not redraw axes, curves, legends, photographs, or hardware diagrams.
 - Record the figure's role in `image_role` and its evidentiary limitation in `image_boundary`.

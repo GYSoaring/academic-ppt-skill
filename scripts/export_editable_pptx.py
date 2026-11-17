@@ -254,11 +254,9 @@ class EditableDeckExporter:
     def color(self, name: str) -> tuple[int, int, int]:
         return self.colors[name]
 
-    @staticmethod
-    def _defense_font_paths(bold: bool) -> list[str]:
-        if bold:
-            return [r"C:\Windows\Fonts\msyhbd.ttc", r"C:\Windows\Fonts\simhei.ttf", "/System/Library/Fonts/PingFang.ttc"]
-        return [r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simsun.ttc", "/System/Library/Fonts/PingFang.ttc"]
+    def _defense_font_paths(self, bold: bool) -> list[str]:
+        key = "title" if bold else "body"
+        return list(self.renderer.theme["fonts"].get(key) or [])
 
     def rgb(self, name: str) -> RGBColor:
         return RGBColor(*self.color(name))
@@ -1153,9 +1151,9 @@ class EditableDeckExporter:
         """
         left, top, width, _ = box
         configured_size = float(self.type_size("block_title", 26))
-        minimum_height = int(round(configured_size * 1.28))
+        minimum_height = int(round(configured_size * 1.1))
         if self.profile == "defense":
-            minimum_height = max(minimum_height, 84)
+            minimum_height = max(minimum_height, 76)
         height = max(int(height), minimum_height)
         header = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, px(left + 2), px(top + 2), px(width - 4), px(height))
         header.adjustments[0] = min(0.5, self.panel_radius / max(1, height))
@@ -1474,9 +1472,10 @@ class EditableDeckExporter:
             return
         left = int(self.layout["content"][0])
         right = int(self.layout["content"][2])
-        top = int(self.layout["takeaway_top"]) + int(self.layout["takeaway_height"]) + 8
+        top = int(self.layout["takeaway_top"]) + int(self.layout["takeaway_height"]) + 6
         size = self.type_size("footnote", 20)
-        height = max(24, int(round(size * 1.18)))
+        available_height = max(24, int(self.layout["footer_y"]) - top - 6)
+        height = min(max(24, int(round(size * 1.18))), available_height)
         self.add_fit_text(
             slide,
             (left, top, right - left, height),
@@ -2915,16 +2914,83 @@ class EditableDeckExporter:
         self.add_panel(slide, formula_box, "blue_wash", "line", radius_px=self.panel_radius, line_width_px=1)
         self.add_rect(slide, (left, body_top, 6, panel_height), "blue")
         label = str(s.get("formula_label", "核心关系"))
-        label_width = max(140.0, len(label) * 34.0 + 30.0)
-        self.add_panel(slide, (left + 18, body_top + 14, label_width, 44), "blue", None, radius_px=3, line_width_px=0)
-        self.add_text(slide, (left + 32, body_top + 17, label_width - 24, 38), label, 18, "white", bold=True, valign="middle", line_ratio=1.0, name="formula_label")
+        label_size = clamp_defense_size_px(
+            float(self.type_size("small", 18)),
+            self.profile,
+        )
+        label_font = self.renderer.fonts.get(TextStyle(bold=True), int(round(label_size)))
+        draw = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
+        label_width = max(140.0, float(text_width(draw, label, label_font)) + 36.0)
+        label_width = min(label_width, left_width - 36.0)
+        label_height = max(44.0, round(label_size * 1.12))
+        label_top = body_top + 10
+        self.add_panel(
+            slide,
+            (left + 18, label_top, label_width, label_height),
+            "blue",
+            None,
+            radius_px=3,
+            line_width_px=0,
+        )
+        self.add_text(
+            slide,
+            (left + 30, label_top + 3, label_width - 24, label_height - 6),
+            label,
+            label_size,
+            "white",
+            bold=True,
+            family=self.fonts["title"],
+            valign="middle",
+            line_ratio=1.0,
+            name="formula_label",
+            wrap_explicit=False,
+        )
         formula = str(s.get("formula_latex") or s.get("formula") or "").strip()
         condition = str(s.get("formula_condition", "")).strip()
-        math_bottom = body_top + panel_height - (58 if condition else 22)
-        self.add_formula(slide, formula, (left + 28, body_top + 58, left_width - 56, max(50, math_bottom - body_top - 58)), 46)
+        condition_size = self.type_size("micro", 20)
+        condition_height = 0
         if condition:
-            self.add_panel(slide, (left + 18, body_top + panel_height - 42, left_width - 36, 32), "blue_pale", "line", radius_px=3, line_width_px=1)
-            self.add_fit_text(slide, (left + 28, body_top + panel_height - 37, left_width - 56, 24), condition, "body", 14, 10, "ink", max_lines=1, line_ratio=1.05, name="formula_condition")
+            condition_size, condition_lines = self.measure(
+                condition,
+                "body",
+                int(left_width - 56),
+                int(round(condition_size * 2.8)),
+                condition_size,
+                max(18, condition_size - 4),
+                max_lines=2,
+                line_ratio=1.05,
+            )
+            condition_height = max(
+                46,
+                int(round(condition_size * 1.18 * max(1, len(condition_lines)) + 12)),
+            )
+        math_bottom = body_top + panel_height - (condition_height + 18 if condition else 22)
+        math_top = label_top + label_height + 8
+        self.add_formula(
+            slide,
+            formula,
+            (left + 28, math_top, left_width - 56, max(50, math_bottom - math_top)),
+            46,
+        )
+        if condition:
+            condition_top = body_top + panel_height - condition_height - 6
+            self.add_panel(
+                slide,
+                (left + 18, condition_top, left_width - 36, condition_height),
+                "blue_pale",
+                "line",
+                radius_px=3,
+                line_width_px=1,
+            )
+            self.add_text(
+                slide,
+                (left + 28, condition_top + 4, left_width - 56, condition_height - 8),
+                condition,
+                condition_size,
+                "ink",
+                line_ratio=1.05,
+                name="formula_condition",
+            )
 
         variables_top = body_top + panel_height + 18
         variables = [item for item in (s.get("variables") or []) if isinstance(item, dict)]
@@ -3631,11 +3697,112 @@ class EditableDeckExporter:
             )
         else:
             self.add_panel(slide, image_box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True)
+            label_text = str(s.get("image_label", "")).strip()
+            caption_text = str(s.get("image_caption", "")).strip()
+            badge_text = str(s.get("image_badge", "")).strip()
+            chrome_size = int(round(clamp_defense_size_px(20, self.profile)))
+            inside_header = self.profile == "defense"
+            header_bottom = body_top + 14
+            measure = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
+            if label_text:
+                label_width = min(
+                    image_width - 36,
+                    max(200, int(text_width(measure, label_text, self.renderer.fonts.get(TextStyle(bold=True), chrome_size))) + 40),
+                )
+                label_height = max(34, int(round(chrome_size * 1.2)))
+                label_top = body_top + 10 if inside_header else body_top - 15
+                self.add_panel(
+                    slide,
+                    (image_box[0] + 18, label_top, label_width, label_height),
+                    "blue",
+                    None,
+                    radius_px=5,
+                    line_width_px=0,
+                    shadow=True,
+                )
+                self.add_text(
+                    slide,
+                    (image_box[0] + 30, label_top + 3, label_width - 24, label_height - 6),
+                    label_text,
+                    chrome_size,
+                    "white",
+                    bold=True,
+                    family=self.fonts["title"],
+                    valign="middle",
+                    line_ratio=1.0,
+                    wrap_explicit=False,
+                    name="figure_label",
+                )
+                header_bottom = max(header_bottom, label_top + label_height + 10)
+            if badge_text:
+                badge_size = max(16, int(round(chrome_size * 0.85)))
+                badge_width = max(70, int(text_width(measure, badge_text, self.renderer.fonts.get(TextStyle(bold=True), badge_size))) + 26)
+                badge_height = max(28, int(round(badge_size * 1.45)))
+                badge_top = body_top + 10 if inside_header else body_top - 15
+                self.add_panel(
+                    slide,
+                    (image_box[0] + image_width - 18 - badge_width, badge_top, badge_width, badge_height),
+                    "blue_pale",
+                    None,
+                    radius_px=4,
+                    line_width_px=0,
+                )
+                self.add_text(
+                    slide,
+                    (image_box[0] + image_width - 18 - badge_width, badge_top + 2, badge_width, badge_height - 4),
+                    badge_text,
+                    badge_size,
+                    "blue_dark",
+                    bold=True,
+                    align="center",
+                    valign="middle",
+                    line_ratio=1.0,
+                    wrap_explicit=False,
+                    name="figure_badge",
+                )
+                header_bottom = max(header_bottom, badge_top + badge_height + 10)
+            caption_height = 0
+            if caption_text:
+                caption_size = int(round(self.type_size("micro", 16)))
+                caption_size, caption_lines = self.measure(
+                    caption_text,
+                    "body",
+                    max(40, image_width - 32),
+                    200,
+                    caption_size,
+                    12,
+                    max_lines=2,
+                    line_ratio=1.0,
+                )
+                caption_height = max(36, int(round(caption_size * 1.05 * max(1, len(caption_lines)) + 14)))
+                self.add_panel(
+                    slide,
+                    (image_box[0], bottom - caption_height, image_width, caption_height),
+                    "blue_wash",
+                    None,
+                    radius_px=0,
+                    line_width_px=0,
+                )
+                self.add_text(
+                    slide,
+                    (image_box[0] + 16, bottom - caption_height + 6, image_width - 32, caption_height - 10),
+                    "\n".join(caption_lines) if caption_lines else caption_text,
+                    caption_size,
+                    "muted",
+                    line_ratio=1.0,
+                    wrap_explicit=False,
+                    name="figure_caption",
+                )
             if image_path and image_path.exists():
                 self.add_picture_fit(
                     slide,
                     image_path,
-                    (image_box[0] + 14, body_top + 14, image_width - 28, bottom - body_top - 28),
+                    (
+                        image_box[0] + 14,
+                        header_bottom,
+                        image_width - 28,
+                        max(40, bottom - header_bottom - caption_height - 10),
+                    ),
                     name="hero_figure",
                     alt_text=self.image_alt(s),
                 )
@@ -3651,7 +3818,7 @@ class EditableDeckExporter:
                 )
         panels = s.get("panels") or [{"heading": "图示", "body": s.get("image_role", "请结合原图讲解。")}]
         panel_left, panel_top, panel_width, panel_height_total = panel_box
-        gap = 14
+        gap = 10
         panel_height = (panel_height_total - gap * (len(panels) - 1)) / len(panels)
         for index, panel in enumerate(panels):
             current_top = panel_top + index * (panel_height + gap)
@@ -3782,7 +3949,7 @@ class EditableDeckExporter:
         panels = s.get("panels") or [{"heading": "图示", "body": s.get("image_role", "请结合原图讲解。")}]
         panel_left = left + image_width + 20
         panel_width = right - panel_left
-        gap = 14
+        gap = 10
         panel_height = (bottom - lower_top - gap * (len(panels) - 1)) / len(panels)
         for index, panel in enumerate(panels):
             current_top = lower_top + index * (panel_height + gap)
@@ -3896,22 +4063,87 @@ class EditableDeckExporter:
             self.add_panel(slide, evidence_box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True)
             label = str(s.get("image_label", "测量结果"))
             caption = str(s.get("image_caption", ""))
-            label_width = min(evidence_box[2] - 36, max(260, len(label) * 30 + 34))
-            self.add_panel(slide, (left + 16, lower_top - 14, label_width, 34), "blue", None, radius_px=5, line_width_px=0)
-            self.add_fit_text(
+            draw = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
+            label_size = int(round(clamp_defense_size_px(20, self.profile)))
+            label_font = self.renderer.fonts.get(TextStyle(bold=True), label_size)
+            label_width = min(evidence_box[2] - 36, max(260, int(text_width(draw, label, label_font)) + 40))
+            label_height = max(38, int(round(label_size * 1.2)))
+            label_top = lower_top + 8
+            self.add_panel(
                 slide,
-                (left + 26, lower_top - 10, label_width - 20, 26),
+                (left + 16, label_top, label_width, label_height),
+                "blue",
+                None,
+                radius_px=5,
+                line_width_px=0,
+            )
+            self.add_text(
+                slide,
+                (left + 28, label_top + 4, label_width - 24, label_height - 8),
                 label,
-                "title",
-                20,
-                14,
-                "white",
+                label_size,
+                color_name="white",
                 bold=True,
-                max_lines=1,
+                family=self.fonts["title"],
+                valign="middle",
                 line_ratio=1.0,
                 name="metrics_image_label",
+                wrap_explicit=False,
             )
-            image_box = (left + 18, lower_top + 22, image_width - 36, lower_bottom - lower_top - 82)
+            badge_text = str(s.get("image_badge", "")).strip()
+            if badge_text:
+                badge_size = max(16, int(round(label_size * 0.85)))
+                badge_width = max(
+                    70,
+                    int(text_width(draw, badge_text, self.renderer.fonts.get(TextStyle(bold=True), badge_size))) + 26,
+                )
+                badge_height = max(28, int(round(badge_size * 1.45)))
+                self.add_panel(
+                    slide,
+                    (left + image_width - 34 - badge_width, label_top, badge_width, badge_height),
+                    "blue_pale",
+                    None,
+                    radius_px=4,
+                    line_width_px=0,
+                )
+                self.add_text(
+                    slide,
+                    (left + image_width - 34 - badge_width, label_top + 2, badge_width, badge_height - 4),
+                    badge_text,
+                    badge_size,
+                    "blue_dark",
+                    bold=True,
+                    align="center",
+                    valign="middle",
+                    line_ratio=1.0,
+                    wrap_explicit=False,
+                    name="metrics_image_badge",
+                )
+            caption_size = int(round(self.type_size("micro", 16)))
+            caption_lines: list[str] = []
+            caption_height = 0
+            if caption:
+                caption_size, caption_lines = self.measure(
+                    caption,
+                    "body",
+                    max(40, int(image_width - 36)),
+                    220,
+                    caption_size,
+                    12,
+                    max_lines=2,
+                    line_ratio=1.0,
+                )
+                caption_height = max(
+                    42,
+                    int(round(caption_size * 1.05 * max(1, len(caption_lines)) + 14)),
+                )
+            image_top = label_top + label_height + 10
+            image_box = (
+                left + 18,
+                image_top,
+                image_width - 36,
+                max(40, lower_bottom - image_top - caption_height - 10),
+            )
             self.add_picture_fit(
                 slide,
                 image_path,
@@ -3920,17 +4152,23 @@ class EditableDeckExporter:
                 alt_text=self.image_alt(s),
             )
             if caption:
-                self.add_fit_text(
+                self.add_panel(
                     slide,
-                    (left + 18, lower_bottom - 48, image_width - 36, 36),
-                    caption,
-                    "body",
-                    16,
-                    12,
+                    (left, lower_bottom - caption_height, image_width, caption_height),
+                    "blue_wash",
+                    None,
+                    radius_px=0,
+                    line_width_px=0,
+                )
+                self.add_text(
+                    slide,
+                    (left + 18, lower_bottom - caption_height + 6, image_width - 36, caption_height - 10),
+                    "\n".join(caption_lines) if caption_lines else caption,
+                    caption_size,
                     "muted",
-                    max_lines=1,
                     line_ratio=1.0,
                     name="metrics_image_caption",
+                    wrap_explicit=False,
                 )
 
         side_left = left + image_width + 18
@@ -3945,7 +4183,24 @@ class EditableDeckExporter:
         content_top = lower_top + header_height + 12
         conditions = s.get("conditions") or s.get("bullets") or []
         note = str(s.get("conditions_note", "")).strip()
+        note_size = int(round(self.type_size("micro", 16)))
+        note_lines: list[str] = []
         note_height = 70 if note else 0
+        if note:
+            note_size, note_lines = self.measure(
+                note,
+                "body",
+                max(40, int(side_box[2] - 54)),
+                180,
+                note_size,
+                12,
+                max_lines=2,
+                line_ratio=1.0,
+            )
+            note_height = max(
+                70,
+                int(round(note_size * 1.0 * max(1, len(note_lines)) + 24)),
+            )
         conditions_bottom = lower_bottom - 16 - note_height
         if conditions:
             if isinstance(conditions[0], dict):
@@ -3953,7 +4208,11 @@ class EditableDeckExporter:
                 rows = max(1, math.ceil(len(conditions) / columns))
                 cell_gap = 12
                 cell_width = (side_box[2] - 32 - cell_gap) / columns
-                row_height = min(96, max(74, (conditions_bottom - content_top) // rows))
+                defense_grid = self.profile == "defense"
+                if defense_grid:
+                    row_height = min(104, max(72, (conditions_bottom - content_top) // rows))
+                else:
+                    row_height = min(96, max(58, (conditions_bottom - content_top) // rows))
                 for index, condition in enumerate(conditions):
                     row = index // columns
                     column = index % columns
@@ -3964,31 +4223,37 @@ class EditableDeckExporter:
                     if label:
                         self.add_text(
                             slide,
-                            (cell_x, cell_y + 2, cell_width, 40),
+                            (cell_x, cell_y + 2, cell_width, 46 if defense_grid else 40),
                             label,
-                            self.type_size("micro", 15),
+                            36 if defense_grid else self.type_size("micro", 15),
                             "muted",
                             line_ratio=1.0,
                         )
                     self.add_fit_text(
                         slide,
-                        (cell_x, cell_y + 42, cell_width, max(26, row_height - 42)),
+                        (
+                            cell_x,
+                            cell_y + (48 if defense_grid else 42),
+                            cell_width,
+                            max(26, row_height - (48 if defense_grid else 42) - 4),
+                        ),
                         value,
                         "title",
-                        22,
-                        14,
+                        40 if defense_grid else 22,
+                        40 if defense_grid else 14,
                         "blue_dark",
-                        max_lines=2,
-                        line_ratio=1.15,
+                        max_lines=1 if defense_grid else 2,
+                        line_ratio=1.0 if defense_grid else 1.15,
                         name=f"condition_value_{index + 1}",
                     )
-                    self.add_line(
-                        slide,
-                        (cell_x, cell_y + row_height - 5),
-                        (cell_x + cell_width, cell_y + row_height - 5),
-                        "line",
-                        1,
-                    )
+                    if not defense_grid:
+                        self.add_line(
+                            slide,
+                            (cell_x, cell_y + row_height - 5),
+                            (cell_x + cell_width, cell_y + row_height - 5),
+                            "line",
+                            1,
+                        )
             else:
                 self.add_bullets(
                     slide,
@@ -4007,17 +4272,15 @@ class EditableDeckExporter:
             )
             self.add_panel(slide, note_box, "blue_wash", "line", radius_px=6, line_width_px=1)
             self.add_rect(slide, (note_box[0], note_box[1], 5, note_box[3]), "red")
-            self.add_fit_text(
+            self.add_text(
                 slide,
                 (note_box[0] + 16, note_box[1] + 8, note_box[2] - 24, note_box[3] - 12),
-                note,
-                "body",
-                16,
-                11,
+                "\n".join(note_lines) if note_lines else note,
+                note_size,
                 "ink",
-                max_lines=3,
-                line_ratio=1.15,
+                line_ratio=1.0,
                 name="conditions_note",
+                wrap_explicit=False,
             )
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
         self.add_footnote(slide, s.get("footnote", ""))

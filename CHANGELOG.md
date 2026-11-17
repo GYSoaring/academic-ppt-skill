@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Defense typography, atomic labels, and card chrome (2026-11-17)
+
+- Made module indices and module headings share one measured font, size, top edge, and baseline in both the PNG renderer and native PPTX; defense module headers now reserve at least 76 px, and module indices are measured with a 60 px minimum width and `word_wrap=False`.
+- Bold runs now change weight without switching font family. The exporter measures formula labels in the actual bold face, keeps them single-line, and starts the equation below the label.
+- Added semantic CJK wrapping: closing punctuation (`，。；：、）》」』`) is bound to the previous unit in both plain and rich-text paths, so a line cannot begin with a comma or period.
+- Figure cards now draw their label tab, source badge, and caption inside the card for defense, reserve measured caption height, and paint badges after the image mount so they cannot be half-covered.
+- Defense metrics condition panels now use a 2×2 label/value grid with a full band per pair; label and value no longer overlap, separator rules are omitted when they would cross descenders, and decks are capped at four conditions per metrics page.
+- Defense captions and card chrome were raised from 17–20 px to the 30–38 px range, matching the 18 pt secondary-text floor visible in the native PPTX.
+- Added regression tests for the condition-grid bands, single-line condition values, and native figure label/badge/caption geometry.
+
 ### Reproducible iteration gate (2026-11-17)
 
 - Added `scripts/quality_gate.py`, which aggregates render, validation, design, native-PPTX, accessibility, readability and real-render reports into one `quality_gate.json` / `quality_gate.md`.
