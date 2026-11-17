@@ -3696,7 +3696,16 @@ class EditableDeckExporter:
                 name="hero_chart",
             )
         else:
-            self.add_panel(slide, image_box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True)
+            self.add_panel(
+                slide,
+                image_box,
+                "white",
+                "line",
+                radius_px=8,
+                line_width_px=1.2,
+                shadow=True,
+                name="figure_card",
+            )
             label_text = str(s.get("image_label", "")).strip()
             caption_text = str(s.get("image_caption", "")).strip()
             badge_text = str(s.get("image_badge", "")).strip()
@@ -4227,7 +4236,10 @@ class EditableDeckExporter:
                             label,
                             36 if defense_grid else self.type_size("micro", 15),
                             "muted",
+                            family=self.fonts["title"],
                             line_ratio=1.0,
+                            name=f"condition_label_{index + 1}",
+                            wrap_explicit=not defense_grid,
                         )
                     self.add_fit_text(
                         slide,

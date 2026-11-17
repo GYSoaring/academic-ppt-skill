@@ -462,6 +462,19 @@ def test_defense_condition_grid_keeps_label_and_value_on_separate_bands(work_tmp
         value = _shape_by_name(slide, f"condition_value_{index}")
         assert "\n" not in value.text
         assert labels[label].top + labels[label].height <= value.top + 1
+    named_labels = [
+        _shape_by_name(slide, f"condition_label_{index}")
+        for index in range(1, 5)
+    ]
+    assert all("\n" not in shape.text for shape in named_labels)
+    assert all(shape.text_frame.word_wrap is False for shape in named_labels)
+    presentation = Presentation(str(pptx_path))
+    assert geometry_issues(
+        slide,
+        presentation.slide_width,
+        presentation.slide_height,
+        "defense",
+    ) == []
 
 
 def test_figure_label_and_caption_are_native_and_inside_the_card(work_tmp: Path) -> None:
@@ -496,3 +509,105 @@ def test_figure_label_and_caption_are_native_and_inside_the_card(work_tmp: Path)
     assert "\n" not in caption.text
     assert label.top > 0 and badge.top > 0
     assert caption.top + caption.height <= presentation.slide_height
+    card = _shape_by_name(slide, "figure_card")
+    for chrome in (label, badge, caption):
+        assert chrome.left >= card.left
+        assert chrome.top >= card.top
+        assert chrome.left + chrome.width <= card.left + card.width
+        assert chrome.top + chrome.height <= card.top + card.height
+    assert geometry_issues(
+        slide,
+        presentation.slide_width,
+        presentation.slide_height,
+        "defense",
+    ) == []
+
+
+def test_geometry_rejects_condition_label_overlap_and_value_wrap(work_tmp: Path) -> None:
+    deck_data = {
+        "meta": {
+            "title": "Condition geometry",
+            "type_profile": "defense",
+            "title_mode": "summary",
+        },
+        "sections": [{"id": "results", "title": "Results"}],
+        "slides": [
+            {
+                "id": "01",
+                "layout": "metrics",
+                "section": "results",
+                "eyebrow": "1.1",
+                "title": "Metrics",
+                "lead": "A geometry invariant test.",
+                "metrics": [
+                    {"value": "+20.9%", "label": "Recovery", "note": "Relative"}
+                ],
+                "conditions_title": "Conditions",
+                "conditions": [
+                    {"label": "Alpha", "value": "AL = 1.8"},
+                    {"label": "SBR", "value": "0.02"},
+                    {"label": "Wavelength", "value": "1064 nm"},
+                    {"label": "Array", "value": "64 x 64"},
+                ],
+                "conditions_note": "Indoor conditions only.",
+                "speech": "Condition geometry regression.",
+            }
+        ],
+    }
+    pptx_path = _export(work_tmp, deck_data)
+    presentation = Presentation(str(pptx_path))
+    slide = presentation.slides[0]
+    label = _shape_by_name(slide, "condition_label_1")
+    value = _shape_by_name(slide, "condition_value_1")
+    label.top = value.top
+    value.text = "AL\n1.8"
+    issues = geometry_issues(
+        slide,
+        presentation.slide_width,
+        presentation.slide_height,
+        "defense",
+    )
+    assert any("Condition label overlaps its value" in issue for issue in issues)
+    assert any("Condition value wrapped across lines" in issue for issue in issues)
+
+
+def test_geometry_rejects_figure_chrome_outside_card(work_tmp: Path) -> None:
+    deck_data = {
+        "meta": {
+            "title": "Figure chrome geometry",
+            "type_profile": "defense",
+            "title_mode": "summary",
+        },
+        "sections": [{"id": "background", "title": "Background"}],
+        "slides": [
+            {
+                "id": "01",
+                "layout": "figure",
+                "section": "background",
+                "eyebrow": "1.1",
+                "title": "Detection",
+                "lead": "A figure chrome invariant test.",
+                "image": str(SKILL_ROOT / "assets" / "themes" / "tju_blue" / "brand_lockup.png"),
+                "image_label": "Timing",
+                "image_badge": "Mechanism",
+                "image_caption": "A short caption.",
+                "panels": [{"heading": "Point", "body": "Chrome stays in the card."}],
+                "speech": "Figure chrome geometry regression.",
+            }
+        ],
+    }
+    pptx_path = _export(work_tmp, deck_data)
+    presentation = Presentation(str(pptx_path))
+    slide = presentation.slides[0]
+    card = _shape_by_name(slide, "figure_card")
+    caption = _shape_by_name(slide, "figure_caption")
+    caption.top = card.top - int(8 * EMU_PER_PX)
+    caption.text = "Line one\nLine two"
+    issues = geometry_issues(
+        slide,
+        presentation.slide_width,
+        presentation.slide_height,
+        "defense",
+    )
+    assert any("Figure-card chrome must be single-line" in issue for issue in issues)
+    assert any("Figure-card chrome escaped its card" in issue for issue in issues)

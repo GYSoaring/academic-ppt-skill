@@ -85,7 +85,12 @@ def shape_font_sizes(shape) -> list[float]:
     ]
 
 
-def geometry_issues(slide, slide_width: int, slide_height: int) -> list[str]:
+def geometry_issues(
+    slide,
+    slide_width: int,
+    slide_height: int,
+    type_profile: str = "",
+) -> list[str]:
     """Return native-layout defects that PNG-only review cannot catch."""
     issues: list[str] = []
     text_shapes = [
@@ -156,6 +161,68 @@ def geometry_issues(slide, slide_width: int, slide_height: int) -> list[str]:
             f"heading min {min(heading_sizes)} pt, body max {max(concept_body_sizes)} pt"
         )
 
+    text_by_name = {str(shape.name): shape for shape in text_shapes}
+    condition_labels = [
+        shape
+        for shape in text_shapes
+        if shape.name.startswith("condition_label_")
+    ]
+    for label in condition_labels:
+        suffix = label.name.removeprefix("condition_label_")
+        value = text_by_name.get(f"condition_value_{suffix}")
+        if value is None:
+            issues.append(f"Condition label has no matching value: {label.name}")
+            continue
+        if abs(int(label.left) - int(value.left)) > 2 * EMU_PER_PX:
+            issues.append(
+                f"Condition label and value are not left-aligned: {label.name} / {value.name}"
+            )
+        if label.top + label.height > value.top + 2 * EMU_PER_PX:
+            issues.append(
+                f"Condition label overlaps its value: {label.name} / {value.name}"
+            )
+        if type_profile == "defense" and "\n" in label.text.strip():
+            issues.append(f"Condition label contains a line break: {label.name}")
+        if type_profile == "defense" and label.text_frame.word_wrap is not False:
+            issues.append(f"Condition label must disable word wrap: {label.name}")
+        if type_profile == "defense" and "\n" in value.text.strip():
+            issues.append(f"Condition value wrapped across lines: {value.name}")
+
+    figure_card = next(
+        (shape for shape in slide.shapes if shape.name == "figure_card"),
+        None,
+    )
+    figure_chrome = [
+        text_by_name[name]
+        for name in ("figure_label", "figure_badge", "figure_caption")
+        if name in text_by_name
+    ]
+    if type_profile == "defense":
+        wrapped_chrome = [
+            chrome.name
+            for chrome in figure_chrome
+            if "\n" in chrome.text.strip()
+        ]
+        if wrapped_chrome:
+            issues.append(
+                "Figure-card chrome must be single-line in defense: "
+                + ", ".join(wrapped_chrome)
+            )
+        if figure_card is not None:
+            escaped_chrome = [
+                chrome.name
+                for chrome in figure_chrome
+                if chrome.left < figure_card.left - EMU_PER_PX
+                or chrome.top < figure_card.top - EMU_PER_PX
+                or chrome.left + chrome.width > figure_card.left + figure_card.width + EMU_PER_PX
+                or chrome.top + chrome.height > figure_card.top + figure_card.height + EMU_PER_PX
+            ]
+            if escaped_chrome:
+                issues.append(
+                    "Figure-card chrome escaped its card: "
+                    + ", ".join(escaped_chrome)
+                )
+
     nodes = [
         shape
         for shape in slide.shapes
@@ -188,6 +255,7 @@ def main() -> None:
         "footnote": args.min_footnote_pt if args.min_footnote_pt is not None else (10.0 if args.lecture_audit else None),
     }
     deck = load_json(deck_path)
+    type_profile = str((deck.get("meta") or {}).get("type_profile") or "")
     presentation = Presentation(str(pptx_path))
     slides = deck.get("slides", [])
     issues: list[dict] = []
@@ -229,7 +297,12 @@ def main() -> None:
         total_charts += len(charts)
         total_native_formula += formula_count
         layout = str(source.get("layout", ""))
-        for message in geometry_issues(slide, presentation.slide_width, presentation.slide_height):
+        for message in geometry_issues(
+            slide,
+            presentation.slide_width,
+            presentation.slide_height,
+            type_profile,
+        ):
             severity = "warning" if message.startswith("Text shapes extend outside") else "error"
             add_issue(issues, severity, page, message)
         title_shape = slide.shapes.title

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Iteration protocol for weaker models (2026-11-17)
+
+- Added a screenshot-feedback triage protocol: identify the element, defect class (family / size / weight / line height / baseline / overflow / alignment), peer reference, and shared rule before changing code; never start by replacing the global font or theme.
+- Added two-scale visual review: 25% contact sheet for page rhythm, 100% crops for headers, module indices, card titles, captions, footnotes, and formula labels. Each pass must inspect the densest page, a real-figure page, a formula page, and a metrics page at full size.
+- Added the PNG/PPTX parity witness set: header-number page, formula page, metrics condition grid, figure-card chrome, and closing cards must be checked in real PowerPoint after every export.
+- Documented the font-size / line-height / container-height triple: raising `min_size` without recomputing containers creates larger text with worse overlap; if the three cannot fit together, cut content or split the page.
+- Added defense content budgets (4 condition pairs, 22–26-character single-line caption, single-line source footnote, 2 short closing bullets) and the rule that “it fits” is not the same as “it is readable at 100%”.
+- Added defect-to-geometric-invariant tests, a shared-function call-site checklist, the distinction between user feedback and internal convergence, the silent-gate rule, and a fill-in sprint card for weaker models.
+- Native parity is now executable: the exporter names `condition_label_N` and `figure_card`, and `validate_pptx.py` rejects condition label/value overlap, wrapped defense condition values, non-single-line figure chrome, and chrome that escapes its figure card. Regression tests cover each failure.
+
 ### Defense typography, atomic labels, and card chrome (2026-11-17)
 
 - Made module indices and module headings share one measured font, size, top edge, and baseline in both the PNG renderer and native PPTX; defense module headers now reserve at least 76 px, and module indices are measured with a 60 px minimum width and `word_wrap=False`.

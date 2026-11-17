@@ -121,6 +121,18 @@ Rules that are not optional:
 
 For weaker models, the gate is the interface: follow its fix queue, open only the one reference named by the issue, choose an existing layout from [references/layout-catalog.md](references/layout-catalog.md), and do not edit the renderer unless PNG and PPTX are both wrong. This is the loop that brought the 12-page Tsinghua GM-APD showcase to 86/A with zero native-PPTX and zero accessibility errors.
 
+### Screenshot triage and native parity
+
+When a screenshot looks wrong, do not change the global theme first. Name the element (index / heading / body / badge / caption / footnote), the defect class (family / size / weight / line height / baseline / overflow / alignment), the peer it must match, and the shared rule that fixes every page. A module index matches its heading in family, size, top edge, and baseline; bold changes weight only.
+
+- A contact sheet is for rhythm only. Review the densest page, a real-figure page, a formula page, and a metrics page at 100% crops.
+- PNG and PPTX are separate gates. After every export, inspect five witness pages in real PowerPoint: header number, formula label, metrics condition grid, figure-card chrome, closing card.
+- When a minimum type size rises, recompute line height and container height in the same change. Never raise `min_size` alone.
+- If a screenshot proves a defect but the validator reports zero, add semantic shape names and a geometric invariant test first; then fix the page. A silent gate is a missing gate.
+- Defense content budgets: at most 4 condition pairs, a 22–26-character single-line caption, a single-line source footnote, and at most 2 short bullets per closing card.
+
+Full protocol: [references/iteration-playbook.md](references/iteration-playbook.md).
+
 ## Brand and Type Hygiene
 
 These are the defects that make a generated deck look machine-made even when the layout is sound. They are cheap to prevent and expensive to notice late.

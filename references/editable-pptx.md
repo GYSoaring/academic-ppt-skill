@@ -42,7 +42,9 @@ The preview and editable paths share the same `(left, top, width, height)` geome
 - A concept node body must stay inside its named node shape. `validate_pptx.py` pairs `diagram_sequence_node_*` with `diagram_node_body` and fails if either edge escapes.
 - A metrics condition note uses `side_box[2]` as the available width, not as an x-coordinate. The note, condition grid, and evidence image share the same lower band.
 - A defense metrics condition grid is 2×2 with four label/value pairs. Each pair gets a full row band (label band above value band); do not put both into a 58 px row. Omit separator rules when they would cross descenders, and cap the slide at four conditions.
+- Paired condition text is named `condition_label_N` and `condition_value_N`; the label and value share a left edge, and the label's bottom edge must stay above the value's top edge. The validator uses these names, so do not rename one side without the other.
 - Defense figure cards draw `figure_label`, `figure_badge`, and `figure_caption` as native text inside the card. Label and badge share one header line; the caption sits in a measured bottom band and never wraps.
+- The figure card itself is named `figure_card`. The validator checks that all three chrome shapes are single-line and fully contained by that card; if you add a new chrome shape, give it a semantic name and extend the same invariant.
 - Closing cards align title and body on the same left edge; the title uses the block-title scale (`52+ px` under `defense`) and the body uses the small-text scale (`39 px`). Keep the icon at the trailing edge.
 
 ## Font Mapping
@@ -125,6 +127,8 @@ python scripts/validate_pptx.py --pptx output/defense_deck.pptx --deck deck.json
 - text boxes have positive geometry and remain on the slide
 - short numeric indices are not line-wrapped
 - concept-diagram bodies remain inside their sequence nodes
+- condition labels stay above their values, share the value's left edge, and use one line under `defense`
+- defense figure-card labels, badges, and captions are single-line and remain inside `figure_card`
 
 `pptx_report.json` records per-slide editable shape counts, picture counts, native tables, native charts, and formula conversion status.
 
