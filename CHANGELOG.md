@@ -2,9 +2,42 @@
 
 ## Unreleased
 
+### Tsinghua defense showcase (2026-11-17)
+
+- Added a 12-page Tsinghua-purple defense showcase preview at `docs/tsinghua_gmapd_preview.jpg`, built from the GM-APD array-lidar paper with `meta.navigation_mode: sidebar`.
+- Moved the deck's tuned `defense` type profile, body-bold range, and header geometry into `assets/themes/tsinghua_purple/theme.json`, so the published preview is reproducible from the shipped theme.
+- Recorded the presentation provenance in the theme's `SOURCE.md`: the visual template is Tsinghua, while the paper authors are at Tianjin University; no institutional endorsement is implied.
+- Fixed `tests/test_defense_readability.py` creating `tmp*` directories in the repository root by keeping the agent-brief export inside its temporary-directory context.
+
+### Navigation mode selection (2026-11-17)
+
+- Added `meta.navigation_mode` with three authoring choices: `sidebar`, `dividers`, and `hybrid`. Explicit values override `layout.sidebar_mode`, while legacy decks map `always → sidebar`, `section → hybrid`, and `off → dividers`.
+- Renderer, editable PPTX exporter, design audit, and validator now resolve the same navigation model, so content width, sidebars, and divider pages cannot disagree between PNG and PPTX.
+- `add_section_pages.py` reads the selected mode: `sidebar` no-ops; `dividers` and `hybrid` insert chapter dividers. `--navigation-mode` records the choice in `deck.json`.
+- Fixed `sidebar_mode: section` to show the mini-directory on each chapter's first content page, not on the full-page divider.
+- Documented the difference between the outline page, standalone `layout: "section"` dividers, and the persistent sidebar; user prompts can now choose one of the three in plain language.
+
+### Native geometry, metrics, and closing hierarchy (2026-11-17, tenth pass)
+
+- **Header and cover:** chapter labels and page titles now share one measured size, top baseline, and deck-wide title column. The cover metadata row measures the advisor and date values, keeps the advisor on one line, and right-aligns the date instead of relying on fixed columns.
+- **Outline:** row number and section title use one measured size and baseline; long titles shrink both together. The native PPTX path now prevents `01`-style index tokens from being wrapped into `0\n1`.
+- **Formula:** symbol definitions use a readable definition list: one column up to six symbols, two columns above six, with consistent hierarchy for `K`, `β`, `Nt`, `Nd`, and `ηd`.
+- **Metrics:** metric cards use a vertical value → label → note flow with computed height. The evidence image and 2×N condition grid share the lower band, and the condition note is constrained to the side panel's real width.
+- **Concept diagrams:** sequence nodes occupy 66% of the internal height, scale title/body type to node width, allow three body lines, and compute the body box with node-relative coordinates so it cannot receive a negative height.
+- **Closing:** conclusion slides support card-only pages without placeholder `points`; cards fill the band between the lead and closing line. Card titles render at `52+ px` over `39 px` body text, share the body's left edge, and place the icon at the trailing edge.
+- **Validator contracts:** summary-mode titles now accept the documented 4–18 character range (the five-character topic “多维特征链” is valid); closing pages with boundary/next-step cards count as substantive summaries; section dividers break layout runs instead of making figure pages on either side look consecutive.
+- **Regression gates:** `tests/test_typography_alignment.py` covers header/outline alignment, index wrapping, concept-node containment, metrics-note geometry, and closing hierarchy. `validate_pptx.py` now fails on non-positive text geometry, wrapped two-digit indices, and escaped diagram-node bodies.
+
+### Header, outline, and concept type hierarchy (2026-11-16, ninth pass)
+
+- Header eyebrow labels (`1.1`, `2.3`) now render and export at the measured title size and use the same top baseline. The `defense` profile no longer silently overrides `eyebrow` to 42 px while the title is 72 px.
+- Outline row numbers now inherit the section-title measured size and share its baseline. Long titles shrink together with their numbers instead of leaving a decorative 112 px numeral beside 62 px text.
+- `concept/branch` uses one explicit type ladder (`56/42/42/38`) and vertically centers the root and card copy; card bodies are no longer smaller than their headings.
+- Added typography-alignment regression coverage for the native PPTX path.
+
 ### Outline page measured from a screenshot (2026-11-16, eighth pass)
 
-- `references/outline-page.md` (new): single-column geometry derived from header and footer, 112 px solid numerals, 62 px titles, 30 px descriptions, hairline rows.
+- `references/outline-page.md` (new): single-column geometry derived from header and footer, matched number/title type sizes, 30 px descriptions, hairline rows.
 - Fixed the two failure modes behind "the TOC is ugly": a hard-coded `top = 520` that piled five rows into the lower half, and a two-column grid that left a 3+2 hole.
 - Numerals moved from `blue_pale` to the solid primary colour - pale on white is a contrast bug, not a style choice.
 - PNG and PPTX outline geometry are now identical; the pptx first row sits at canvas_top x 0.625.

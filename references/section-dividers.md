@@ -2,6 +2,34 @@
 
 这套版式来自一份真实的中文答辩模板（用户实拍，991×620）。所有比例是量出来的，不是估的。
 
+先区分三件事：
+
+- **目录页**：`layout: "outline"`，全篇只有一张的汇报提纲。
+- **章节分隔页**：`layout: "section"`，本文档讲的整页蓝带版式，每章前插入一张。
+- **侧栏目录**：内容页左侧常驻的五项 mini-directory，由 `layout.sidebar_mode` 控制，不是分隔页。
+
+## 何时使用 / 何时不用
+
+使用：
+
+- `meta.navigation_mode` 选 `dividers` 或 `hybrid`；
+- 16 页以上的答辩、课程或长报告，现场需要清晰的章节转场；
+- 每章有 3 页以上的独立论证，值得用整页换一次节奏。
+
+不要使用：
+
+- `meta.navigation_mode: "sidebar"`：这种 deck 靠左侧常驻目录导航，不应再插整页分隔页；
+- 10 页以内的线性短汇报：分隔页会压缩有效内容；
+- 只想“多一张好看的过渡页”而没有真实章节边界：先修章节结构。
+
+三种导航模式与低层字段的对应关系：
+
+| `meta.navigation_mode` | 章节分隔页 | `layout.sidebar_mode` |
+|---|---|---|
+| `sidebar` | 不插 | `always` |
+| `dividers` | 每章一张 | `off` |
+| `hybrid` | 每章一张 | `section`（仅每章第一张内容页显示侧栏） |
+
 ## 版式
 
 ```
@@ -52,9 +80,10 @@
 
 ```bash
 python scripts/add_section_pages.py --deck deck.json --out deck.json
+python scripts/add_section_pages.py --deck deck.json --navigation-mode dividers
 ```
 
-按 `sections` 顺序在每个章节第一次出现前插一张分隔页，已存在的跳过（可重复运行）。它同时补上 `label_en`（从 `sections[].label_en` 读，没有就用章节名首字母推导）。
+按 `sections` 顺序在每个章节第一次出现前插一张分隔页，已存在的跳过（可重复运行）。它同时补上 `label_en`（从 `sections[].label_en` 读，没有就用章节名首字母推导）。脚本读取 `meta.navigation_mode`：`sidebar` 模式直接跳过，`dividers` / `hybrid` 正常插入；命令行显式传入 `--navigation-mode` 时会把该值写回 `deck.json`。
 
 ## 校验注意
 

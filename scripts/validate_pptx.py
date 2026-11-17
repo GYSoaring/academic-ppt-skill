@@ -10,7 +10,7 @@ from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from accessibility import get_alt_text, is_decorative
-from common import load_json, write_json
+from common import load_json, slide_display_title, write_json
 
 
 def parse_args() -> argparse.Namespace:
@@ -58,6 +58,64 @@ def summarize_sizes(values: list[float]) -> dict:
         "median": round(statistics.median(values), 1),
         "max": round(max(values), 1),
     }
+
+
+def minimum_editable_text_shapes(layout: str) -> int:
+    """Section dividers intentionally carry only their native title."""
+    return {"cover": 3, "section": 1}.get(str(layout).strip().lower(), 5)
+
+
+def geometry_issues(slide, slide_width: int, slide_height: int) -> list[str]:
+    """Return native-layout defects that PNG-only review cannot catch."""
+    issues: list[str] = []
+    text_shapes = [
+        shape
+        for shape in slide.shapes
+        if shape.has_text_frame and shape.text.strip()
+    ]
+    nonpositive = [
+        shape.name
+        for shape in text_shapes
+        if shape.width <= 0 or shape.height <= 0
+    ]
+    if nonpositive:
+        issues.append("Text shapes have non-positive geometry: " + ", ".join(nonpositive))
+    outside = [
+        shape.name
+        for shape in text_shapes
+        if shape.left < 0
+        or shape.top < 0
+        or shape.left + shape.width > slide_width
+        or shape.top + shape.height > slide_height
+    ]
+    if outside:
+        issues.append("Text shapes extend outside the slide: " + ", ".join(outside))
+    wrapped_numbers = [
+        shape.name
+        for shape in text_shapes
+        if re.fullmatch(r"\d\s*\n\s*\d", shape.text.strip())
+    ]
+    if wrapped_numbers:
+        issues.append("Two-digit index text wrapped across lines: " + ", ".join(wrapped_numbers))
+
+    nodes = [
+        shape
+        for shape in slide.shapes
+        if shape.name.startswith("diagram_sequence_node_")
+    ]
+    bodies = [shape for shape in slide.shapes if shape.name == "diagram_node_body"]
+    if nodes and len(nodes) == len(bodies):
+        escaped = [
+            node.name
+            for node, body in zip(nodes, bodies)
+            if body.top < node.top
+            or body.left < node.left
+            or body.top + body.height > node.top + node.height
+            or body.left + body.width > node.left + node.width
+        ]
+        if escaped:
+            issues.append("Diagram node body escaped its node: " + ", ".join(escaped))
+    return issues
 
 
 def main() -> None:
@@ -113,6 +171,9 @@ def main() -> None:
         total_charts += len(charts)
         total_native_formula += formula_count
         layout = str(source.get("layout", ""))
+        for message in geometry_issues(slide, presentation.slide_width, presentation.slide_height):
+            severity = "warning" if message.startswith("Text shapes extend outside") else "error"
+            add_issue(issues, severity, page, message)
         title_shape = slide.shapes.title
         title_text = title_shape.text.strip() if title_shape is not None else ""
         if not title_text:
@@ -143,13 +204,14 @@ def main() -> None:
                 below_threshold_pages.append(violation)
                 role_violations[role].append(violation)
 
-        if len(text_shapes) < (3 if layout == "cover" else 5):
+        min_text_shapes = minimum_editable_text_shapes(layout)
+        if len(text_shapes) < min_text_shapes:
             add_issue(issues, "error", page, f"Only {len(text_shapes)} editable text shapes; page is likely still an image.")
         if layout == "cover" and len(text_shapes) < 3:
             add_issue(issues, "error", page, "Cover is missing editable title or metadata.")
         if not notes:
             add_issue(issues, "error", page, "Speaker notes are missing.")
-        title = str(source.get("title", "")).strip()
+        title = slide_display_title(source)
         normalized_title = re.sub(r"\s+", "", title)
         if title and not any(normalized_title in re.sub(r"\s+", "", shape.text) for shape in text_shapes):
             add_issue(issues, "warning", page, f"Slide title not found in editable text: {title}")

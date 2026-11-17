@@ -28,6 +28,18 @@ Only the paper texture and institutional lockup are pictures. The background pic
 
 Header chapter numbers, outline numbers, and their adjacent titles use the measured title size on both the preview and native PPTX paths. A long title may shrink, but its number shrinks with it; do not leave the number at a fixed decorative size.
 
+## Native Geometry Contract
+
+The preview and editable paths share the same `(left, top, width, height)` geometry. Keep these rules when changing either renderer:
+
+- Every geometry box uses `(left, top, width, height)`. Do not pass a parent's width where a child width is expected; this produced a negative-width condition note that PIL masked but PowerPoint exposed.
+- Index tokens (`01`, `02`, chapter numbers) must use `wrap_explicit=False` in the native exporter. They are navigation tokens, not prose.
+- All visible text boxes must have positive width and height and remain inside the slide. `validate_pptx.py` treats non-positive text geometry as an error and outside-slide text as a warning.
+- Sequence diagram nodes compute title offsets relative to `node_top`; `body_height` is `node_height - relative_title_offset - title_height - padding`. Never mix absolute page coordinates with node-local height.
+- A concept node body must stay inside its named node shape. `validate_pptx.py` pairs `diagram_sequence_node_*` with `diagram_node_body` and fails if either edge escapes.
+- A metrics condition note uses `side_box[2]` as the available width, not as an x-coordinate. The note, condition grid, and evidence image share the same lower band.
+- Closing cards align title and body on the same left edge; the title uses the block-title scale (`52+ px` under `defense`) and the body uses the small-text scale (`39 px`). Keep the icon at the trailing edge.
+
 ## Font Mapping
 
 Each theme may define an optional `pptx_fonts` object:
@@ -105,6 +117,9 @@ python scripts/validate_pptx.py --pptx output/defense_deck.pptx --deck deck.json
 - content pictures have semantic alt text or are marked decorative
 - comparison tables have header-row semantics
 - the deck is not just one full-page picture per slide
+- text boxes have positive geometry and remain on the slide
+- short numeric indices are not line-wrapped
+- concept-diagram bodies remain inside their sequence nodes
 
 `pptx_report.json` records per-slide editable shape counts, picture counts, native tables, native charts, and formula conversion status.
 

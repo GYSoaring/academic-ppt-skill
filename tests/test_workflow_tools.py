@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from build_qa import build
+from render_deck_next import copy_if_distinct
 
 
 def test_build_qa_uses_explicit_then_generated() -> None:
@@ -45,3 +46,14 @@ def test_build_qa_respects_count() -> None:
     }
     _, report = build(deck, count=3)
     assert report["question_count"] == 3
+
+
+def test_copy_if_distinct_handles_same_source_and_target(work_tmp) -> None:
+    deck_path = work_tmp / "deck.json"
+    deck_path.write_text('{"slides": []}', encoding="utf-8")
+    assert copy_if_distinct(deck_path, deck_path) is False
+    assert deck_path.read_text(encoding="utf-8") == '{"slides": []}'
+
+    copied_path = work_tmp / "copied.json"
+    assert copy_if_distinct(deck_path, copied_path) is True
+    assert copied_path.read_text(encoding="utf-8") == deck_path.read_text(encoding="utf-8")

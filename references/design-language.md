@@ -25,10 +25,10 @@ These layers must not drift between pages:
 1. Top rule and chapter label.
 2. Short page title.
 3. Upper-right institution identity.
-4. Left five-item mini-directory on content pages.
+4. The selected navigation layer: left five-item mini-directory, standalone chapter dividers, or both in hybrid mode.
 5. Bottom rule and takeaway band.
 
-The cover and outline are exceptions: cover has no header or mini-directory; outline has no mini-directory.
+The cover and outline are exceptions: cover has no header or mini-directory; outline has no mini-directory. Under `navigation_mode: dividers`, content pages have no left directory either.
 
 ## Type Scale
 

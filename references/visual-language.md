@@ -30,7 +30,7 @@ The content page uses five zones. Their position is owned by the theme, not by t
 | Interpretation rail | Reading help | Two or three panels: observation, mechanism, boundary |
 | Takeaway band | Closure | A condition, consequence, or transition; not a restatement of the lead |
 
-The footer rule, page number, identity, and mini-directory are chrome. They are not content and must not move to make room for content.
+The footer rule, page number, identity, and whichever navigation layer is selected (`sidebar`, `dividers`, or `hybrid`) are chrome. They are not content and must not move to make room for content.
 
 ## Canvas And Grid
 
@@ -38,7 +38,7 @@ The footer rule, page number, identity, and mini-directory are chrome. They are 
 - Outer margin: approximately `36 px` on the sides.
 - Header reserve: the first `112–118 px` belongs to the fixed header.
 - Content top: the lead band begins below the header, never underneath it.
-- Sidebar reserve: the five-item navigation occupies its own fixed column and is never overlapped.
+- Sidebar reserve: when the selected navigation mode includes a sidebar, the five-item navigation occupies its own fixed column and is never overlapped. `dividers` mode instead widens the body area into that column.
 - Use a 12-column conceptual grid inside the content area. A major evidence object may span 7–9 columns; an interpretation rail normally spans 3–4 columns.
 - Use a consistent spacing scale: group-internal `8–12 px`, between groups `18–24 px`, between major regions `28–40 px`.
 - Align to edges before centering. A centered object is a deliberate exception, not the default.
@@ -122,6 +122,11 @@ Do not let an image model draw the equation. Do not add a numerical value to a s
 
 - Header topic title: normally 4–10 Chinese characters; it is orientation, not the claim.
 - Chapter number and adjacent title use the same measured font size and baseline.
+- Outline row numbers inherit the section title’s measured size and baseline; never leave them at a decorative fixed size when the title shrinks.
+- In a `concept` branch diagram, the root heading > item heading ≥ body, and all text is vertically centered in its region; do not combine a large root title with 13–16 px card copy.
+- In a `concept` sequence diagram, node titles outrank node bodies, both scale with node width, and the body receives at most three lines. The body box is computed inside the node, never from page-level coordinates.
+- Metric cards read value → label → note on one vertical axis. Do not put the note in a side slot when the card has already been sized for a vertical flow.
+- Closing cards use a clear two-level hierarchy: `52+ px` title and `39 px` body, aligned on the same left edge. Put the icon at the trailing edge so it does not indent the title.
 - Lead claim: 28–33 px on the reference canvas.
 - Body: 18–22 px; do not shrink below 14 px to rescue a crowded page.
 - Panel headings: 24–27 px; use a compact dark-blue strip or a clear top label.
@@ -207,6 +212,7 @@ Before shipping a deck, verify:
 - [ ] Header number and title have the same measured size.
 - [ ] Upper-right identity is identical on every content page.
 - [ ] Cover and outline have no mini-directory.
+- [ ] The deck does not mix `layout: "section"` dividers into `navigation_mode: sidebar`.
 - [ ] Every content page has a lead claim and a takeaway or boundary.
 - [ ] No deep-blue band contains dark text.
 - [ ] No `**emphasis**` is rendered with an underline.

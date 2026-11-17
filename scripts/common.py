@@ -32,6 +32,17 @@ DEFENSE_SECONDARY_PREFIXES = (
     "outline_number_",
     "sidebar_",
 )
+NAVIGATION_MODES = {"sidebar", "dividers", "hybrid"}
+NAVIGATION_SIDEBAR_MODE = {
+    "sidebar": "always",
+    "dividers": "off",
+    "hybrid": "section",
+}
+SIDEBAR_NAVIGATION_MODE = {
+    "always": "sidebar",
+    "section": "hybrid",
+    "off": "dividers",
+}
 
 
 def is_defense_secondary_text(name: str, text: str, size_pt: float) -> bool:
@@ -100,12 +111,12 @@ DEFENSE_TYPE_SCALE = {
     "cover_subtitle": 42,
     "cover_info": 38,
     "header_title": 72,
-    "eyebrow": 42,
+    "eyebrow": 72,
     "lead": 56,
     "lead_label": 30,
     "takeaway": 48,
     "sidebar": 44,
-    "block_title": 48,
+    "block_title": DEFENSE_HEADING_PX,
     "body": 52,
     "bullet": 48,
     "small": 39,
@@ -263,6 +274,16 @@ def source_line_for_slide(deck: dict, slide: dict) -> str:
     return line
 
 
+def slide_display_title(slide: dict) -> str:
+    """Return the text a slide actually presents as its native title."""
+    if not isinstance(slide, dict):
+        return ""
+    layout = str(slide.get("layout", "")).strip().lower()
+    if layout == "section":
+        return str(slide.get("section_title") or slide.get("title") or "").strip()
+    return str(slide.get("title") or "").strip()
+
+
 def is_assertion_title(text: str) -> bool:
     """Heuristic: does this title read as a claim instead of a topic label?"""
     value = str(text or "").strip()
@@ -297,6 +318,57 @@ def load_theme(path: str | Path) -> dict:
     resolved_lockup = resolve_path(lockup, theme_path.parent)
     theme["brand"]["lockup_path"] = str(resolved_lockup) if resolved_lockup else None
     return theme
+
+
+def normalize_navigation_mode(value) -> str | None:
+    """Return a supported navigation mode, or None when the field is absent."""
+    mode = str(value or "").strip().lower()
+    return mode if mode in NAVIGATION_MODES else None
+
+
+def theme_sidebar_mode(theme: dict) -> str:
+    """Return the legacy low-level sidebar policy stored by a theme."""
+    layout = theme.get("layout") or {}
+    mode = str(layout.get("sidebar_mode", "always")).strip().lower() or "always"
+    return mode if mode in SIDEBAR_NAVIGATION_MODE else "always"
+
+
+def navigation_mode_for(deck: dict, theme: dict) -> str:
+    """Resolve the user-facing navigation model.
+
+    `meta.navigation_mode` is the authoring choice and wins. Without it, an
+    existing deck keeps exactly the visual policy it had before this field
+    existed: `always` -> sidebar, `section` -> hybrid, `off` -> dividers.
+    """
+    meta = deck.get("meta") or {}
+    explicit = normalize_navigation_mode(meta.get("navigation_mode"))
+    if explicit:
+        return explicit
+    return SIDEBAR_NAVIGATION_MODE.get(theme_sidebar_mode(theme), "sidebar")
+
+
+def apply_navigation_mode(theme: dict, mode) -> str:
+    """Map one high-level choice onto the renderer's sidebar policy."""
+    resolved = normalize_navigation_mode(mode) or "sidebar"
+    layout = theme.setdefault("layout", {})
+    layout["sidebar_mode"] = NAVIGATION_SIDEBAR_MODE[resolved]
+    theme["navigation_mode"] = resolved
+    return resolved
+
+
+def content_section_openers(deck: dict) -> set[str]:
+    """Return the first content page of each section, excluding divider pages."""
+    openers: set[str] = set()
+    previous_section = None
+    for slide in deck.get("slides", []):
+        layout = str(slide.get("layout", "")).strip().lower()
+        if layout in {"cover", "outline", "section"}:
+            continue
+        current_section = slide.get("section")
+        if current_section != previous_section:
+            openers.add(str(slide.get("id", "")))
+            previous_section = current_section
+    return openers
 
 
 def apply_type_profile(theme: dict, profile: str | None = None) -> dict:

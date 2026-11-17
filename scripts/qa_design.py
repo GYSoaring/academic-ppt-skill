@@ -30,7 +30,15 @@ import json
 import statistics
 from pathlib import Path
 
-from common import apply_type_profile, is_assertion_title, load_json, load_theme, write_json
+from common import (
+    apply_navigation_mode,
+    apply_type_profile,
+    is_assertion_title,
+    load_json,
+    load_theme,
+    navigation_mode_for,
+    write_json,
+)
 
 CONTENT_LAYOUTS = {
     "bullets",
@@ -329,6 +337,7 @@ def main() -> None:
     theme = load_theme(Path(args.theme)) if args.theme else None
     if theme is not None:
         apply_type_profile(theme, args.profile or str(deck.get("meta", {}).get("type_profile", "document")))
+        apply_navigation_mode(theme, navigation_mode_for(deck, theme))
     render_dir = Path(args.render_dir) if args.render_dir else None
     report = audit_design(deck, theme, render_dir)
     report["deck"] = str(deck_path)

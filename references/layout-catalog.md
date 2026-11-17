@@ -6,7 +6,7 @@ Choose a layout by the page's evidence role, not by visual habit. A deck should 
 |---|---|---|---|
 | `cover` | Title and attribution | `title`, optional `subtitle` | A content claim is the main purpose |
 | `outline` | Five or six section anchors | `sections` in the deck | You need sub-arguments or page ranges |
-| `section` | A deliberate rhythm break between modules | `section`, `title`, optional `summary`, `keywords` | The deck is short and needs density |
+| `section` | A standalone chapter divider before a module | `section`, `title`, optional `label_en` | `navigation_mode` is `sidebar`, or the deck is too short to need chapter breaks |
 | `bullets` | Two or three grouped points, usually text-led | `columns` or `bullets`, `lead`, `takeaway` | A real figure or process would explain it faster |
 | `grid` | Three to six independent mechanisms or evidence blocks | `columns`, `blocks`, `lead` | The blocks are actually one sequence |
 | `balance` | Two opposing rails around one dominant system figure | `left`, `right`, `image` or `chart`, `image_role`, `image_boundary`, `lead` | There is no real tradeoff or shared system object |
@@ -20,7 +20,7 @@ Choose a layout by the page's evidence role, not by visual habit. A deck should 
 | `hub` | One shared problem with 4–6 parallel branches | `center`, `items`, `lead` | The branches are sequential or unrelated |
 | `timeline` | Three to five research phases with dates, work packages, and milestones | `phases`, optional `period_note`, `timeline_note` | The content is not a sequence or the dates are invented |
 | `references` | Four to ten traceable papers, datasets, or official documents | `references` | The entries are decorative, incomplete, or not from the user's materials |
-| `closing` | Conclusions, boundary, and next step | `points`, optional `boundary_points`, `next_points` | It is only a thank-you page |
+| `closing` | Conclusions, boundary, and next step | `points`, or `boundary` / `boundary_points` plus `next` / `next_points` | It is only a thank-you page |
 
 ## Content-Type Mapping
 
@@ -259,5 +259,5 @@ Keep the final page useful during Q&A:
 }
 ```
 
-The page should be readable without the speaker. Do not replace the conclusions with a blank “Thank you” slide.
+The page should be readable without the speaker. A summary closing may use `points`; a boundary/next-step closing may instead use `boundary` / `boundary_points` and `next` / `next_points`. Either form satisfies the validator because both carry substantive content. Do not replace the conclusions with a blank “Thank you” slide.
 

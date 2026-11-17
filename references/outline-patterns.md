@@ -2,7 +2,7 @@
 
 Read [genre-playbooks.md](genre-playbooks.md) first. The outlines below are starting points for common defense formats, not a fixed page order. A humanities close reading, a theory proof sketch, and a systems evaluation need different evidence objects and may use different page sequences.
 
-Use five or six major sections. The outline page and mini-directory must use the same names.
+Use five or six major sections. The outline page, chapter dividers, and any sidebar labels all read from the same `sections[]` names.
 
 For every content page, write two layers:
 

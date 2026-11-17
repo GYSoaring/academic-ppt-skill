@@ -19,7 +19,7 @@ def test_defense_profile_sets_projection_sizes() -> None:
     assert result["active_type_profile"] == "defense"
     assert result["type_scale"]["body"] == DEFENSE_TYPE_SCALE["body"]
     assert result["type_scale"]["header_title"] >= 72
-    assert result["type_scale"]["eyebrow"] < result["type_scale"]["header_title"]
+    assert result["type_scale"]["eyebrow"] == result["type_scale"]["header_title"]
 
 
 def test_figure_width_ratio_is_clamped_and_accepts_percent() -> None:
@@ -182,16 +182,16 @@ def test_defense_validation_checks_scale_bold_font_and_paper_figure() -> None:
 def test_agent_brief_carries_defense_readability_and_paper_figure_contract(monkeypatch) -> None:
     with tempfile.TemporaryDirectory(dir=ROOT) as temp_dir:
         temp_path = Path(temp_dir)
-    argv = [
-        "export_agent_brief.py",
-        "--deck", str(ROOT / "examples" / "nanjing_optics" / "deck.json"),
-        "--theme", str(ROOT / "assets" / "themes" / "nanjing_purple" / "theme.json"),
-        "--out", str(temp_path / "agent_brief.md"),
-    ]
-    monkeypatch.setattr("sys.argv", argv)
-    export_agent_brief.main()
-    brief = (temp_path / "agent_brief.md").read_text(encoding="utf-8")
-    assert "24 pt" in brief and "32" in brief and "18 pt" in brief
-    assert "加粗" in brief and "无衬线黑体" in brief
-    assert "image_origin" in brief and "论文原图" in brief
-    assert "未完成" in brief
+        argv = [
+            "export_agent_brief.py",
+            "--deck", str(ROOT / "examples" / "nanjing_optics" / "deck.json"),
+            "--theme", str(ROOT / "assets" / "themes" / "nanjing_purple" / "theme.json"),
+            "--out", str(temp_path / "agent_brief.md"),
+        ]
+        monkeypatch.setattr("sys.argv", argv)
+        export_agent_brief.main()
+        brief = (temp_path / "agent_brief.md").read_text(encoding="utf-8")
+        assert "24 pt" in brief and "32" in brief and "18 pt" in brief
+        assert "加粗" in brief and "无衬线黑体" in brief
+        assert "image_origin" in brief and "论文原图" in brief
+        assert "未完成" in brief

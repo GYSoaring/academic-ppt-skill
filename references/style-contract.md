@@ -80,8 +80,9 @@ The source line occupies the muted strip between the takeaway band and the foote
 
 - No left mini-directory.
 - Show only the section numbers and section titles. The row number and section title use the same measured font size; do not make the number visually heavier or larger than the title it labels.
+- On the outline, align the number and title on the same baseline; if the title shrinks to fit, the number uses the resulting measured size.
 - Do not add descriptions, scope notes, page ranges, or decorative arrows containing text.
-- Each row must visually connect to the same section names used by the mini-directory.
+- Each row must visually connect to the same section names used by the selected navigation layer, whether that is the mini-directory or chapter dividers.
 
 ## Content Header
 
@@ -91,14 +92,18 @@ The source line occupies the muted strip between the takeaway band and the foote
 - The title baseline and size must not change between pages. The chapter number and topic title use the same measured font size and baseline; if a long title shrinks, its number shrinks with it.
 - Do not paste the old identity into a new page or leave two identities visible.
 
-## Mini-Directory
+## Navigation And Mini-Directory
 
-- Appears from the third page onward.
-- Cover and outline never show it.
+- The outline page is one standalone `layout: "outline"` slide. It is not a section divider and never shows the sidebar.
+- `meta.navigation_mode: "sidebar"` shows the five-item mini-directory on content pages and does not insert `layout: "section"` pages.
+- `meta.navigation_mode: "dividers"` uses one standalone `layout: "section"` divider per chapter and shows no sidebar on content pages.
+- `meta.navigation_mode: "hybrid"` uses both, but the sidebar appears only on each chapter's first content page.
+- Cover always omits both the mini-directory and section-divider treatment.
 - Five items, one active section, fixed width and position.
 - Active state: deep blue fill with white text.
 - Inactive state: white or pale fill with thin blue outline and deep blue text.
 - Never move the sidebar into the body to make room for content.
+- `layout.sidebar_mode` is the renderer-level implementation (`always` / `section` / `off`), not the user-facing choice.
 
 ## Body Layout
 
@@ -153,7 +158,7 @@ The accepted Image Gen 2.6 academic deck images are a style reference, not a lay
 
 - a fixed header with a double slash, chapter number, and short topic title;
 - a fixed upper-right institutional identity;
-- a five-item mini-directory that is present on content pages and absent on cover/outline;
+- a five-item mini-directory when the selected navigation mode uses a sidebar; it is absent from cover, outline, and `dividers` decks;
 - dense evidence pages with a dominant figure, one narrow interpretation rail, and a bottom boundary band;
 - deep-blue module headings, pale blue evidence fills, thin lines, and a single red accent;
 - a consistent rhythm between dense evidence pages and quieter transition pages.

@@ -473,6 +473,13 @@ DRAW_ICONS = True
 # Diagram labels were hard-coded at 13-16 px (about 7 pt on a projected slide).
 # Scale them into a readable range instead of rewriting every layout.
 DIAGRAM_TEXT_SCALE = 1.6
+DIAGRAM_BRANCH_TEXT = {
+    "index": 26,
+    "root_title": 56,
+    "root_body": 42,
+    "item_title": 42,
+    "item_body": 38,
+}
 # Corner ticks are pure decoration; four shapes per panel with no information.
 DRAW_CORNER_MARKS = True
 
@@ -934,15 +941,17 @@ def _diagram_index(
     colors: dict[str, tuple[int, int, int]],
     fonts: FontBook,
     dark: bool = False,
+    size: int = DIAGRAM_BRANCH_TEXT["index"],
 ) -> None:
-    font = fonts.get(TextStyle(bold=True), 13)
+    font = fonts.get(TextStyle(bold=True), size)
     text = f"{index:02d}"
-    width = text_width(draw, text, font) + 16
+    width = text_width(draw, text, font) + 24
+    height = max(28, int(round(font.size * 1.3)))
     left, top = xy
     fill = colors["blue"] if dark else colors["blue_pale"]
     text_fill = colors["white"] if dark else colors["blue_dark"]
-    draw.rounded_rectangle((left, top, left + width, top + 24), radius=3, fill=fill)
-    draw.text((left + 8, top + 4), text, font=font, fill=text_fill)
+    draw.rounded_rectangle((left, top, left + width, top + height), radius=3, fill=fill)
+    draw.text((left + 12, top + (height - font.size) // 2 - 2), text, font=font, fill=text_fill)
 
 
 def draw_diagram(
@@ -953,6 +962,7 @@ def draw_diagram(
     fonts: FontBook,
     label: str = "",
     frame: bool = True,
+    min_size: int = 0,
 ) -> None:
     """Draw a compact, data-driven academic concept diagram.
 
@@ -976,17 +986,26 @@ def draw_diagram(
     pad = max(10, min(18, int((right - left) * 0.018)))
     inner_left, inner_right = left + pad, right - pad
     inner_top, inner_bottom = top + pad, bottom - pad
+    diagram_height = max(1, bottom - top)
     if label:
-        label_font = fonts.get(TextStyle(bold=True), int(13 * DIAGRAM_TEXT_SCALE))
+        label_size = max(int(min_size), 22, min(32, int(diagram_height * 0.05)))
+        label_font = fonts.get(TextStyle(bold=True), label_size)
         label_width = text_width(draw, label, label_font) + 22
-        label_box = (inner_left, inner_top, inner_left + label_width, inner_top + 25)
+        label_height = max(30, int(label_size * 1.45))
+        label_box = (inner_left, inner_top, inner_left + label_width, inner_top + label_height)
         draw.rounded_rectangle(label_box, radius=3, fill=colors["blue"])
-        draw.text((label_box[0] + 10, label_box[1] + 4), label, font=label_font, fill=colors["white"])
-        inner_top += 34
+        draw.text(
+            (label_box[0] + 11, label_box[1] + max(2, (label_height - label_size) // 2 - 4)),
+            label,
+            font=label_font,
+            fill=colors["white"],
+        )
+        inner_top += label_height + 10
     note = str(diagram.get("note", "")).strip()
-    note_height = 25 if note else 0
+    note_size = max(int(min_size), 16, min(26, int(diagram_height * 0.036)))
+    note_block = max(34, int(note_size * 1.55)) if note else 0
     if note:
-        inner_bottom -= 30
+        inner_bottom -= note_block
     kind = str(diagram.get("kind", "sequence")).strip().lower()
     items = [item for item in (diagram.get("items") or []) if isinstance(item, dict)]
     highlight = int(diagram.get("highlight", -1))
@@ -1005,9 +1024,9 @@ def draw_diagram(
         count = max(1, len(items))
         gap = max(20, min(34, int((inner_right - inner_left) * 0.035)))
         node_width = max(64, (inner_right - inner_left - gap * (count - 1)) // count)
-        node_height = min(150, max(72, int((inner_bottom - inner_top) * 0.56)))
-        title_size = 22 if node_height >= 128 else 18
-        body_size = int((16 if node_height >= 128 else 14) * DIAGRAM_TEXT_SCALE)
+        node_height = min(340, max(120, int((inner_bottom - inner_top) * 0.66)))
+        title_size = max(int(min_size), 24, min(44, int(node_width * 0.145)))
+        body_size = max(int(min_size), 22, min(36, int(node_width * 0.118)))
         node_top = inner_top + max(0, (inner_bottom - inner_top - node_height) // 2)
         centers: list[tuple[int, int]] = []
         for index, item in enumerate(items):
@@ -1032,31 +1051,35 @@ def draw_diagram(
                 dark=is_focus,
             )
             text_fill = white if is_focus else blue_dark
+            index_font = fonts.get(TextStyle(bold=True), max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]))
+            title_top = node_top + max(int(round(index_font.size * 1.3)) + 22, int(node_height * 0.2))
+            title_height = max(34, int(title_size * 1.5))
             _diagram_fit_text(
                 draw,
                 str(item.get("title") or item.get("label") or ""),
-                (x + 10, node_top + 40, x + node_width - 10, node_top + 68),
+                (x + 12, title_top, x + node_width - 12, title_top + title_height),
                 fonts,
                 text_fill,
                 title_size,
-                12,
+                max(24, int(min_size)),
                 bold=True,
                 align="center",
-                max_lines=2,
+                max_lines=1,
                 line_ratio=1.05,
+                valign="middle",
             )
             body = str(item.get("body", "")).strip()
             if body:
                 _diagram_fit_text(
                     draw,
                     body,
-                    (x + 10, node_top + 70, x + node_width - 10, node_top + node_height - 8),
+                    (x + 14, title_top + title_height + 6, x + node_width - 14, node_top + node_height - 14),
                     fonts,
                     mix_color(white, blue_pale, 0.42) if is_focus else muted,
                     body_size,
-                    10,
+                    max(20, int(min_size)),
                     align="center",
-                    max_lines=2,
+                    max_lines=3,
                     line_ratio=1.08,
                     valign="top",
                 )
@@ -1073,6 +1096,13 @@ def draw_diagram(
     elif kind == "branch":
         items = items[:4]
         root = diagram.get("root") if isinstance(diagram.get("root"), dict) else {}
+        # Root, item title, item body, and index form one hierarchy. Keeping
+        # root > item title >= body prevents the old 24/16/17/14 mix in which
+        # the body could be larger than its own heading.
+        root_title_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["root_title"])
+        root_body_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["root_body"])
+        item_title_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["item_title"])
+        item_body_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["item_body"])
         root_width = int((inner_right - inner_left) * 0.31)
         root_box = (inner_left, inner_top + 18, inner_left + root_width, inner_bottom - 18)
         draw.rounded_rectangle(
@@ -1082,30 +1112,40 @@ def draw_diagram(
             outline=blue,
             width=1,
         )
+        root_span = root_box[3] - root_box[1]
+        root_title_top = root_box[1] + int(root_span * 0.30)
+        root_title_bottom = root_box[1] + int(root_span * 0.54)
         _diagram_fit_text(
             draw,
             str(root.get("title") or diagram.get("center") or "共同问题"),
-            (root_box[0] + 12, root_box[1] + 16, root_box[2] - 12, root_box[1] + 58),
+            (root_box[0] + 20, root_title_top, root_box[2] - 20, root_title_bottom),
             fonts,
             white,
-            24,
-            14,
+            root_title_size,
+            40,
             bold=True,
             align="center",
             max_lines=2,
+            valign="middle",
         )
         root_body = str(root.get("body", "")).strip()
         if root_body:
             _diagram_fit_text(
                 draw,
                 root_body,
-                (root_box[0] + 12, root_box[1] + 66, root_box[2] - 12, root_box[3] - 12),
+                (
+                    root_box[0] + 20,
+                    root_title_bottom + 10,
+                    root_box[2] - 20,
+                    root_box[3] - 28,
+                ),
                 fonts,
                 mix_color(white, blue_pale, 0.48),
-                16,
-                11,
+                root_body_size,
+                30,
                 align="center",
                 max_lines=3,
+                valign="middle",
             )
         gap = 12
         item_left = inner_left + root_width + max(34, int((inner_right - inner_left) * 0.08))
@@ -1123,30 +1163,35 @@ def draw_diagram(
                 outline=red if is_focus else colors["line"],
                 width=2 if is_focus else 1,
             )
-            _diagram_index(draw, (item_left + 10, y + 9), index + 1, colors, fonts, dark=is_focus)
+            index_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["index"])
+            _diagram_index(draw, (item_left + 14, y + 16), index + 1, colors, fonts, dark=is_focus, size=index_size)
+            index_font = fonts.get(TextStyle(bold=True), index_size)
+            branch_text_left = item_left + 28 + text_width(draw, f"{index + 1:02d}", index_font) + 24
             _diagram_fit_text(
                 draw,
                 str(item.get("title") or item.get("label") or ""),
-                (item_left + 52, y + 8, item_box[2] - 10, y + 34),
+                (branch_text_left, y + 14, item_box[2] - 14, y + 62),
                 fonts,
                 blue_dark,
-                17,
-                12,
+                item_title_size,
+                30,
                 bold=True,
                 max_lines=1,
+                valign="middle",
             )
             body = str(item.get("body", "")).strip()
             if body:
                 _diagram_fit_text(
                     draw,
                     body,
-                    (item_left + 52, y + 35, item_box[2] - 10, item_box[3] - 7),
+                    (branch_text_left, y + 64, item_box[2] - 14, item_box[3] - 16),
                     fonts,
                     ink,
-                    14,
-                    10,
+                    item_body_size,
+                    28,
                     max_lines=2,
                     line_ratio=1.08,
+                    valign="middle",
                 )
             draw_arrow(
                 draw,
@@ -1180,8 +1225,10 @@ def draw_diagram(
                 colors,
                 fonts,
                 dark=is_focus,
+                size=max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]),
             )
-            text_left = row_box[0] + 64
+            stack_index_font = fonts.get(TextStyle(bold=True), max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]))
+            text_left = row_box[0] + 26 + text_width(draw, f"{index + 1:02d}", stack_index_font) + 24
             text_color = white if is_focus else blue_dark
             _diagram_fit_text(
                 draw,
@@ -1316,11 +1363,14 @@ def draw_diagram(
                 outline=red if is_focus else colors["line"],
                 width=2 if is_focus else 1,
             )
-            _diagram_index(draw, (x + 9, y + 8), index + 1, colors, fonts, dark=is_focus)
+            matrix_index_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["index"])
+            _diagram_index(draw, (x + 9, y + 8), index + 1, colors, fonts, dark=is_focus, size=matrix_index_size)
+            matrix_index_font = fonts.get(TextStyle(bold=True), matrix_index_size)
+            matrix_text_left = x + 21 + text_width(draw, f"{index + 1:02d}", matrix_index_font) + 24
             _diagram_fit_text(
                 draw,
                 str(item.get("title") or item.get("label") or ""),
-                (x + 34, y + 8, x + cell_width - 8, y + 38),
+                (matrix_text_left, y + 8, x + cell_width - 8, y + 38),
                 fonts,
                 white if is_focus else blue_dark,
                 16,
@@ -1395,11 +1445,11 @@ def draw_diagram(
         _diagram_fit_text(
             draw,
             note,
-            (inner_left, inner_bottom + 6, inner_right, inner_bottom + 28),
+            (inner_left, inner_bottom + 8, inner_right, inner_bottom + note_block - 6),
             fonts,
             muted,
-            13,
-            9,
+            note_size,
+            16,
             max_lines=1,
         )
 

@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from common import load_json, load_theme
+from common import apply_navigation_mode, load_json, load_theme, navigation_mode_for
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,6 +20,7 @@ def main() -> None:
     deck_path = Path(args.deck).resolve()
     theme = load_theme(args.theme)
     deck = load_json(deck_path)
+    navigation_mode = apply_navigation_mode(theme, navigation_mode_for(deck, theme))
     meta = deck.get("meta", {})
     sections = deck.get("sections", [])
     slides = deck.get("slides", [])
@@ -32,6 +33,23 @@ def main() -> None:
     narrative = str(meta.get("narrative", "")).strip().lower()
     output_path = Path(args.out).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    sidebar_coordinates = (
+        f"- 左侧小目录固定在约 x={layout['sidebar'][0]}–{layout['sidebar'][2]}、"
+        f"y={layout['sidebar'][1]}–{layout['sidebar'][3]}。"
+    )
+    navigation_rules = {
+        "sidebar": [
+            "- 导航模式：`sidebar`。目录页之后，内容页固定显示左侧五项小目录；不要插入独立章节分隔页。",
+            sidebar_coordinates,
+        ],
+        "dividers": [
+            "- 导航模式：`dividers`。每个章节前放一张独立章节分隔页；内容页不显示左侧小目录，正文使用无侧栏布局。",
+        ],
+        "hybrid": [
+            "- 导航模式：`hybrid`。每个章节前放一张独立章节分隔页；仅每章第一张内容页显示左侧小目录。",
+            sidebar_coordinates,
+        ],
+    }[navigation_mode]
 
     paper_figures = [
         slide
@@ -69,9 +87,9 @@ def main() -> None:
         "- 风格：浅纸色背景、深蓝标题、细蓝线、克制的浅蓝面板；不要玻璃拟态、霓虹、3D 大卡片、彩色仪表盘、手写批注、星星或装饰性箭头。",
         "- 封面：没有顶部标题栏，没有左侧小目录。按主题选择居中或编辑式封面；身份资产位置保持全篇一致，标题、汇报人和日期不要与身份层挤在一起。",
         "- 目录页：没有左侧小目录，只放五个大标题，不写解释句，不写页码范围。",
-        "- 第 3 页起：顶部标题栏、右上角校名校徽、底部蓝线、左侧五项小目录全部固定。正文不因为文字多而挤压固定区域。",
+        *navigation_rules,
+        "- 内容页固定层：顶部标题栏、右上角校名校徽、底部蓝线始终固定；正文不因为文字多而挤压固定区域。",
         f"- 左上双斜杠与章节号 x≈{layout['chapter_x']}，页标题 x≈{layout['title_x']}，标题字号约 {layout['title_size']}。",
-        f"- 左侧小目录固定在约 x={layout['sidebar'][0]}–{layout['sidebar'][2]}、y={layout['sidebar'][1]}–{layout['sidebar'][3]}。",
         f"- 右上校名校徽固定在约 x={brand['header_box'][0]}–{brand['header_box'][2]}、y={brand['header_box'][1]}–{brand['header_box'][3]}。",
         "- 字体：中文标题用粗黑体；语义正文用加粗黑体；脚注、来源、图注和微标签可用常规黑体。英文和公式保持清晰，不装饰化。",
         "- 图片：至少保留一页论文原图；保持原始宽高比，用矩形白底相框放入；不要裁切或重绘论文曲线、坐标轴、图例和实验照片；图片下方不要加“论文 Fig. ×”之类标注。",

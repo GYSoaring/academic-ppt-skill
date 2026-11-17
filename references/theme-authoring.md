@@ -120,7 +120,7 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
 - `layout.content`, `layout.sidebar`, `layout.header_height`, `layout.footer_y`, and `layout.takeaway_top`
 - `type_scale.header_title` and `type_scale.eyebrow` must describe the same header type size; `layout.title_size` and `layout.chapter_size` should also match. The renderer fits both to the same measured size so a long title shrinks together with its chapter number.
 - `type_profiles` is optional. If omitted, built-in scales cover `projection`, `lecture`, and `defense`. A theme may override a profile with `type_profiles.<name>.type_scale` to match its own layout density. `text.body_bold_min_px` and `text.body_bold_max_px` constrain semantic body bolding; do not use `body_bold` as a global bold-all switch.
-- `layout.sidebar_mode`: `always` | `section` | `off`. `off` also uses `layout.content_no_sidebar` as the text box, which is how a theme buys back the 260 px the directory occupied.
+- `layout.sidebar_mode`: `always` | `section` | `off`. This is the low-level renderer policy, not the user-facing choice. Writers set `meta.navigation_mode` to `sidebar`, `dividers`, or `hybrid`; the renderer maps it to this field. `off` also uses `layout.content_no_sidebar` as the text box, which is how a theme buys back the 260 px the directory occupied.
 - `layout.panel_radius` and `layout.panel_shadow_alpha`: a designed academic theme is flat. Defaults are `8` px and `20`; `2` / `0` with `panel.header_style = "flat"` removes the dashboard feel without touching any layout code.
 - `brand.lockup` or `brand.fallback_text`
 - `cover.style`: `centered` or `editorial`

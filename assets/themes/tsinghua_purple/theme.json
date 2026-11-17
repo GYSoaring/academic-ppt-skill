@@ -89,6 +89,35 @@
     "metric_value": 58,
     "metric_label": 24
   },
+  "type_profiles": {
+    "defense": {
+      "type_scale": {
+        "cover_kicker": 36,
+        "cover_title": 112,
+        "cover_subtitle": 42,
+        "cover_info": 38,
+        "header_title": 69,
+        "eyebrow": 69,
+        "lead": 56,
+        "lead_label": 30,
+        "takeaway": 48,
+        "sidebar": 44,
+        "block_title": 48,
+        "body": 52,
+        "bullet": 48,
+        "small": 39,
+        "micro": 39,
+        "metric_value": 104,
+        "metric_label": 40,
+        "quote_text": 60,
+        "table_header": 44,
+        "table_cell": 40,
+        "reference_title": 39,
+        "reference_meta": 39,
+        "footnote": 39
+      }
+    }
+  },
   "brand": {
     "lockup": "brand_lockup.png",
     "emblem": "emblem_mark.png",
@@ -106,6 +135,11 @@
     ],
     "fallback_text": "清华大学"
   },
+  "text": {
+    "body_bold": true,
+    "body_bold_min_px": 47,
+    "body_bold_max_px": 56
+  },
   "background": {
     "motif": "arcs",
     "arc": true,
@@ -113,14 +147,14 @@
     "motif_opacity": 0.18
   },
   "layout": {
-    "header_height": 112,
-    "divider_y": 94,
+    "header_height": 128,
+    "divider_y": 120,
     "footer_y": 1102,
     "margin_x": 36,
-    "title_x": 216,
+    "title_x": 260,
     "title_y": 38,
     "title_size": 48,
-    "chapter_x": 112,
+    "chapter_x": 84,
     "chapter_y": 48,
     "chapter_size": 48,
     "slash_x": 24,

@@ -20,7 +20,7 @@
 
 **这是 deck 的默认模式（`title_mode: summary`）。**
 
-- 长度 6–18 字，名词短语，像论文的二级标题
+- 通常 4–10 字，校验器硬性接受 4–18 字；名词短语，像论文的二级标题
 - 读者只看标题，应该知道**这一页的对象与方法**，而不是被塞一个论断
 - 判断放到正文第一句（`lead`）和 `claim` 字段里
 - 不含判断词：是、不是、必须、决定、没有、无法、能、需要、不会
@@ -58,7 +58,7 @@
 python scripts/validate_deck.py --deck deck.json --theme theme/theme.json --render-dir out/rendered --out out
 ```
 
-- `title_mode: summary`：标题 6–18 字、不得含判断词、**每页必须有 `claim`**（判断不能既不在标题也不在正文）
+- `title_mode: summary`：标题 4–18 字、不得含判断词、**每页必须有 `claim`**（判断不能既不在标题也不在正文）
 - `title_mode: assertion`：标题必须含断言线索词
 
 `qa_design.py` 在 summary 模式下自动跳过 `assertion_ratio`——不再拿「标题够不够冲」当分数。

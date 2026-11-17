@@ -13,11 +13,14 @@ from common import (
     DOI_RE,
     DEFENSE_BODY_PX,
     DEFENSE_MIN_ANY_PX,
+    NAVIGATION_MODES,
+    apply_navigation_mode,
     apply_type_profile,
     estimate_seconds,
     is_assertion_title,
     load_json,
     load_theme,
+    navigation_mode_for,
     normalize_cites,
     normalize_doi,
     resolve_path,
@@ -82,6 +85,48 @@ LAYOUT_VARIANTS = {
 
 def title_units(text: str) -> int:
     return sum(2 if ord(character) > 0x2E80 else 1 for character in str(text or ""))
+
+
+def summary_title_valid(text: str) -> bool:
+    """Accept concise topic labels, not only six-character noun phrases."""
+    length = len(re.sub(r"\s", "", str(text or "")))
+    return 4 <= length <= 18
+
+
+def closing_has_summary_content(slide: dict) -> bool:
+    """A closing page can summarise with points or with boundary/next cards."""
+    return bool(
+        slide.get("points")
+        or slide.get("boundary")
+        or slide.get("boundary_points")
+        or slide.get("next")
+        or slide.get("next_points")
+    )
+
+
+def longest_content_layout_run(slides: list[dict]) -> tuple[int, str]:
+    """Return the longest visible layout run.
+
+    Section dividers break the visual rhythm, so the validator must not delete
+    them before counting. Otherwise two figure pairs on either side of a divider
+    look like four consecutive figure pages.
+    """
+    longest = 0
+    longest_layout = ""
+    current = 0
+    previous = ""
+    for slide in slides:
+        layout = str(slide.get("layout", "")).strip().lower()
+        if layout in {"cover", "outline", "section", "closing", "references"}:
+            current = 0
+            previous = ""
+            continue
+        current = current + 1 if layout == previous else 1
+        if current > longest:
+            longest = current
+            longest_layout = layout
+        previous = layout
+    return longest, longest_layout
 
 
 def parse_args() -> argparse.Namespace:
@@ -299,6 +344,7 @@ def main() -> None:
     theme = load_theme(theme_path)
     profile = args.profile or str(deck.get("meta", {}).get("type_profile", "document"))
     apply_type_profile(theme, profile)
+    navigation_mode = apply_navigation_mode(theme, navigation_mode_for(deck, theme))
     issues: list[dict] = []
     if profile == "defense":
         issues.extend(defense_theme_issues(theme))
@@ -306,9 +352,35 @@ def main() -> None:
     sections = deck.get("sections", [])
     slides = deck.get("slides", [])
     section_ids = [section.get("id") for section in sections]
+    declared_navigation_mode = str(deck.get("meta", {}).get("navigation_mode", "")).strip().lower()
+    section_pages = [
+        slide for slide in slides
+        if str(slide.get("layout", "")).strip().lower() == "section"
+    ]
 
     if deck_mode not in {"full", "content_only"}:
         add_issue(issues, "error", "meta", "meta.deck_mode must be 'full' or 'content_only'.")
+    if declared_navigation_mode and declared_navigation_mode not in NAVIGATION_MODES:
+        add_issue(
+            issues,
+            "error",
+            "meta",
+            f"meta.navigation_mode must be one of {sorted(NAVIGATION_MODES)}.",
+        )
+    if declared_navigation_mode == "sidebar" and section_pages:
+        add_issue(
+            issues,
+            "warning",
+            "navigation",
+            "navigation_mode 'sidebar' does not include section dividers; remove layout 'section' pages or choose 'dividers'/'hybrid'.",
+        )
+    if declared_navigation_mode in {"dividers", "hybrid"} and not section_pages:
+        add_issue(
+            issues,
+            "warning",
+            "navigation",
+            f"navigation_mode '{declared_navigation_mode}' expects section dividers; run add_section_pages.py before rendering.",
+        )
     if not deck.get("meta", {}).get("title"):
         add_issue(issues, "error", "meta", "Missing meta.title.")
     title_mode = str(deck.get("meta", {}).get("title_mode", "topic")).strip().lower()
@@ -409,12 +481,12 @@ def main() -> None:
         if title_mode == "summary" and layout not in {"cover", "outline", "section", "closing", "references"}:
             title_text = str(slide.get("title", "")).strip()
             length = len(re.sub(r"\s", "", title_text))
-            if not 6 <= length <= 18:
+            if not summary_title_valid(title_text):
                 add_issue(
                     issues,
                     "warning",
                     page_id,
-                    f"summary title should be 6-18 characters, got {length}.",
+                    f"summary title should be 4-18 characters, got {length}.",
                 )
             if is_assertion_title(title_text):
                 add_issue(
@@ -641,8 +713,13 @@ def main() -> None:
                 if url and not url.lower().startswith(("http://", "https://")):
                     add_issue(issues, "warning", page_id, f"Reference {ref_index} url should start with http(s)://.")
         if layout == "closing":
-            if not slide.get("points"):
-                add_issue(issues, "warning", page_id, "Closing slide has no summary points.")
+            if not closing_has_summary_content(slide):
+                add_issue(
+                    issues,
+                    "warning",
+                    page_id,
+                    "Closing slide has no summary points or boundary/next-step cards.",
+                )
             if len(slide.get("points") or []) > 4:
                 add_issue(issues, "warning", page_id, "Closing slide should keep at most four summary points.")
         if layout == "quote":
@@ -691,19 +768,13 @@ def main() -> None:
         if slide.get("layout") not in {"cover", "outline", "section", "closing", "references"}
     ]
     if profile in {"lecture", "defense"}:
-        longest_run = 0
-        current_run = 0
-        previous_layout = None
-        for layout_name in content_layouts:
-            current_run = current_run + 1 if layout_name == previous_layout else 1
-            longest_run = max(longest_run, current_run)
-            previous_layout = layout_name
+        longest_run, longest_layout = longest_content_layout_run(slides)
         if longest_run >= 4:
             add_issue(
                 issues,
                 "warning",
                 "rhythm",
-                f"Projected deck repeats {previous_layout} for {longest_run} consecutive pages; vary the evidence composition.",
+                f"Projected deck repeats {longest_layout} for {longest_run} consecutive pages; vary the evidence composition.",
             )
         anchor_pages = [
             slide for slide in slides
@@ -879,6 +950,7 @@ def main() -> None:
         "genre": genre,
         "narrative": narrative,
         "deck_mode": deck_mode,
+        "navigation_mode": navigation_mode,
         "slide_count": len(slides),
         "rendered_count": len(rendered_paths),
         "estimated_speech_seconds": estimated,

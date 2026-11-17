@@ -9,3 +9,7 @@
 - Regenerate with `scripts/build_brand_lockup.py --lockup ... --lockup-crop 0,0,236,88 --recolor-lockup`.
 
 The emblem is a school identity asset. It is included only so this example can render a recognizable Tsinghua deck. Before public or commercial use, confirm that your use complies with Tsinghua University's visual identity rules. The repository and this skill are not affiliated with or endorsed by Tsinghua University.
+
+## Presentation Provenance
+
+This presentation uses the Tsinghua visual template only. The source paper is authored by researchers at Tianjin University; the template does not imply Tsinghua authorship or institutional endorsement.

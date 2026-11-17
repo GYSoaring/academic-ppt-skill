@@ -12,8 +12,10 @@ from pptx import Presentation
 from pptx.util import Inches
 
 from common import (
+    apply_navigation_mode,
     apply_type_profile,
     clamp_defense_size_px,
+    content_section_openers,
     DEFENSE_BODY_PX,
     DEFENSE_MIN_ANY_PX,
     figure_width_ratio,
@@ -23,6 +25,7 @@ from common import (
     load_json,
     load_theme,
     mix_color,
+    navigation_mode_for,
     resolve_font,
     resolve_path,
     source_line_for_slide,
@@ -47,6 +50,16 @@ from design import (
     make_background,
     render_math_image,
 )
+
+HEADER_EYEBROW_GAP = 56
+
+
+def copy_if_distinct(source: Path, target: Path) -> bool:
+    """Copy a deck only when source and target are different files."""
+    if source.resolve() == target.resolve():
+        return False
+    shutil.copy2(source, target)
+    return True
 
 
 def parse_args() -> argparse.Namespace:
@@ -76,6 +89,10 @@ class DeckRenderer:
         self.theme = load_theme(theme_path)
         self.profile = profile or str(self.deck.get("meta", {}).get("type_profile", "document"))
         apply_type_profile(self.theme, self.profile)
+        self.navigation_mode = apply_navigation_mode(
+            self.theme,
+            navigation_mode_for(self.deck, self.theme),
+        )
         self.output_dir = output_dir.resolve()
         self.render_dir = self.output_dir / "rendered"
         self.render_dir.mkdir(parents=True, exist_ok=True)
@@ -102,6 +119,7 @@ class DeckRenderer:
             body_bold_max_px=float(self.theme.get("text", {}).get("body_bold_max_px", 56)),
             min_size_px=0,
         )
+        self._header_title_left: int | None = None
         self.serif_fonts = self.theme["fonts"]["serif"]
         self.display_fonts = self.theme["fonts"].get("display", self.serif_fonts)
         self.formula_fonts = self.theme["fonts"].get("formula", self.serif_fonts)
@@ -114,18 +132,11 @@ class DeckRenderer:
         # "section" shows it only where a new section starts, "off" removes it and
         # lets the content box widen to `layout.content_no_sidebar`.
         self.sidebar_mode = str(self.layout.get("sidebar_mode", "always")).strip().lower() or "always"
-        self.section_openers: set[str] = set()
-        previous_section = None
-        for item in self.deck.get("slides", []):
-            if item.get("layout") in {"cover", "outline"}:
-                continue
-            current_section = item.get("section")
-            if current_section != previous_section:
-                self.section_openers.add(str(item.get("id", "")))
-                previous_section = current_section
+        self.section_openers = content_section_openers(self.deck)
         import design as _design_module
 
-        _design_module.DRAW_ICONS = str(self.layout.get("block_icons", "on")).strip().lower() != "off"
+        self.block_icons = str(self.layout.get("block_icons", "on")).strip().lower() != "off"
+        _design_module.DRAW_ICONS = self.block_icons
         _design_module.DRAW_CORNER_MARKS = bool((self.theme.get("panel", {}) or {}).get("corner_marks", True))
         _panel_cfg = self.theme.get("panel", {}) or {}
         self.card_index = bool(_panel_cfg.get("card_index", True))
@@ -282,7 +293,7 @@ class DeckRenderer:
 
         eyebrow = str(slide.get("eyebrow", "")).strip()
         chapter_x = int(self.layout["chapter_x"])
-        title_left = int(self.layout["title_x"])
+        title_left = self.header_title_left()
         title = str(slide.get("title", "")).strip()
         title_width = int(self.theme["brand"]["header_box"][0] - title_left - 54)
         header_height = max(56, int(self.type_size("header_title", 48) * 1.25))
@@ -299,18 +310,29 @@ class DeckRenderer:
         if not fits:
             self.warn(str(slide.get("id", "")), f"Header title shrank or overflowed: {title}")
         if eyebrow:
-            eyebrow_width_available = max(24, title_left - chapter_x - 18)
-            eyebrow_size = min(font.size, self.type_size("eyebrow", font.size))
+            # Keep a real text gutter inside the label column. The previous
+            # width ended exactly at the measured glyph edge, so PowerPoint
+            # could repack "1.2" as two lines even though the PNG looked fine.
+            eyebrow_width_available = max(24, title_left - chapter_x - 24)
+            configured_title_size = self.type_size("header_title", 48)
+            configured_eyebrow_size = self.type_size("eyebrow", configured_title_size)
+            if configured_eyebrow_size != configured_title_size:
+                self.warn(
+                    str(slide.get("id", "")),
+                    "Header eyebrow type size differs from header_title; set both to the same value in type_scale.",
+                )
+            eyebrow_size = font.size
             eyebrow_font = self.fonts.get(TextStyle(bold=True), eyebrow_size)
             eyebrow_width = text_width(draw, eyebrow, eyebrow_font)
             if eyebrow_width > eyebrow_width_available:
-                eyebrow_size = max(18, int(eyebrow_size * eyebrow_width_available / max(1, eyebrow_width)))
-                eyebrow_font = self.fonts.get(TextStyle(bold=True), eyebrow_size)
-                eyebrow_width = text_width(draw, eyebrow, eyebrow_font)
+                self.warn(
+                    str(slide.get("id", "")),
+                    "Header eyebrow exceeds its column; shorten the label instead of shrinking only the number.",
+                )
             title_y = int(self.layout["title_y"])
             draw.text((chapter_x, title_y), eyebrow, font=eyebrow_font, fill=blue)
-            divider_x = chapter_x + eyebrow_width + 18
-            if divider_x < title_left - 20:
+            divider_x = chapter_x + eyebrow_width + HEADER_EYEBROW_GAP // 2
+            if divider_x < title_left - 8:
                 draw.line((divider_x, title_y + 4, divider_x, title_y + eyebrow_font.size * 0.92), fill=self.color("line"), width=2)
         draw.text((title_left, int(self.layout["title_y"])), lines[0] if lines else title, font=font, fill=self.color("blue_dark"))
 
@@ -319,6 +341,32 @@ class DeckRenderer:
         draw.rectangle((24, divider_y + 6, self.width - 24, divider_y + 7), fill=mix_color(blue, self.color("paper"), 0.55))
         self.draw_brand(image, tuple(self.theme["brand"]["header_box"]))
         draw.rectangle((24, int(self.layout["footer_y"]), self.width - 24, int(self.layout["footer_y"]) + 3), fill=blue)
+
+    def header_title_left(self) -> int:
+        """Return one title x for every page, wide enough for the widest eyebrow.
+
+        The chapter label used to live in the fixed gap between ``chapter_x``
+        and ``title_x``. Once the label and the title share one type size, a
+        label such as ``1.1`` at 72 px is wider than that gap and the two runs
+        collide. Measure the whole deck once and reserve a real column; the
+        title then stays on one vertical alignment across pages.
+        """
+        if self._header_title_left is not None:
+            return self._header_title_left
+        chapter_x = int(self.layout["chapter_x"])
+        title_left = int(self.layout["title_x"])
+        size = self.type_size("header_title", 48)
+        font = self.fonts.get(TextStyle(bold=True), size)
+        draw = ImageDraw.Draw(Image.new("RGB", (4, 4)))
+        eyebrow_width = 0
+        for item in self.deck.get("slides", []):
+            label = str(item.get("eyebrow", "")).strip()
+            if label:
+                eyebrow_width = max(eyebrow_width, text_width(draw, label, font))
+        if eyebrow_width:
+            title_left = max(title_left, chapter_x + eyebrow_width + HEADER_EYEBROW_GAP)
+        self._header_title_left = title_left
+        return title_left
 
     def draw_sidebar(self, image: Image.Image, active_section: str | None, slide_id: str | None = None) -> None:
         sections = self.deck.get("sections", [])
@@ -397,7 +445,37 @@ class DeckRenderer:
             return top
         draw = ImageDraw.Draw(image)
         left, _, right, _ = map(int, self.layout["content"])
-        height = int(self.layout.get("lead_height", 88))
+        base_height = int(self.layout.get("lead_height", 88))
+        label = str(self.layout.get("lead_label", "")).strip()
+        if label:
+            label_width = int(self.layout.get("lead_label_width", 168))
+            label_width = min(label_width, max(120, (right - left) // 3))
+            text_left = left + label_width + 24
+            text_width_available = right - text_left - 24
+        else:
+            label_width = 0
+            text_left = left + 96
+            text_width_available = right - left - 118
+
+        # Measure the real line count instead of assuming an 88 px strip. A
+        # two-line lead used to be clipped by the first content card because
+        # the height stayed fixed while PowerPoint correctly wrapped the text.
+        lead_size = self.type_size("lead", 31)
+        minimum_size = max(22, self.type_size("body", 22))
+        font, lines, block_height, fits = self.fit_text(
+            draw,
+            text,
+            self.theme["fonts"]["title"],
+            text_width_available,
+            max(base_height, lead_size * 3),
+            lead_size,
+            minimum_size,
+            max_lines=2,
+            line_ratio=1.2,
+        )
+        if not fits:
+            self.warn(page_id, "Lead text overflowed even after reserving two lines.")
+        height = max(base_height, block_height + 24)
         if self.layout.get("lead_panel", True):
             draw_gradient_panel(
                 image,
@@ -409,10 +487,7 @@ class DeckRenderer:
                 radius=self.panel_radius,
                 width=1,
             )
-        label = str(self.layout.get("lead_label", "")).strip()
         if label:
-            label_width = int(self.layout.get("lead_label_width", 168))
-            label_width = min(label_width, max(120, (right - left) // 3))
             points = [
                 (left, top + 1),
                 (left + label_width - 18, top + 1),
@@ -434,29 +509,25 @@ class DeckRenderer:
                 font=label_font,
                 fill=self.color("white"),
             )
-            text_left = left + label_width + 24
-            text_width_available = right - text_left - 24
         else:
             draw.rectangle((left, top + 1, left + 9, top + height - 1), fill=self.color("blue"))
             draw_chevrons(draw, left + 28, top + 26, 34, self.color("blue_mid"), count=2, width=4, gap=13)
-            text_left = left + 96
-            text_width_available = right - left - 118
         fits, _ = draw_rich_block(
             draw,
             text,
-            (text_left, top + 18),
+            (text_left, top + 12),
             text_width_available,
-            height - 30,
+            height - 24,
             self.fonts,
             self.colors,
-            self.type_size("lead", 31),
-            22,
+            font.size,
+            font.size,
             max_lines=2,
             line_ratio=1.2,
         )
         if not fits:
             self.warn(page_id, "Lead text overflowed.")
-        return top + height + 20
+        return top + height + (20 if self.layout.get("lead_panel", True) else 12)
 
     def draw_takeaway(self, image: Image.Image, slide: dict, page_id: str) -> None:
         text = str(slide.get("takeaway", "")).strip()
@@ -744,22 +815,62 @@ class DeckRenderer:
         )
 
         info_y = max(int(cover.get("info_y", 708)), rule_y + int(cover.get("info_gap", 34)))
-        label_font = self.fonts.get(TextStyle(), 18)
-        value_font = self.fonts.get(TextStyle(), self.type_size("cover_info", 28))
+        label_font = self.fonts.get(TextStyle(), max(22, int(self.type_size("cover_info", 28) * 0.62)))
+        value_size = self.type_size("cover_info", 28)
+        value_font = self.fonts.get(TextStyle(), value_size)
         info_items = [
             ("汇报人", str(meta.get("presenter") or "—")),
             ("指导教师", str(meta.get("advisor") or "—")),
             ("日期", str(meta.get("date") or "—")),
         ]
-        info_x = [accent_x, accent_x + 386, accent_x + 748]
-        for x, (label, value) in zip(info_x, info_items):
+        info_right = accent_x + title_width
+        date_text = info_items[2][1]
+        date_width = text_width(draw, date_text, value_font)
+        date_x = info_right - date_width
+        presenter_x = accent_x
+        advisor_x = accent_x + max(280, int(title_width * 0.30))
+        advisor_width = max(120, date_x - 56 - advisor_x)
+        advisor_font, advisor_lines, _, advisor_fits = self.fit_text(
+            draw,
+            info_items[1][1],
+            self.theme["fonts"]["body"],
+            advisor_width,
+            int(value_size * 1.35),
+            value_size,
+            max(24, int(value_size * 0.72)),
+            max_lines=1,
+            line_ratio=1.0,
+        )
+        if not advisor_fits:
+            self.warn(str(slide.get("id", "")), "Cover advisor line overflowed.")
+        info_x = [presenter_x, advisor_x, date_x]
+        for index, (x, (label, value)) in enumerate(zip(info_x, info_items)):
             draw.text((x, info_y), label, font=label_font, fill=self.color("muted"))
-            draw.text((x, info_y + 26), value, font=value_font, fill=self.color("ink"))
+            font = advisor_font if index == 1 else value_font
+            draw.text((x, info_y + 30), value, font=font, fill=self.color("ink"))
 
         department = str(meta.get("department") or meta.get("institution") or "").strip()
         if department:
-            dept_font = self.fonts.get(TextStyle(), 20)
-            draw.text((accent_x, info_y + 78), department, font=dept_font, fill=self.color("muted"))
+            dept_size = max(22, int(value_size * 0.62))
+            dept_font, dept_lines, _, dept_fits = self.fit_text(
+                draw,
+                department,
+                self.theme["fonts"]["body"],
+                title_width,
+                int(dept_size * 1.4),
+                dept_size,
+                max(18, int(dept_size * 0.8)),
+                max_lines=1,
+                line_ratio=1.0,
+            )
+            if not dept_fits:
+                self.warn(str(slide.get("id", "")), "Cover department line overflowed.")
+            draw.text(
+                (accent_x, info_y + 88),
+                dept_lines[0] if dept_lines else department,
+                font=dept_font,
+                fill=self.color("muted"),
+            )
 
         cover_line = str(meta.get("cover_line") or "").strip()
         if cover_line:
@@ -833,26 +944,54 @@ class DeckRenderer:
             top_y = int(self.layout.get("header_height", 132)) + 48
             bottom_y = int(self.layout.get("footer_y", self.height - 96)) - 48
             row_h = (bottom_y - top_y) // rows
-            number_font = self.fonts.get(TextStyle(bold=True), 112)
             kicker_font = self.fonts.get(TextStyle(bold=False), 34)
             draw.text((left + width, top_y - 64), "C O N T E N T S", font=kicker_font,
                       fill=self.color("blue_mid"), anchor="ra")
             draw.line((left - 34, top_y + 6, left - 34, bottom_y - 6), fill=self.color("blue"), width=3)
             for index, section in enumerate(items):
                 y = top_y + index * row_h
-                draw.text((left - 6, y + 8), f"{index + 1:02d}", font=number_font, fill=self.color("blue"))
+                preferred_size = max(62, self.type_size("header_title", 62))
                 title_font, title_lines, _, _ = self.fit_text(
-                    draw, str(section["title"]), self.theme["fonts"]["title"], width - 260, 78,
-                    62, 40, max_lines=1,
+                    draw,
+                    str(section["title"]),
+                    self.theme["fonts"]["title"],
+                    width - 170,
+                    max(72, row_h - 48),
+                    preferred_size,
+                    max(40, preferred_size - 24),
+                    max_lines=1,
                 )
-                draw.text((left + 210, y + 12), title_lines[0] if title_lines else str(section["title"]),
-                          font=title_font, fill=self.color("ink"))
                 desc = str(section.get("desc", "")).strip()
+                desc_font = self.fonts.get(TextStyle(bold=False), 30)
+                ascent, descent = title_font.getmetrics()
+                desc_gap = 8
+                desc_height = line_height(desc_font, 1.2) if desc else 0
+                content_height = ascent + descent + (desc_gap + desc_height if desc else 0)
+                baseline = y + (row_h - content_height) // 2 + ascent
+                draw.text(
+                    (left - 6, baseline),
+                    f"{index + 1:02d}",
+                    font=title_font,
+                    fill=self.color("blue"),
+                    anchor="ls",
+                )
+                title_text = title_lines[0] if title_lines else str(section["title"])
+                draw.text(
+                    (left + 150, baseline),
+                    title_text,
+                    font=title_font,
+                    fill=self.color("ink"),
+                    anchor="ls",
+                )
                 if desc:
-                    desc_font = self.fonts.get(TextStyle(bold=False), 30)
-                    draw.text((left + 212, y + 78), desc, font=desc_font, fill=self.color("muted"))
+                    draw.text(
+                        (left + 150, baseline + descent + desc_gap),
+                        desc,
+                        font=desc_font,
+                        fill=self.color("muted"),
+                    )
                 if index < len(items) - 1:
-                    draw.line((left + 210, y + row_h - 12, left + width, y + row_h - 12),
+                    draw.line((left + 150, y + row_h - 12, left + width, y + row_h - 12),
                               fill=self.color("line"), width=2)
             return image
 
@@ -1016,8 +1155,19 @@ class DeckRenderer:
         index: str = "",
         icon: str = "",
         height: int = 56,
-    ) -> None:
+    ) -> int:
+        """Draw one measured module header and return its real height.
+
+        The index and the heading share one font size and one baseline. The
+        index column is measured from the glyphs instead of a fixed 20 px
+        stamp, so ``01`` can never be cropped to ``0``.
+        """
         left, top, right, bottom = box
+        configured_size = self.type_size("block_title", 26)
+        minimum_height = int(round(configured_size * 1.28))
+        if self.profile == "defense":
+            minimum_height = max(minimum_height, 84)
+        height = max(int(height), minimum_height)
         header_box = (left + 2, top + 2, right - 2, top + height)
         header_style = str(self.theme.get("panel", {}).get("header_style", "gradient"))
         if header_style == "flat":
@@ -1042,26 +1192,36 @@ class DeckRenderer:
                 width=0,
             )
             draw.rectangle((header_box[0], header_box[3] - 1, header_box[2], header_box[3]), fill=self.color("blue"))
-        heading_font = self.fonts.get(TextStyle(bold=True), self.type_size("block_title", 26))
-        text_left = left + 16
+        probe_font = self.fonts.get(TextStyle(bold=True), configured_size)
+        index_width = 0
         if index and getattr(self, "card_index", True):
-            index_font = self.fonts.get(TextStyle(bold=True), 20)
-            index_y = top + (height - line_height(index_font)) // 2
-            draw.text((left + 18, index_y), index, font=index_font, fill=self.color("blue_pale"))
-            text_left = left + 56
+            index_width = max(60, int(round(text_width(draw, index, probe_font) + 20)))
+        text_left = left + 16 + (index_width + 12 if index_width else 0)
+        text_height = height - 12
+        heading_size = configured_size
         fits = True
+        rendered = probe_font
+        lines = [heading] if heading else []
         if heading:
             rendered, lines, _, fits = self.fit_text(
                 draw,
                 heading,
                 self.theme["fonts"]["title"],
                 right - text_left - (56 if icon else 18),
-                height - 10,
-                self.type_size("block_title", 26),
+                text_height,
+                configured_size,
                 17,
                 max_lines=1,
             )
-            heading_y = top + (height - line_height(rendered)) // 2 - 2
+            heading_size = rendered.size
+        if index_width:
+            index_font = self.fonts.get(TextStyle(bold=True), heading_size)
+            ascent, descent = index_font.getmetrics()
+            index_y = top + 6 + (text_height - (ascent + descent)) // 2
+            draw.text((left + 16, index_y), index, font=index_font, fill=self.color("blue_pale"))
+        if heading:
+            ascent, descent = rendered.getmetrics()
+            heading_y = top + 6 + (text_height - (ascent + descent)) // 2
             draw.text((text_left, heading_y), lines[0] if lines else heading, font=rendered, fill=self.color("white"))
         if not fits:
             self.warn("panel", f"Panel heading overflowed: {heading}")
@@ -1074,6 +1234,7 @@ class DeckRenderer:
                 self.color("blue"),
                 stroke=2,
             )
+        return height
 
     def draw_compact_bullets(
         self,
@@ -1148,7 +1309,7 @@ class DeckRenderer:
                 shadow_blur=10,
                 shadow_alpha=26,
             )
-            self.draw_module_header(
+            header_height = self.draw_module_header(
                 image,
                 draw,
                 box,
@@ -1156,7 +1317,7 @@ class DeckRenderer:
                 index=f"{index + 1:02d}",
                 icon=str(column.get("icon", "")),
             )
-            content_top = body_top + 68
+            content_top = body_top + header_height + 12
             body_text = str(column.get("body", "")).strip()
             if body_text:
                 fits, used = draw_rich_block(
@@ -1217,7 +1378,7 @@ class DeckRenderer:
             shadow_blur=8,
             shadow_alpha=self.panel_shadow_alpha,
         )
-        self.draw_module_header(
+        header_height = self.draw_module_header(
             image,
             draw,
             box,
@@ -1225,7 +1386,7 @@ class DeckRenderer:
             index=f"{index:02d}",
             icon=str(block.get("icon", "")),
         )
-        content_top = top + 70
+        content_top = top + header_height + 12
         footer_text = str(block.get("footer") or block.get("output") or "").strip()
         footer_label = str(block.get("footer_label") or "产出").strip()
         footer_height = 52 if footer_text else 0
@@ -1369,6 +1530,7 @@ class DeckRenderer:
                 self.fonts,
                 label=str(block.get("diagram_label", "")),
                 frame=True,
+                min_size=DEFENSE_MIN_ANY_PX if self.profile == "defense" else 0,
             )
             content_top += diagram_height + 8
         visual = str(block.get("visual", "")).strip() if block.get("visual_semantic") else ""
@@ -1541,19 +1703,18 @@ class DeckRenderer:
             shadow_blur=8,
             shadow_alpha=18,
         )
-        self.draw_module_header(
+        header_height = self.draw_module_header(
             image,
             draw,
             box,
             str(rail.get("heading", "")),
             icon=str(rail.get("icon", "check" if index == 0 else "alert")),
-            height=52,
         )
         items = rail.get("items") or []
         if not items:
             self.warn(page_id, "Balance rail has no items.")
             return
-        header_bottom = top + 60
+        header_bottom = top + header_height
         item_height = (bottom - header_bottom - 8) // len(items)
         for item_index, item in enumerate(items):
             item_top = header_bottom + item_index * item_height
@@ -1903,7 +2064,6 @@ class DeckRenderer:
             panels = [{"heading": "图示", "body": slide.get("image_role", "请结合原图讲解。")}]
         gap = 14
         panel_height = (bottom - top - gap * (len(panels) - 1)) // len(panels)
-        header_height = max(46, int(self.type_size("block_title", 26) * 1.55))
         for index, panel in enumerate(panels):
             panel_top = top + index * (panel_height + gap)
             panel_box = (left, panel_top, right, panel_top + panel_height)
@@ -1919,16 +2079,15 @@ class DeckRenderer:
                 shadow_blur=8,
                 shadow_alpha=20,
             )
-            self.draw_module_header(
+            header_height = self.draw_module_header(
                 image,
                 draw,
                 panel_box,
                 str(panel.get("heading", "")),
                 index=f"{index + 1:02d}",
                 icon=str(panel.get("icon", "")),
-                height=header_height,
             )
-            content_top = panel_top + header_height + 14
+            content_top = panel_top + header_height + 12
             body = str(panel.get("body", "")).strip()
             bullets = panel.get("bullets") or []
             if body:
@@ -2109,6 +2268,7 @@ class DeckRenderer:
             self.fonts,
             label=str(slide.get("diagram_label", "机制示意")),
             frame=True,
+            min_size=DEFENSE_MIN_ANY_PX if self.profile == "defense" else 0,
         )
         if panels:
             panel_left = diagram_right + gap
@@ -2129,16 +2289,15 @@ class DeckRenderer:
                     shadow_blur=6,
                     shadow_alpha=max(10, self.panel_shadow_alpha - 6),
                 )
-                self.draw_module_header(
+                header_height = self.draw_module_header(
                     image,
                     draw,
                     panel_box,
                     str(panel.get("heading", "")),
                     index=f"{index + 1:02d}",
                     icon=str(panel.get("icon", "")),
-                    height=48,
                 )
-                content_top = panel_top + 58
+                content_top = panel_top + header_height + 12
                 body = str(panel.get("body", "")).strip()
                 bullets = panel.get("bullets") or []
                 if body:
@@ -2283,16 +2442,23 @@ class DeckRenderer:
         draw.text((left, variables_top), variable_title, font=title_font, fill=self.color("blue_dark"))
         draw.line((left, variables_top + title_height, left_right, variables_top + title_height), fill=self.color("line"), width=2)
         if variables:
-            columns = 2 if len(variables) > 2 else 1
-            column_gap = 18
+            # A symbol followed by a full sentence needs a real definition-list
+            # row, not two narrow newspaper columns. Up to six entries stay in
+            # one column; longer lists fall back to two balanced columns.
+            columns = 2 if len(variables) > 6 else 1
+            column_gap = 24
             column_width = (left_right - left - column_gap * (columns - 1)) // columns
             rows = math.ceil(len(variables) / columns)
-            line_count = max(1, rows)
-            # Keep these numbers identical to export_editable_pptx.py so the PNG
-            # preview and the delivered PPTX put each line in the same place.
-            block_height = max(48, bottom - variables_top - 52)
-            row_height = block_height // line_count
             body_size = self.type_size("small", 16)
+            body_font = self.fonts.get(TextStyle(bold=True), body_size)
+            symbol_width = max(
+                [text_width(draw, str(item.get("symbol", "")).strip(), body_font) for item in variables]
+                or [body_size]
+            )
+            symbol_width = max(64, min(180, int(symbol_width) + 24))
+            list_top = variables_top + title_height + 14
+            available_height = max(60, bottom - list_top - 8)
+            row_height = available_height // max(1, rows)
             for column in range(columns):
                 chunk = variables[column * rows : (column + 1) * rows]
                 if not chunk:
@@ -2301,20 +2467,27 @@ class DeckRenderer:
                 for row_index, item in enumerate(chunk):
                     symbol = str(item.get("symbol", "")).strip()
                     meaning = str(item.get("meaning", "")).strip()
-                    y = variables_top + 42 + row_index * row_height
+                    y = list_top + row_index * row_height
+                    symbol_top = y + max(0, (row_height - int(body_size * 1.3)) // 2)
+                    draw.text((x, symbol_top), symbol, font=body_font, fill=self.color("blue_dark"))
                     font, lines, _, fits = self.fit_text(
                         draw,
-                        f"{symbol}　{meaning}",
+                        meaning,
                         self.theme["fonts"]["body"],
-                        column_width - 6,
+                        column_width - symbol_width - 10,
                         row_height - 4,
                         body_size,
-                        max(12, body_size - 6),
+                        max(18, body_size - 8),
                         max_lines=1,
                     )
                     if not fits:
                         self.warn(str(slide.get("id", "")), f"Formula variable overflowed: {symbol}")
-                    draw.text((x, y), lines[0] if lines else f"{symbol}　{meaning}", font=font, fill=self.color("ink"))
+                    draw.text(
+                        (x + symbol_width, symbol_top),
+                        lines[0] if lines else meaning,
+                        font=font,
+                        fill=self.color("ink"),
+                    )
 
         panels = slide.get("panels") or []
         if panels:
@@ -2336,16 +2509,15 @@ class DeckRenderer:
                     shadow_blur=6,
                     shadow_alpha=max(10, self.panel_shadow_alpha - 6),
                 )
-                self.draw_module_header(
+                header_height = self.draw_module_header(
                     image,
                     draw,
                     panel_box,
                     str(panel.get("heading", "")),
                     index=f"{index + 1:02d}",
                     icon=str(panel.get("icon", "")),
-                    height=48,
                 )
-                content_top = panel_top + 58
+                content_top = panel_top + header_height + 12
                 body = str(panel.get("body", "")).strip()
                 bullets = panel.get("bullets") or []
                 if body:
@@ -2673,7 +2845,7 @@ class DeckRenderer:
             draw,
             str(metric.get("value", "")),
             self.theme["fonts"]["title"],
-            right - left - 94,
+            right - left - 98,
             80,
             64,
             28,
@@ -2681,33 +2853,37 @@ class DeckRenderer:
         )
         if not value_fits:
             self.warn("metric", f"Metric value overflowed: {metric.get('value', '')}")
-        draw_lines(draw, value_lines, (left + 20, top + 26), value_font, self.color("blue"), 1.05)
+        value_y = top + 18
+        draw_lines(draw, value_lines, (left + 20, value_y), value_font, self.color("blue"), 1.05)
         label_font, label_lines, _, label_fits = self.fit_text(
             draw,
             str(metric.get("label", "")),
             self.theme["fonts"]["title"],
-            right - left - 36,
+            right - left - 96,
             58,
-            24,
-            16,
-            max_lines=2,
+            max(24, self.type_size("metric_label", 24)),
+            max(18, int(self.type_size("metric_label", 24) * 0.8)),
+            max_lines=1,
         )
         if not label_fits:
             self.warn("metric", f"Metric label overflowed: {metric.get('label', '')}")
-        draw_lines(draw, label_lines, (left + 20, top + 112), label_font, self.color("ink"), 1.2)
+        label_y = value_y + line_height(value_font, 1.05) + 4
+        draw_lines(draw, label_lines, (left + 20, label_y), label_font, self.color("ink"), 1.15)
+        note_size = max(16, self.type_size("micro", 14))
         note_font, note_lines, _, note_fits = self.fit_text(
             draw,
             str(metric.get("note", "")),
             self.theme["fonts"]["body"],
             right - left - 36,
-            40,
-            16,
-            12,
-            max_lines=2,
+            int(note_size * 1.45),
+            note_size,
+            max(16, int(note_size * 0.8)),
+            max_lines=1,
         )
         if not note_fits:
             self.warn("metric", f"Metric note overflowed: {metric.get('note', '')}")
-        draw_lines(draw, note_lines, (left + 20, bottom - 44), note_font, self.color("muted"), 1.2)
+        note_y = bottom - line_height(note_font, 1.15) - 8
+        draw_lines(draw, note_lines, (left + 20, note_y), note_font, self.color("muted"), 1.15)
 
     def draw_condition_grid(
         self,
@@ -2769,7 +2945,13 @@ class DeckRenderer:
             metrics = [{"value": "—", "label": "指标", "note": ""}]
         gap = 16
         card_width = (right - left - gap * (len(metrics) - 1)) // len(metrics)
-        card_height = 196
+        value_size = min(64, self.type_size("metric_value", 64))
+        label_size = max(24, self.type_size("metric_label", 24))
+        note_size = max(16, self.type_size("micro", 14))
+        card_height = max(
+            196,
+            int(value_size * 1.05 + label_size * 1.3 + note_size * 1.35 + 42),
+        )
         for index, metric in enumerate(metrics):
             x = left + index * (card_width + gap)
             self.draw_metric_card(image, draw, (x, body_top, x + card_width, body_top + card_height), metric, index)
@@ -2793,8 +2975,14 @@ class DeckRenderer:
             draw = ImageDraw.Draw(image)
             side_box = (left + image_width + 18, lower_top, right, lower_bottom)
             draw_shadowed_panel(image, draw, side_box, self.color("white"), self.color("line"), radius=9, width=2, shadow_offset=(0, 5), shadow_blur=9, shadow_alpha=20)
-            self.draw_module_header(image, draw, side_box, str(slide.get("conditions_title", "实验条件")), icon="alert")
-            content_top = lower_top + 64
+            header_height = self.draw_module_header(
+                image,
+                draw,
+                side_box,
+                str(slide.get("conditions_title", "实验条件")),
+                icon="alert",
+            )
+            content_top = lower_top + header_height + 12
             conditions = slide.get("conditions") or slide.get("bullets") or []
             note = str(slide.get("conditions_note", "")).strip()
             note_height = 70 if note else 0
@@ -2868,20 +3056,26 @@ class DeckRenderer:
         draw = ImageDraw.Draw(image)
         left = int(self.layout["content"][0])
         right = int(self.layout["content"][2])
+        size = self.type_size("footnote", 20)
+        height = max(24, int(round(size * 1.18)))
         font, lines, _, fits = self.fit_text(
             draw,
             text,
             self.theme["fonts"]["body"],
             right - left,
-            26,
-            15,
-            11,
+            height,
+            size,
+            max(14, size - 4),
             max_lines=1,
+            line_ratio=1.0,
         )
         if not fits:
             self.warn("footnote", f"Footnote overflowed: {text}")
+        ascent, descent = font.getmetrics()
+        text_y = int(self.layout["takeaway_top"]) + int(self.layout["takeaway_height"]) + 8
+        text_y += max(0, (height - (ascent + descent)) // 2)
         draw.text(
-            (left, int(self.layout["takeaway_top"]) + int(self.layout["takeaway_height"]) + 8),
+            (left, text_y),
             lines[0] if lines else text,
             font=font,
             fill=self.color("muted"),
@@ -2975,14 +3169,12 @@ class DeckRenderer:
             shadow_blur=8,
             shadow_alpha=16,
         )
-        header_height = max(46, int(self.type_size("block_title", 26) * 1.55))
-        self.draw_module_header(
+        header_height = self.draw_module_header(
             image,
             draw,
             rail_box,
             "解读",
             icon="target",
-            height=header_height,
         )
         rail_left = rail_box[0] + 18
         rail_top = rail_box[1] + header_height + 16
@@ -3026,18 +3218,18 @@ class DeckRenderer:
         image, draw = self.draw_frame(slide, page_number)
         left, top, right, bottom = self.content_bounds(slide)
         body_top = self.draw_lead(image, slide.get("lead", ""), top, str(slide.get("id", "")))
-        points = slide.get("points") or []
-        if not points:
-            points = ["结论待补充"]
+        points = list(slide.get("points") or [])
         has_bottom_cards = bool(
             slide.get("boundary")
             or slide.get("boundary_points")
             or slide.get("next")
             or slide.get("next_points")
         )
+        if not points and not has_bottom_cards:
+            points = ["结论待补充"]
         row_height = 88 if has_bottom_cards and len(points) >= 4 else 104
         gap = 14
-        points_bottom = body_top + len(points) * (row_height + gap) - gap
+        points_bottom = body_top + len(points) * (row_height + gap) - gap if points else body_top
         for index, point in enumerate(points):
             row_top = body_top + index * (row_height + gap)
             draw_shadowed_panel(
@@ -3054,7 +3246,8 @@ class DeckRenderer:
             )
             draw.rectangle((left, row_top, left + 7, row_top + row_height), fill=self.color("blue") if index else self.color("red"))
             number_font = self.fonts.get(TextStyle(bold=True), 44)
-            draw.text((left + 24, row_top + 24), f"{index + 1:02d}", font=number_font, fill=self.color("blue_pale"))
+            number_color = mix_color(self.color("blue_mid"), self.color("white"), 0.35)
+            draw.text((left + 24, row_top + 24), f"{index + 1:02d}", font=number_font, fill=number_color)
             fits, _ = draw_rich_block(
                 draw,
                 str(point),
@@ -3091,8 +3284,11 @@ class DeckRenderer:
                     self.color("white"),
                 )
             )
-        cards_top = points_bottom + 16
-        cards_bottom = min(bottom - 100, cards_top + 220)
+        cards_top = points_bottom + (16 if points else 0)
+        # Give the closing cards the whole band between the lead and the
+        # closing line. The old fixed 372 px height clipped the fourth boundary
+        # bullet while leaving a large empty strip below the cards.
+        cards_bottom = bottom - (100 if points else 94)
         if cards and cards_bottom - cards_top > 80:
             gap_cards = 16
             card_width = (right - left - gap_cards * (len(cards) - 1)) // len(cards)
@@ -3100,10 +3296,20 @@ class DeckRenderer:
                 x = left + index * (card_width + gap_cards)
                 box = (x, cards_top, x + card_width, cards_bottom)
                 draw_shadowed_panel(image, draw, box, fill, self.color("line"), radius=8, width=2, shadow_offset=(0, 4), shadow_blur=8, shadow_alpha=18)
-                draw_icon(draw, icon, (x + 18, cards_top + 18, x + 50, cards_top + 50), self.color("red") if index == 0 else self.color("blue"), fill, stroke=2)
-                title_font = self.fonts.get(TextStyle(bold=True), 28)
-                draw.text((x + 62, cards_top + 20), title, font=title_font, fill=self.color("blue_dark"))
-                body_top = cards_top + 58
+                draw_icon(
+                    draw,
+                    icon,
+                    (x + card_width - 50, cards_top + 18, x + card_width - 18, cards_top + 50),
+                    self.color("red") if index == 0 else self.color("blue"),
+                    fill,
+                    stroke=2,
+                )
+                title_font = self.fonts.get(
+                    TextStyle(bold=True),
+                    max(52, int(self.type_size("block_title", 48) * 1.08)),
+                )
+                draw.text((x + 18, cards_top + 20), title, font=title_font, fill=self.color("blue_dark"))
+                body_top = cards_top + max(58, int(title_font.size * 1.55))
                 if body:
                     _, used = draw_rich_block(
                         draw,
@@ -3113,8 +3319,8 @@ class DeckRenderer:
                         max(34, cards_bottom - body_top - 16),
                         self.fonts,
                         self.colors,
-                        16,
-                        11,
+                        self.type_size("small", 16),
+                        max(18, int(self.type_size("small", 16) * 0.8)),
                         max_lines=2,
                         line_ratio=1.22,
                     )
@@ -3127,9 +3333,9 @@ class DeckRenderer:
                         body_top,
                         card_width - 36,
                         max(24, cards_bottom - body_top - 12),
-                        max_size=32,
-                        min_size=22,
-                        gap=1,
+                        max_size=max(32, int(self.type_size("small", 16) * 0.95)),
+                        min_size=26,
+                        gap=4,
                     )
                     if not fits:
                         self.warn(str(slide.get("id", "")), f"Closing card bullets overflowed: {title}")
@@ -3146,7 +3352,7 @@ class DeckRenderer:
         )
         if not closing_fits:
             self.warn(str(slide.get("id", "")), "Closing line overflowed.")
-        closing_y = cards_bottom + 42 if cards and cards_bottom - cards_top > 80 else bottom - 62
+        closing_y = cards_bottom + 30 if cards and cards_bottom - cards_top > 80 else bottom - 62
         closing_y = min(closing_y, bottom - 52)
         draw.line(
             (left, closing_y - 24, right, closing_y - 24),
@@ -3619,7 +3825,7 @@ class DeckRenderer:
         contact_path = self.output_dir / "contact_sheet.jpg"
         self.build_contact_sheet(rendered_paths, contact_path)
         copied_deck = self.output_dir / "deck.json"
-        shutil.copy2(self.deck_path, copied_deck)
+        copy_if_distinct(self.deck_path, copied_deck)
         report = {
             "theme": self.theme["name"],
             "canvas": [self.width, self.height],

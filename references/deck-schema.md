@@ -28,6 +28,7 @@ The model writes content; the renderer owns layout. Use one slide object per pag
   "date": "2026.11.13",
   "duration_min": 20,
   "deck_mode": "full",
+  "navigation_mode": "sidebar",
   "title_mode": "topic",
   "title_max_chars": 10,
   "genre": "general",
@@ -46,6 +47,18 @@ The model writes content; the renderer owns layout. Use one slide object per pag
 - `content_only`: omit both the cover and the outline. Every slide is a content or closing page, and the validator does not require the first two layouts.
 
 Use `content_only` only when the user explicitly asks for a content-only deck or says to remove the cover and table of contents.
+
+`navigation_mode` chooses how the audience moves through the deck:
+
+- `sidebar`: outline page + a persistent five-item mini-directory on content pages; no standalone section dividers.
+- `dividers`: outline page + one standalone `layout: "section"` divider before each chapter; no left mini-directory.
+- `hybrid`: outline page + standalone dividers + the left mini-directory only on each chapter's first content page.
+
+Set this field once instead of editing `theme.layout.sidebar_mode`. The mapping is `sidebar → always`, `dividers → off`, `hybrid → section`, and an explicit `meta.navigation_mode` wins over a theme default. Legacy decks without the field keep their old appearance: `always` is treated as `sidebar`, `section` as `hybrid`, and `off` as `dividers`.
+
+This field does not remove or add the outline page. The outline page is separate: it is present in `deck_mode: full` and absent in `content_only`.
+
+If the user does not choose, default to `sidebar` for a linear deck of about 14 pages or fewer and to `dividers` for a 15+ page defense or long report. Use `hybrid` only when both chapter dividers and a recurring sidebar are explicitly wanted.
 
 `title_mode` controls how the header title is read:
 
@@ -91,7 +104,7 @@ Use a deck-level citation map plus per-slide keys. Keep every borrowed number, f
 
 ## Sections
 
-`sections` controls the outline page and the mini-directory. Use exactly five sections for the default theme.
+`sections` controls the outline page, standalone chapter-dividers, and sidebar labels. Use exactly five sections for the default theme.
 
 ```json
 [
@@ -165,21 +178,20 @@ Only the section titles are rendered.
 
 ## Layout: section
 
-Use a section divider only when the deck needs a rhythm break. It still uses the fixed header.
+Use a standalone chapter divider only with `meta.navigation_mode: dividers` or `hybrid`. It is a full-page composition with its own header treatment, not the same thing as the outline page or the sidebar.
 
 ```json
 {
   "id": "03",
   "layout": "section",
   "section": "method",
-  "eyebrow": "3.0",
   "title": "原理创新",
-  "section_title": "从时间编码到歧义阶判决",
-  "summary": "这一节只回答一个问题：怎样在保留单光子预算的同时恢复 m。",
-  "keywords": ["候选结构", "统计判决", "资源边界"],
+  "label_en": "PRINCIPLE",
   "speech": "进入方法部分。"
 }
 ```
+
+The chapter number is derived from the section's position in `sections[]`. `label_en` is optional; `add_section_pages.py` can derive it from `sections[].label_en` or a small Chinese-to-English hint table.
 
 ## Layout: bullets
 
@@ -624,6 +636,8 @@ Use for humanities close reading, textual evidence, and any argument that rests 
   "speech": "收束并邀请提问。"
 }
 ```
+
+Use `points` for a summary closing. A boundary/next-step closing may instead carry `boundary` / `boundary_points` and `next` / `next_points`; those cards are substantive content and satisfy the closing-slide check.
 
 ## Layout: timeline
 

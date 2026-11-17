@@ -20,6 +20,17 @@
 
 示例内容仅用于演示排版能力，不代表真实研究成果或学校官方背书。
 
+## Showcase
+
+![清华紫 GM-APD 答辩 PPT 12 页总览](docs/tsinghua_gmapd_preview.jpg)
+
+一个 12 页实验类答辩 deck：封面、目录、9 个内容页和结论页。内容来自 *Infrared Physics & Technology* 150 (2025) 105930 的 GM-APD 面阵激光雷达论文，使用 `assets/themes/tsinghua_purple/` 与 `defense` 字号档（正文 24 pt、标题 32–40 pt），覆盖研究问题、三段式标定框架、标定公式、实验平台、双标准板验证、响应窗口与积分稳定性。
+
+- 导航：`meta.navigation_mode: sidebar`，五项小目录全程定位章节。
+- 质检：PowerPoint 实机渲染 12/12 页成功；原生 PPTX 与无障碍检查均为 0 错误、0 警告；设计体检 86/100（A）。
+- 复用：主题、官方字标来源与校徽说明见 [`assets/themes/tsinghua_purple/`](assets/themes/tsinghua_purple/)，可直接替换成自己的内容。
+- 说明：本示例仅演示学校视觉模板的接入方式；**论文作者单位为天津大学**，不代表清华大学署名、隶属或官方背书。PPTX 与论文原图文件不随仓库分发，总览图仅用于展示版面。
+
 ## Features
 
 - **结构化内容输入**：`deck.json` 分别记录章节、页面主张、证据、边界、图片来源和逐页讲稿。
@@ -27,6 +38,7 @@
 - **PPTX 主题导入**：从用户现有 `.pptx` 读取 theme colors、major/minor fonts 和 slide size，生成可审查的 `theme.json` 草稿。
 - **院校品牌资产**：`build_brand_lockup.py` 支持本地图、直链或 Wikimedia Commons 搜索；可直用官方横式字标（`--lockup`），也可自动去白底、裁切、合成“校徽 + 校名”字标并写回主题。
 - **完整版 / 纯内容版**：`deck_mode: full` 生成封面与目录；`deck_mode: content_only` 从正文页开始，适合作品集嵌入、长图预览和已有封面的场合。
+- **三种导航模式**：`meta.navigation_mode` 明确选择 `sidebar`（目录页 + 左侧常驻小目录）、`dividers`（目录页 + 每章独立章节分隔页）或 `hybrid`（两者结合）；不再要求用户理解底层 `layout.sidebar_mode`。
 - **固定学术版面**：封面、提纲、固定页眉、章节号、小目录、页脚和院校身份层由主题统一控制。
 - **多种证据型版式**：`figure`、`figure_flow`、`concept`、`formula`、`balance`、`pipeline`、`compare`、`metrics`、`timeline`、`references` 等。
 - **题材驱动叙事**：`meta.genre` 支持 experiment / systems / theory / empirical / survey / design / humanities / clinical，并按题材给出叙事弧和证据页提醒，而不是固定每页格式。
@@ -46,6 +58,7 @@
 - **lecture 字号档**：面向现场讲解，正文目标约 18 pt；配合 `validate_pptx --lecture-audit` 检查正文、标题和脚注的物理字号。
 - **defense 字号档与可读性体检**：答辩投影正文目标 24 pt、标题 32–40 pt；`scripts/audit_pptx.py` 按 PPTX 实际 run 检查全篇字号、表格和参考文献，正文达标但大量小字仍会判定 `font_upgrade`。
 - **南京大学紫色主题与 16 页样例**：`assets/themes/nanjing_purple/` 使用官方书法字标与校徽（来源见 `SOURCE.md`），`examples/nanjing_optics/` 演示官方字标、真实论文图、`defense` 档与语义加粗。
+- **清华紫答辩主题**：`assets/themes/tsinghua_purple/` 内置 `defense` 字号档与官方字标来源，并用 12 页 GM-APD 答辩 deck 做过 PPTX 与无障碍回归（见 Showcase）。
 - **版式画廊**：`scripts/build_gallery.py` 生成 20+ 页 layout / diagram / chart 画廊，覆盖六种关系图、引文页和图文变体。
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。
@@ -80,6 +93,15 @@ Windows:        %USERPROFILE%\.codex\skills\academic-ppt-skill
 ```text
 使用 $academic-ppt-skill，根据这篇论文和学校素材生成 15 页开题报告。
 ```
+
+如果想让 PPT 用独立章节页而不是左侧侧栏目录，直接把导航选择写进 prompt：
+
+```text
+使用 $academic-ppt-skill，根据这篇论文做一个清华大学的答辩 PPT。
+导航使用 dividers：保留目录页，每章插入一张独立章节分隔页，不要左侧常驻小目录。
+```
+
+另外两种写法：`sidebar` 表示目录页加左侧常驻小目录、不插章节页；`hybrid` 表示章节页与侧栏目录同时使用，但侧栏只出现在每章第一张内容页。
 
 ### 方式二：直接在仓库中运行
 
@@ -228,6 +250,7 @@ outputs/<project>/
 | `assets/themes/academic_blue/theme.json` | 通用学术蓝，不含院校标识 |
 | `assets/themes/zju_blue/theme.json` | 求是蓝开题报告示例 |
 | `assets/themes/tju_blue/theme.json` | 北洋蓝答辩示例 |
+| `assets/themes/tsinghua_purple/theme.json` | 清华紫答辩示例，含 `defense` 字号档 |
 
 新增学校主题时，请复制最接近的主题目录，替换颜色、身份资产和字体候选；不要修改共享渲染器。主题契约见 [`references/theme-authoring.md`](references/theme-authoring.md)。
 
@@ -236,7 +259,7 @@ outputs/<project>/
 ## Design Contract
 
 - 页眉章节号与标题字号一致；编号缩短时，标题同步缩短。
-- 封面不放页眉和小目录；内容页从第三页起固定显示五项小目录。
+- 封面不放页眉和小目录；内容页按 `meta.navigation_mode` 使用侧栏、章节分隔页或两者组合。
 - `**强调**` 只表示红色粗体，不自动添加下划线。
 - 深色结论带上的普通文字、强调文字和弱化文字都必须切换为高对比前景色。
 - 一个页面只承担一个主要论证任务；真实图片优先于装饰性占位图。

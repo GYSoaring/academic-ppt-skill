@@ -31,7 +31,7 @@ Produce a self-contained output directory containing:
 1. Read the user's paper, outline, images, school identity assets, presenter, advisor, date, and time limit. If the user supplies PDF, DOCX, PPTX, Markdown, or a folder of figures, run `scripts/extract_source.py` first and review `source.md`, `source_manifest.json`, and `figures.json` before planning slides. Prefer the user's own paper figures over external images. If the source has no usable figure, run `scripts/find_figures.py` on the topic (or known arXiv ids) and `scripts/suggest_figures.py` to rank candidates; read [references/figure-sourcing.md](references/figure-sourcing.md) before using an external figure.
 2. Choose a genre and narrative from [references/genre-playbooks.md](references/genre-playbooks.md), then use [references/outline-patterns.md](references/outline-patterns.md) as a starting point. Do not copy a fixed page sequence across genres: a theory proof, a systems evaluation, and a humanities close reading need different evidence objects.
 3. Choose each page's evidence role and layout from [references/layout-catalog.md](references/layout-catalog.md); use layout variants (`figure.image_right`, `quote.split`, etc.) when the same content contract needs a different composition. Read [references/visual-language.md](references/visual-language.md) and [references/design-language.md](references/design-language.md) before designing a new theme or layout.
-4. Build `deck.json` using [references/deck-schema.md](references/deck-schema.md).
+4. Build `deck.json` using [references/deck-schema.md](references/deck-schema.md). Before writing slides, choose exactly one `meta.navigation_mode`: `sidebar`, `dividers`, or `hybrid` (see "Navigation: choose one model" below). This is a separate decision from the genre and page layouts.
 5. Set `meta.deck_mode` to `content_only` when the user explicitly asks to remove the cover and table of contents; otherwise keep `full`.
 6. For each content page, write a short topic `title` (4–10 Chinese characters, default `title_max_chars: 10`) plus a complete-sentence `lead` claim. Do not put the full argument into the fixed header. The validator warns when a header reads like a sentence. Humanities decks may let a quotation or image carry more of the page, but keep a short title for navigation and accessibility. Only when the user explicitly asks for an assertion-driven deck, set `meta.title_mode` to `assertion` and raise `title_max_chars` deliberately.
 7. Aim for 3–5 content units per content page and one meaningful visual anchor: a real figure, table, chart, genuine pipeline, metric block, formula, or a clearly labeled concept schematic. If no real image exists, use the user's paper figures first, then an open-access paper figure with a source line, then a content-derived `footer` / `output` strip, formula, table, or semantic `diagram`; never insert an unrelated placeholder image.
@@ -86,6 +86,11 @@ These are the defects that make a generated deck look machine-made even when the
 - **The school wordmark must be the institution's own calligraphy, not a font.** A typeset 行楷 is a fallback, never the goal. `resolve_emblem.py` looks for an emblem; if the wordmark lives only on the school site or a non-free wiki, ask the user for the file and wire it through `build_brand_lockup.py --lockup`. Say plainly which one is in use — "typeset approximation" versus "official wordmark" — in the theme's `SOURCE.md`.
 - **The emblem must come from a real source.** Run `scripts/resolve_emblem.py --name 学校名 --latin "University Name"` first; it walks Wikimedia Commons → zh.wikipedia → the school homepage → favicon and reports what each step returned. If it finds nothing, ask the user for the official file. Drawing a seal is forbidden.
 - **Covers default to `editorial`.** A left accent bar, left-aligned wordmark, a vertical rule and a quiet right column read as designed; a centred stack of title + subtitle + three info lines reads as a form.
+- **Index tokens never wrap.** `01`, `02`, and chapter numbers are single-line tokens. On the native export, pass `wrap_explicit=False` for indices and other short numeric labels; never let the defense pre-wrapper turn `01` into `0\n1`.
+- **Native geometry must be positive and contained.** A text box with zero/negative width or height is a layout error, even if the PNG preview happens to look correct. `validate_pptx.py` rejects non-positive text geometry, two-line index tokens, and concept-node bodies that escape their node.
+- **Derive diagram boxes in the node's coordinate system.** For sequence nodes, keep the title offset relative to `node_top` and compute `body_height` from node-relative offsets. Do not subtract an absolute page `title_top` from a node height.
+- **Metric and closing cards follow one vertical hierarchy.** Metric values outrank labels, and labels outrank notes. In closing cards, the title is `52+ px`, the body is `39 px`; both share the same left edge and the icon moves to the trailing edge.
+- **PNG and PPTX are two outputs of one geometry.** When a native branch is rewritten, mirror the renderer's coordinates and run the typography regression tests plus `validate_pptx.py`; a successful PIL render is not evidence that the editable deck is correct.
 
 
 
@@ -96,8 +101,8 @@ These are the defects that make a generated deck look machine-made even when the
 
 `layout.outline_style: "index"` is the default for decks aimed at a Chinese audience. Measured spec in `references/outline-page.md`.
 
-- left spine (3 px), numerals at **112 px in the solid primary colour** — pale numerals are invisible on white, which is a contrast bug people read as "ugly"
-- section name 62 px, one-line description 30 px, hairline between rows
+- left spine (3 px); the row number and section name share **one measured size and baseline** (62 px by default, 72 px under `defense`), in the solid primary colour
+- if a long section name shrinks, its number shrinks with it; one-line description 30 px, hairline between rows
 - `C O N T E N T S` top-right, letter-spaced
 
 Two rules that matter more than the styling:
@@ -109,7 +114,7 @@ Check it numerically: bin the rendered page into 12 horizontal bands and count d
 
 ## Section dividers: the blue band and the number that straddles it
 
-Every Chinese defense deck in the reference set opens each part with the same move, so the skill now ships it as `layout: "section"` (measured spec in `references/section-dividers.md`):
+The standalone chapter divider is available as `layout: "section"` (measured spec in `references/section-dividers.md`). Use it only when `meta.navigation_mode` is `dividers` or `hybrid`:
 
 - header without a title: emblem lockup left, motto right, hairline at `0.19h`
 - a blue band from `0.46h` to `0.855h`, ending at `0.968w` so the right edge keeps a 3% margin
@@ -121,15 +126,50 @@ The straddle is the whole point. A number placed on top of the band, or beside i
 PowerPoint cannot gradient text, so the PPTX path renders the same numeral to a transparent PNG (`assets/section_number_XX.png`) and places it as a picture; the PNG path builds it from a text mask with a vertical gradient. Keep the two geometries identical or the preview stops predicting the deliverable.
 
 ```bash
-python scripts/add_section_pages.py --deck deck.json            # 在每个章节前插入分隔页（幂等）
-python scripts/add_section_pages.py --deck deck.json --dry-run   # 只看会插几张
+python scripts/add_section_pages.py --deck deck.json                         # 读取 meta.navigation_mode；sidebar 自动跳过
+python scripts/add_section_pages.py --deck deck.json --navigation-mode dividers  # 显式选择并在 deck.json 中记下模式
+python scripts/add_section_pages.py --deck deck.json --dry-run                # 只看会插几张
 ```
 
 `validate_deck.py` exempts `layout: "section"` from the header/footer pixel-identity checks — those pages are intentionally a different full-page composition.
 
+## Navigation: choose one model before building
+
+Three different objects are involved. Keep their names separate:
+
+- **目录页 / outline page**: the single `layout: "outline"` page near the start. It is always present in `deck_mode: full`; it is not a chapter divider.
+- **章节分隔页 / section divider**: a standalone `layout: "section"` page inserted before each chapter.
+- **侧栏目录 / sidebar mini-directory**: the small five-item directory pinned to the left of a content page under `layout.sidebar_mode`.
+
+Ask the user once, or choose from the brief, and record it as `meta.navigation_mode`:
+
+| `meta.navigation_mode` | What the audience sees | Best for |
+|---|---|---|
+| `sidebar` | outline page + persistent left mini-directory; no section dividers | 10–14 page linear talks where the audience needs constant orientation |
+| `dividers` | outline page + one standalone divider before every chapter; no left sidebar | 16+ page defenses, course lectures, long reports that need chapter breathing room |
+| `hybrid` | outline page + chapter dividers + the left mini-directory only on each chapter's first content page | long decks that need both chapter transitions and local orientation |
+
+When the user does not specify: use `sidebar` for a linear deck of about 14 pages or fewer; use `dividers` for a 15+ page defense, lecture, or long report; use `hybrid` only when the user explicitly wants both chapter dividers and a recurring sidebar.
+
+Prompt forms users can copy:
+
+```text
+导航用 sidebar：目录页 + 左侧常驻小目录，不要章节分隔页。
+导航用 dividers：目录页 + 每章一张独立章节分隔页，不要左侧小目录。
+导航用 hybrid：目录页 + 章节分隔页，每章第一张内容页显示侧栏目录。
+```
+
+Rules for the agent:
+
+- Do not confuse `sidebar_mode: "section"` with `layout: "section"`. The former means "show the sidebar at section starts"; the latter means "insert a full-page chapter divider".
+- `meta.navigation_mode` is the authoring field and takes precedence. `theme.layout.sidebar_mode` is the low-level renderer policy and should not be presented to users as a choice.
+- If `navigation_mode` is `sidebar`, do not run `add_section_pages.py`; if invoked anyway, it reads the field and no-ops. If dividers or hybrid is selected, run it before rendering.
+- If the user explicitly asks for both a persistent directory and chapter dividers, choose `hybrid`; that is what the combination means.
+- Legacy decks without `meta.navigation_mode` keep their old appearance: `sidebar_mode: always` maps to `sidebar`, `section` to `hybrid`, and `off` to `dividers`.
+
 ## Titles: describe the page, argue in the body
 
-Default `title_mode` is **`summary`**. A page title says *what this page is about* (6-18 characters, noun phrase), the way a paper's subsection heading does. The judgment goes into `lead` (first sentence) and `claim`.
+Default `title_mode` is **`summary`**. A page title says *what this page is about* (usually 4-10 characters; the validator accepts 4-18), the way a paper's subsection heading does. The judgment goes into `lead` (first sentence) and `claim`.
 
 Why: seven claim-titles in a row read as seven slogans, and the reader stops seeing the argument. A descriptive heading gives the map; the claim stays where the evidence can hold it up.
 
@@ -199,8 +239,8 @@ Read [references/editable-pptx.md](references/editable-pptx.md) before changing 
 - Cover: no header bar and no mini-directory. Keep one institutional identity and one cover composition.
 - The cover may be centered or editorial; choose once in the theme. The editorial variant uses a left title column and a faint watermark, but still keeps one institutional identity.
 - Outline: only the five or six section titles, with no descriptions, page ranges, or mini-directory.
-- Content-only mode: omit both cover and outline when explicitly requested; start directly with the first content page while keeping the fixed header, footer, identity, and mini-directory.
-- Content pages: fixed header, fixed upper-right identity, fixed footer rule, and a five-item mini-directory from the third page onward. The mini-directory is configurable through `layout.sidebar_mode`: `always` (historical default), `section` (only where a new section starts), or `off` (removed, with `layout.content_no_sidebar` widening the text column). A directory repeated on fifteen pages is furniture, not navigation — prefer `section` or `off` for anything shorter than a thesis defense, and reserve `always` for decks that are read non-linearly.
+- Content-only mode: omit both cover and outline when explicitly requested; start directly with the first content page while keeping the fixed header, footer, identity, and the selected navigation model.
+- Content pages: fixed header, fixed upper-right identity, and fixed footer rule. Navigation is one of the three explicit models above: `sidebar` (persistent mini-directory), `dividers` (standalone chapter pages, no sidebar), or `hybrid` (both, with the sidebar only on chapter-opening content pages). The renderer maps these to `layout.sidebar_mode`; `off` also widens the text column through `layout.content_no_sidebar`.
 - The takeaway band is optional and should be rare. Write `takeaway` only when the page's conclusion differs from its `lead` and turns the argument; a takeaway that repeats the lead or the title is decoration.
 - Every slide must have a real PowerPoint title placeholder; pictures and charts need semantic alt text; background textures, lockups used as decoration, and non-text chrome must be marked decorative; comparison tables need header-row semantics.
 - Treat `source_manifest.json` as the evidence index: every figure used in a slide should be traceable to a source file and page/section.
