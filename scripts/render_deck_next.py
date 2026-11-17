@@ -144,6 +144,17 @@ class DeckRenderer:
         _panel_cfg = self.theme.get("panel", {}) or {}
         self.card_index = bool(_panel_cfg.get("card_index", True))
         self.card_highlight = bool(_panel_cfg.get("card_highlight", True))
+        _design_module.FLAT_DIAGRAM_CHROME = (
+            str(_panel_cfg.get("diagram_focus_style", "mist")).strip().lower()
+            in {"flat", "accent_fade"}
+        )
+        _design_module.ACCENT_DIAGRAM_FOCUS = (
+            str(_panel_cfg.get("diagram_focus_style", "")).strip().lower() == "accent_fade"
+        )
+        _design_module.DIAGRAM_FOCUS_FROM = str(_panel_cfg.get("diagram_focus_from", "blue"))
+        _design_module.DIAGRAM_FOCUS_TO = str(_panel_cfg.get("diagram_focus_to", "blue_dark"))
+        _design_module.DIAGRAM_FOCUS_TEXT = str(_panel_cfg.get("diagram_focus_text", "white"))
+        _design_module.DIAGRAM_FOCUS_BODY = str(_panel_cfg.get("diagram_focus_body", "blue_pale"))
         if self.sidebar_mode == "off":
             wide = self.layout.get("content_no_sidebar")
             if isinstance(wide, (list, tuple)) and len(wide) == 4:
@@ -154,9 +165,23 @@ class DeckRenderer:
     def color(self, name: str) -> tuple[int, int, int]:
         return self.colors[name]
 
-    def panel_gradient_to(self, fill: tuple[int, int, int]) -> tuple[int, int, int] | None:
+    def panel_gradient_colors(
+        self,
+        fill: tuple[int, int, int],
+        *,
+        enabled: bool = True,
+    ) -> tuple[tuple[int, int, int], tuple[int, int, int]] | None:
         panel = self.theme.get("panel", {}) or {}
         style = str(panel.get("fill_style", "solid")).strip().lower()
+        if not enabled:
+            return None
+        if style == "card_fade":
+            names = panel.get("card_gradient_colors") or ["white", "blue_wash"]
+            if not any(fill == self.color(str(name)) for name in names):
+                return None
+            start = self.color(str(panel.get("card_gradient_from", "blue_bright")))
+            end = self.color(str(panel.get("card_gradient_to", "white")))
+            return start, end
         if style not in {"soft_gradient", "all_gradient"}:
             return None
         if fill == self.color("white"):
@@ -164,13 +189,13 @@ class DeckRenderer:
                 return None
             target = str(panel.get("white_gradient_to", "blue_wash"))
             amount = max(0.0, min(1.0, float(panel.get("white_gradient_fade", 0.72))))
-            return mix_color(fill, self.color(target), amount)
+            return fill, mix_color(fill, self.color(target), amount)
         names = panel.get("fill_gradient_colors") or []
         if style != "all_gradient" and not any(fill == self.color(str(name)) for name in names):
             return None
         target = str(panel.get("fill_gradient_to", "white"))
         amount = max(0.0, min(1.0, float(panel.get("fill_gradient_fade", 0.86))))
-        return mix_color(fill, self.color(target), amount)
+        return fill, mix_color(fill, self.color(target), amount)
 
     def draw_card_panel(
         self,
@@ -184,8 +209,20 @@ class DeckRenderer:
         shadow_offset: tuple[int, int] = (0, 7),
         shadow_blur: int = 12,
         shadow_alpha: int = 38,
+        gradient: bool = True,
     ) -> None:
         panel = self.theme.get("panel", {}) or {}
+        box_width = max(0, box[2] - box[0])
+        box_height = max(0, box[3] - box[1])
+        large_enough = (
+            box_width >= int(panel.get("card_gradient_min_width", 300))
+            and box_height >= int(panel.get("card_gradient_min_height", 80))
+        )
+        gradient_colors = self.panel_gradient_colors(
+            fill,
+            enabled=gradient and large_enough,
+        )
+        gradient_from, gradient_to = gradient_colors if gradient_colors else (fill, None)
         draw_shadowed_panel(
             image,
             draw,
@@ -197,7 +234,8 @@ class DeckRenderer:
             shadow_offset=shadow_offset,
             shadow_blur=shadow_blur,
             shadow_alpha=shadow_alpha,
-            gradient_to=self.panel_gradient_to(fill),
+            gradient_from=gradient_from,
+            gradient_to=gradient_to,
             gradient_direction=str(panel.get("gradient_direction", "horizontal")),
         )
 
@@ -338,22 +376,8 @@ class DeckRenderer:
             (slash_left + slash_width * 0.43, slash_top + slash_height),
         ]
         second = [(point[0] + slash_width + 4, point[1]) for point in first]
-        draw_gradient_polygon(
-            image,
-            draw,
-            first,
-            self.color("blue_dark"),
-            self.color("blue_bright"),
-            direction="vertical",
-        )
-        draw_gradient_polygon(
-            image,
-            draw,
-            second,
-            self.color("blue"),
-            self.color("blue_pale"),
-            direction="vertical",
-        )
+        draw.polygon(first, fill=self.color("blue_dark"))
+        draw.polygon(second, fill=self.color("blue"))
 
         eyebrow = str(slide.get("eyebrow", "")).strip()
         chapter_x = int(self.layout["chapter_x"])
@@ -469,15 +493,10 @@ class DeckRenderer:
                 shadow = shadow.filter(ImageFilter.GaussianBlur(7))
                 image.paste(shadow, (left, row_top - 6), shadow)
                 draw = ImageDraw.Draw(image)
-                draw_gradient_polygon(
-                    image,
-                    draw,
+                draw.polygon(
                     points,
-                    self.color(str(panel.get("sidebar_active_from", "blue"))),
-                    self.color(str(panel.get("sidebar_active_to", "blue_bright"))),
-                    direction=str(panel.get("gradient_direction", "horizontal")),
-                    outline=self.color(str(panel.get("sidebar_active_outline", "line"))),
-                    width=2,
+                    fill=self.color(str(panel.get("sidebar_active_from", "blue"))),
+                    outline=self.color(str(panel.get("sidebar_active_outline", "blue_dark"))),
                 )
                 draw.line(
                     (left, row_top + 1, right - 18, row_top + 1),
@@ -496,6 +515,7 @@ class DeckRenderer:
                     shadow_offset=(0, 4),
                     shadow_blur=7,
                     shadow_alpha=20,
+                    gradient=False,
                 )
                 draw.rectangle((left, row_top + 14, left + 4, row_top + row_height - 14), fill=self.color("blue_pale"))
             text_color = (
@@ -559,14 +579,12 @@ class DeckRenderer:
             self.warn(page_id, "Lead text overflowed even after reserving two lines.")
         height = max(base_height, block_height + 24)
         if self.layout.get("lead_panel", True):
-            draw_gradient_panel(
-                image,
-                draw,
+            panel_cfg = self.theme.get("panel", {}) or {}
+            draw.rounded_rectangle(
                 (left, top, right, top + height),
-                mix_color(self.color("blue_wash"), self.color("white"), 0.12),
-                self.color("white"),
-                self.color("line"),
                 radius=self.panel_radius,
+                fill=self.color(str(panel_cfg.get("lead_fill", "white"))),
+                outline=self.color("line"),
                 width=1,
             )
         if label:
@@ -623,7 +641,29 @@ class DeckRenderer:
         panel = self.theme.get("panel", {}) or {}
         takeaway_style = str(panel.get("takeaway_style", "deep")).strip().lower()
         text_colors = self.colors
-        if takeaway_style == "mist":
+        if takeaway_style == "pale":
+            draw.rounded_rectangle(
+                (left, top, right, top + height),
+                radius=self.panel_radius,
+                fill=self.color(str(panel.get("takeaway_fill", "blue_wash"))),
+                outline=self.color(str(panel.get("header_hairline", "line"))),
+                width=1,
+            )
+            draw.rectangle(
+                (left + 2, top + 2, left + 10, top + height - 2),
+                fill=self.color(str(panel.get("takeaway_accent", "blue"))),
+            )
+            draw_chevrons(draw, left + 26, top + 21, 28, self.color("blue_mid"), count=2, width=4, gap=11)
+            text_colors = dict(self.colors)
+            text_colors.update(
+                {
+                    "ink": self.color("ink"),
+                    "blue_dark": self.color("blue_dark"),
+                    "muted": self.color("muted"),
+                    "red": self.color("red"),
+                }
+            )
+        elif takeaway_style == "mist":
             draw_gradient_panel(
                 image,
                 draw,
@@ -663,6 +703,27 @@ class DeckRenderer:
                     "blue_dark": self.color("blue_dark"),
                     "muted": self.color("muted"),
                     "red": self.color("red"),
+                }
+            )
+        elif takeaway_style == "solid":
+            draw.rounded_rectangle(
+                (left, top, right, top + height),
+                radius=self.panel_radius,
+                fill=self.color(str(panel.get("takeaway_fill", "blue"))),
+            )
+            draw.line(
+                (left + 2, top + 1, right - 2, top + 1),
+                fill=self.color(str(panel.get("takeaway_highlight", "blue_mid"))),
+                width=2,
+            )
+            draw_chevrons(draw, left + 26, top + 21, 28, self.color("white"), count=2, width=4, gap=11)
+            text_colors = dict(self.colors)
+            text_colors.update(
+                {
+                    "ink": self.color("white"),
+                    "blue_dark": self.color("white"),
+                    "muted": mix_color(self.color("white"), self.color("blue_pale"), 0.36),
+                    "red": mix_color(self.color("white"), self.color("red"), 0.58),
                 }
             )
         else:
@@ -802,17 +863,7 @@ class DeckRenderer:
         accent_x = int(cover.get("accent_x", 124))
         title_width = int(cover.get("title_width", 1092))
 
-        draw_gradient_panel(
-            image,
-            draw,
-            (0, 0, 12, self.height),
-            self.color("blue_dark"),
-            self.color("blue_bright"),
-            None,
-            radius=0,
-            width=0,
-            direction="vertical",
-        )
+        draw.rectangle((0, 0, 12, self.height), fill=self.color("blue_dark"))
         brand_box = tuple(cover.get("brand_box", self.theme["brand"]["cover_box"]))
         self.draw_brand(image, brand_box, fallback_size=46, align="left")
 
@@ -850,16 +901,9 @@ class DeckRenderer:
 
         kicker = str(meta.get("report_type") or meta.get("subtitle") or "学术报告").strip()
         kicker_y = int(cover.get("kicker_y", 252))
-        draw_gradient_panel(
-            image,
-            draw,
+        draw.rectangle(
             (accent_x, kicker_y + 1, accent_x + 7, kicker_y + 38),
-            self.color("blue"),
-            self.color("blue_bright"),
-            None,
-            radius=0,
-            width=0,
-            direction="vertical",
+            fill=self.color("blue"),
         )
         kicker_font, kicker_lines, _, kicker_fits = self.fit_text(
             draw,
@@ -956,16 +1000,9 @@ class DeckRenderer:
             subtitle_bottom = subtitle_y + line_height(subtitle_font, 1.25) * max(1, len(subtitle_lines))
 
         rule_y = subtitle_bottom + int(cover.get("rule_gap", 34))
-        draw_gradient_panel(
-            image,
-            draw,
+        draw.rectangle(
             (accent_x, rule_y, accent_x + title_width, rule_y + 4),
-            self.color("blue"),
-            self.color("blue_pale"),
-            None,
-            radius=0,
-            width=0,
-            direction="horizontal",
+            fill=self.color("blue"),
         )
         draw.rectangle(
             (accent_x, rule_y + 10, accent_x + title_width, rule_y + 11),
@@ -1034,32 +1071,15 @@ class DeckRenderer:
         if cover_line:
             band_y = int(cover.get("bottom_band_y", 1002))
             band_height = int(cover.get("bottom_band_height", 92))
-            draw_gradient_panel(
-                image,
-                draw,
+            draw.rectangle(
                 (0, band_y, self.width, band_y + band_height),
-                self.color("blue_wash"),
-                self.color("white"),
-                self.color("line"),
-                radius=0,
+                fill=self.color("blue_wash"),
+                outline=self.color("line"),
                 width=1,
-                direction="horizontal",
-                stops=[
-                    (0.0, self.color("blue_pale")),
-                    (0.38, self.color("blue_wash")),
-                    (1.0, self.color("white")),
-                ],
             )
-            draw_gradient_panel(
-                image,
-                draw,
+            draw.rectangle(
                 (0, band_y, 10, band_y + band_height),
-                self.color("blue"),
-                self.color("blue_bright"),
-                None,
-                radius=0,
-                width=0,
-                direction="vertical",
+                fill=self.color("blue"),
             )
             line_font, line_text, _, line_fits = self.fit_text(
                 draw,
@@ -1210,6 +1230,7 @@ class DeckRenderer:
                 shadow_offset=(0, 5),
                 shadow_blur=9,
                 shadow_alpha=24,
+                gradient=False,
             )
             number_width = 168
             number_box = [
@@ -1273,7 +1294,7 @@ class DeckRenderer:
         band_right = int(width * 0.968)
         draw.rectangle((0, band_top, band_right, band_bottom), fill=self.color("blue"))
 
-        # 跨带大数字：先做蒙版，再用纵向渐变填充
+        # 跨带大数字：先做蒙版；只有渐变主题才做纵向渐变。
         number = f"{index + 1:02d}"
         num_left = int(width * 0.605)
         num_top = int(height * 0.222)
@@ -1288,15 +1309,28 @@ class DeckRenderer:
         scale = min(num_w / glyph.width, num_h / glyph.height)
         size = (max(1, int(glyph.width * scale)), max(1, int(glyph.height * scale)))
         mask = glyph.resize(size, Image.Resampling.LANCZOS)
-        gradient = Image.new("RGB", size)
-        gdraw = ImageDraw.Draw(gradient)
-        top_rgb = self.color("blue_dark")
-        bottom_rgb = mix_color(self.color("blue_mid"), self.color("white"), 0.55)
-        for row in range(size[1]):
-            p = row / max(1, size[1] - 1)
-            gdraw.line((0, row, size[0], row),
-                       fill=tuple(int(top_rgb[c] * (1 - p) + bottom_rgb[c] * p) for c in range(3)))
-        image.paste(gradient, (num_left + (num_w - size[0]) // 2, num_top + (num_h - size[1]) // 2), mask)
+        number_style = str(self.theme.get("panel", {}).get("section_number_style", "gradient")).strip().lower()
+        number_left = num_left + (num_w - size[0]) // 2
+        number_top = num_top + (num_h - size[1]) // 2
+        if number_style == "flat":
+            flat_color = self.color(
+                str(self.theme.get("panel", {}).get("section_number_color", "blue_bright"))
+            )
+            image.paste(
+                flat_color,
+                (number_left, number_top, number_left + size[0], number_top + size[1]),
+                mask,
+            )
+        else:
+            gradient = Image.new("RGB", size)
+            gdraw = ImageDraw.Draw(gradient)
+            top_rgb = self.color("blue_dark")
+            bottom_rgb = mix_color(self.color("blue_mid"), self.color("white"), 0.55)
+            for row in range(size[1]):
+                p = row / max(1, size[1] - 1)
+                gdraw.line((0, row, size[0], row),
+                           fill=tuple(int(top_rgb[c] * (1 - p) + bottom_rgb[c] * p) for c in range(3)))
+            image.paste(gradient, (number_left, number_top), mask)
         draw = ImageDraw.Draw(image)
 
         # 中文标题 + 英文 + 细线
@@ -1683,7 +1717,13 @@ class DeckRenderer:
         formula_latex = str(block.get("formula_latex", "")).strip()
         if formula or formula_latex:
             formula_box = (text_left, content_top, text_left + text_width_available, content_top + 58)
-            draw_gradient_panel(image, draw, formula_box, self.color("blue_wash"), self.color("white"), self.color("line"), radius=5, width=1)
+            draw.rounded_rectangle(
+                formula_box,
+                radius=5,
+                fill=self.color("blue_wash"),
+                outline=self.color("line"),
+                width=1,
+            )
             math_image = (
                 render_math_image(formula_latex, self.color("blue_dark"), font_size=34)
                 if formula_latex
@@ -2587,14 +2627,11 @@ class DeckRenderer:
         right_left = left_right + gap
         formula_panel_height = int(slide.get("formula_panel_height", 236))
         formula_box = (left, body_top, left_right, body_top + formula_panel_height)
-        draw_gradient_panel(
-            image,
-            draw,
+        draw.rounded_rectangle(
             formula_box,
-            self.color("blue_wash"),
-            self.color("white"),
-            self.color("line"),
             radius=self.panel_radius,
+            fill=self.color("blue_wash"),
+            outline=self.color("line"),
             width=1,
         )
         draw.rectangle((formula_box[0], formula_box[1], formula_box[0] + 6, formula_box[3]), fill=self.color("blue"))
@@ -2613,19 +2650,17 @@ class DeckRenderer:
             formula_box[0] + 18 + label_width,
             label_top + label_height,
         )
-        draw_gradient_tag(
-            image,
+        draw_tag(
             draw,
             tuple(int(round(value)) for value in label_box),
             label,
             label_font,
             self.color("blue_pale"),
-            self.color("white"),
             self.color("blue_dark"),
-            outline=self.color("line"),
             radius=3,
             align="left",
-            direction="horizontal",
+            outline=self.color("line"),
+            width=1,
         )
 
         formula_text = str(slide.get("formula", "")).strip()
@@ -2866,13 +2901,9 @@ class DeckRenderer:
         for index, step in enumerate(steps):
             x = left + index * (step_width + gap)
             center = x + step_width // 2
-            draw_gradient_ellipse(
-                image,
-                draw,
+            draw.ellipse(
                 (center - 29, line_top - 29, center + 29, line_top + 29),
-                self.color("blue_pale"),
-                self.color("white"),
-                direction="vertical",
+                fill=self.color("blue_pale"),
                 outline=self.color("blue_mid"),
                 width=3,
             )
@@ -2986,6 +3017,7 @@ class DeckRenderer:
                         shadow_offset=(0, 3),
                         shadow_blur=6,
                         shadow_alpha=16,
+                        gradient=False,
                     )
                     draw_icon(
                         draw,
@@ -3042,26 +3074,12 @@ class DeckRenderer:
             shadow_offset=(0, 6),
             shadow_blur=8,
             shadow_alpha=self.panel_shadow_alpha,
+            gradient=False,
         )
         current_left = left
         for index, column in enumerate(columns):
             cell_box = (current_left, header_top, current_left + widths[index], header_top + header_height)
-            draw_gradient_panel(
-                image,
-                draw,
-                cell_box,
-                self.color("blue_pale"),
-                self.color("white"),
-                None,
-                radius=0,
-                width=0,
-                direction="horizontal",
-                stops=[
-                    (0.0, self.color("blue_pale")),
-                    (0.62, self.color("blue_wash")),
-                    (1.0, self.color("white")),
-                ],
-            )
+            draw.rectangle(cell_box, fill=self.color("blue_pale"))
             heading_font, heading_lines, _, heading_fits = self.fit_text(
                 draw,
                 column,
@@ -3091,21 +3109,7 @@ class DeckRenderer:
             current_left = left
             for column_index, value in enumerate(row[: len(columns)]):
                 cell_box = (current_left, row_top, current_left + widths[column_index], row_top + row_height)
-                draw_gradient_panel(
-                    image,
-                    draw,
-                    cell_box,
-                    fill,
-                    mix_color(
-                        fill,
-                        self.color("white") if fill != self.color("white") else self.color("blue_wash"),
-                        0.55 if fill != self.color("white") else 0.45,
-                    ),
-                    None,
-                    radius=0,
-                    width=0,
-                    direction="horizontal",
-                )
+                draw.rectangle(cell_box, fill=fill)
                 if column_index == 0:
                     draw.rectangle((current_left, row_top, current_left + 5, row_top + row_height), fill=self.color("blue") if row_index not in highlight_rows else self.color("red"))
                 if column_index:
@@ -3170,17 +3174,11 @@ class DeckRenderer:
             shadow_offset=(0, 6),
             shadow_blur=10,
             shadow_alpha=22,
+            gradient=False,
         )
-        draw_gradient_panel(
-            image,
-            draw,
+        draw.rectangle(
             (left + 2, top + 2, right - 2, top + 7),
-            self.color("blue"),
-            self.color("blue_pale"),
-            None,
-            radius=0,
-            width=0,
-            direction="horizontal",
+            fill=self.color("blue"),
         )
         icon = str(metric.get("icon", "chart"))
         draw_icon_badge(image, draw, (right - 42, top + 44), 48, icon, self.colors)
@@ -3600,7 +3598,7 @@ class DeckRenderer:
             )
             draw.rectangle((left, row_top, left + 7, row_top + row_height), fill=self.color("blue") if index else self.color("red"))
             number_font = self.fonts.get(TextStyle(bold=True), 44)
-            number_color = self.color("blue_bright")
+            number_color = self.color("blue_faint")
             draw.text((left + 24, row_top + 24), f"{index + 1:02d}", font=number_font, fill=number_color)
             fits, _ = draw_rich_block(
                 draw,

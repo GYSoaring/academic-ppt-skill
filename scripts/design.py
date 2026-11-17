@@ -44,6 +44,12 @@ class Token:
 
 MARKUP_RE = re.compile(r"(\*\*.*?\*\*|__.*?__|\[\[.*?\]\])", re.S)
 TOKEN_RE = re.compile(r"[A-Za-z0-9]+(?:[\.\-+/×%][A-Za-z0-9]+)*|[\u4e00-\u9fff]|\s+|.", re.S)
+FLAT_DIAGRAM_CHROME = False
+ACCENT_DIAGRAM_FOCUS = False
+DIAGRAM_FOCUS_FROM = "blue"
+DIAGRAM_FOCUS_TO = "blue_dark"
+DIAGRAM_FOCUS_TEXT = "white"
+DIAGRAM_FOCUS_BODY = "blue_pale"
 
 
 class FontBook:
@@ -338,6 +344,7 @@ def draw_shadowed_panel(
     shadow_offset: tuple[int, int] = (0, 7),
     shadow_blur: int = 12,
     shadow_alpha: int = 38,
+    gradient_from: tuple[int, int, int] | None = None,
     gradient_to: tuple[int, int, int] | None = None,
     gradient_direction: str = "horizontal",
 ) -> None:
@@ -365,7 +372,7 @@ def draw_shadowed_panel(
             image,
             draw,
             box,
-            fill,
+            gradient_from if gradient_from is not None else fill,
             gradient_to,
             outline,
             radius=radius,
@@ -535,6 +542,86 @@ def draw_gradient_tag(
     draw.text((x, y), text, font=font, fill=text_fill)
 
 
+def draw_diagram_surface(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    start_color: tuple[int, int, int],
+    end_color: tuple[int, int, int],
+    outline: tuple[int, int, int] | None = None,
+    radius: int = 5,
+    width: int = 1,
+    direction: str = "horizontal",
+    stops: Sequence[tuple[float, tuple[int, int, int]]] | None = None,
+    force_gradient: bool = False,
+) -> None:
+    if FLAT_DIAGRAM_CHROME and not force_gradient:
+        draw.rounded_rectangle(
+            box,
+            radius=radius,
+            fill=start_color,
+            outline=outline,
+            width=width if outline is not None else 0,
+        )
+        return
+    draw_gradient_panel(
+        image,
+        draw,
+        box,
+        start_color,
+        end_color,
+        outline=outline,
+        radius=radius,
+        width=width,
+        direction=direction,
+        stops=stops,
+    )
+
+
+def draw_diagram_tag(
+    image: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    box: tuple[int, int, int, int],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    start_color: tuple[int, int, int],
+    end_color: tuple[int, int, int],
+    text_fill: tuple[int, int, int],
+    outline: tuple[int, int, int] | None = None,
+    radius: int = 5,
+    align: str = "left",
+    direction: str = "horizontal",
+) -> None:
+    if FLAT_DIAGRAM_CHROME:
+        draw_tag(
+            draw,
+            box,
+            text,
+            font,
+            start_color,
+            text_fill,
+            radius=radius,
+            align=align,
+            outline=outline,
+            width=1,
+        )
+        return
+    draw_gradient_tag(
+        image,
+        draw,
+        box,
+        text,
+        font,
+        start_color,
+        end_color,
+        text_fill,
+        outline=outline,
+        radius=radius,
+        align=align,
+        direction=direction,
+    )
+
+
 def draw_tag(
     draw: ImageDraw.ImageDraw,
     box: tuple[int, int, int, int],
@@ -544,9 +631,17 @@ def draw_tag(
     text_fill: tuple[int, int, int],
     radius: int = 5,
     align: str = "center",
+    outline: tuple[int, int, int] | None = None,
+    width: int = 1,
 ) -> None:
     left, top, right, bottom = box
-    draw.rounded_rectangle(box, radius=radius, fill=fill)
+    draw.rounded_rectangle(
+        box,
+        radius=radius,
+        fill=fill,
+        outline=outline,
+        width=width if outline is not None else 0,
+    )
     bbox = draw.textbbox((0, 0), text, font=font)
     tw = bbox[2] - bbox[0]
     th = bbox[3] - bbox[1]
@@ -1829,7 +1924,7 @@ def draw_diagram(
     if right - left < 100 or bottom - top < 80:
         return
     if frame:
-        draw_gradient_panel(
+        draw_diagram_surface(
             image,
             draw,
             box,
@@ -1855,7 +1950,7 @@ def draw_diagram(
         label_width = text_width(draw, label, label_font) + 22
         label_height = max(30, int(label_size * 1.45))
         label_box = (inner_left, inner_top, inner_left + label_width, inner_top + label_height)
-        draw_gradient_tag(
+        draw_diagram_tag(
             image,
             draw,
             (int(label_box[0]), int(label_box[1]), int(label_box[2]), int(label_box[3])),
@@ -1911,20 +2006,30 @@ def draw_diagram(
         for index, item in enumerate(items):
             x = inner_left + index * (node_width + gap)
             is_focus = index == highlight
+            accent_focus = is_focus and ACCENT_DIAGRAM_FOCUS
             node_box = (x, node_top, x + node_width, node_top + node_height)
-            draw_gradient_panel(
+            draw_diagram_surface(
                 image,
                 draw,
                 node_box,
-                blue_pale if is_focus else colors["white"],
-                colors["white"] if is_focus else blue_wash,
-                outline=red if is_focus else colors["line"],
+                colors[DIAGRAM_FOCUS_FROM]
+                if accent_focus
+                else blue_pale
+                if is_focus
+                else colors["white"],
+                colors[DIAGRAM_FOCUS_TO]
+                if accent_focus
+                else colors["white"]
+                if is_focus
+                else blue_wash,
+                outline=blue_dark if accent_focus else red if is_focus else colors["line"],
                 radius=5,
                 width=2 if is_focus else 1,
                 direction="horizontal",
+                force_gradient=accent_focus,
             )
-            if is_focus:
-                draw_gradient_panel(
+            if is_focus and not accent_focus:
+                draw_diagram_surface(
                     image,
                     draw,
                     (x + 1, node_top + 1, x + node_width - 1, node_top + 7),
@@ -1943,7 +2048,7 @@ def draw_diagram(
                 fonts,
                 dark=False,
             )
-            text_fill = blue_dark
+            text_fill = colors[DIAGRAM_FOCUS_TEXT] if accent_focus else blue_dark
             index_font = fonts.get(TextStyle(bold=True), max(int(min_size), DIAGRAM_BRANCH_TEXT["index"]))
             title_top = node_top + max(int(round(index_font.size * 1.3)) + 22, int(node_height * 0.2))
             title_height = max(34, int(title_size * 1.5))
@@ -1968,7 +2073,7 @@ def draw_diagram(
                     body,
                     (x + 14, title_top + title_height + 6, x + node_width - 14, node_top + node_height - 14),
                     fonts,
-                    ink if is_focus else muted,
+                    colors[DIAGRAM_FOCUS_BODY] if accent_focus else ink if is_focus else muted,
                     body_size,
                     max(20, int(min_size)),
                     align="center",
@@ -1998,7 +2103,7 @@ def draw_diagram(
         item_body_size = max(int(min_size), DIAGRAM_BRANCH_TEXT["item_body"])
         root_width = int((inner_right - inner_left) * 0.31)
         root_box = (inner_left, inner_top + 18, inner_left + root_width, inner_bottom - 18)
-        draw_gradient_panel(
+        draw_diagram_surface(
             image,
             draw,
             root_box,
@@ -2053,7 +2158,7 @@ def draw_diagram(
             y = inner_top + index * (item_height + gap)
             is_focus = index == highlight
             item_box = (item_left, y, item_left + item_width, y + item_height)
-            draw_gradient_panel(
+            draw_diagram_surface(
                 image,
                 draw,
                 item_box,
@@ -2111,7 +2216,7 @@ def draw_diagram(
             is_focus = index == highlight
             indent = min(34, index * 10)
             row_box = (inner_left + indent, y, inner_right, y + row_height)
-            draw_gradient_panel(
+            draw_diagram_surface(
                 image,
                 draw,
                 row_box,
@@ -2261,7 +2366,7 @@ def draw_diagram(
             y = grid_top + row * (cell_height + gap)
             is_focus = index == highlight
             cell_box = (x, y, x + cell_width, y + cell_height)
-            draw_gradient_panel(
+            draw_diagram_surface(
                 image,
                 draw,
                 cell_box,
@@ -2330,7 +2435,7 @@ def draw_diagram(
         for index, (item, point) in enumerate(zip(items, points)):
             is_focus = index == highlight
             node_box = (point[0] - node_width // 2, point[1] - 28, point[0] + node_width // 2, point[1] + 28)
-            draw_gradient_panel(
+            draw_diagram_surface(
                 image,
                 draw,
                 node_box,
@@ -2391,8 +2496,6 @@ def draw_figure_card(
         colors["line"],
         radius=radius,
         width=1,
-        gradient_to=colors["blue_wash"],
-        gradient_direction="horizontal",
     )
     label_size = max(20, int(round(20 * scale)))
     label_font = fonts.get(TextStyle(bold=True), label_size)
@@ -2414,8 +2517,6 @@ def draw_figure_card(
             width=1,
             shadow_blur=8,
             shadow_alpha=30,
-            gradient_to=colors["white"],
-            gradient_direction="horizontal",
         )
         text_bbox = draw.textbbox((0, 0), label, font=label_font)
         draw.text(
@@ -2434,19 +2535,17 @@ def draw_figure_card(
         badge_width = text_width(draw, badge, badge_font) + 26
         badge_height = max(26, int(round(17 * scale * 1.55)))
         badge_box = (right - 18 - badge_width, label_top, right - 18, label_top + badge_height)
-        draw_gradient_tag(
-            image,
+        draw_tag(
             draw,
             badge_box,
             badge,
             badge_font,
             badge_color or colors["blue_pale"],
-            colors["white"],
             colors["blue_dark"],
-            outline=colors["line"],
             radius=4,
             align="left",
-            direction="horizontal",
+            outline=colors["line"],
+            width=1,
         )
         badge_bottom = badge_box[3]
     image_top = max(top + 26, label_bottom, badge_bottom) + 6

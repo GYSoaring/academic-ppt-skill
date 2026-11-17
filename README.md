@@ -59,7 +59,7 @@
 - **defense 字号档与可读性体检**：答辩投影正文目标 24 pt、标题 32–40 pt；`scripts/audit_pptx.py` 按 PPTX 实际 run 检查全篇字号、表格和参考文献，正文达标但大量小字仍会判定 `font_upgrade`。
 - **南京大学紫色主题与 16 页样例**：`assets/themes/nanjing_purple/` 使用官方书法字标与校徽（来源见 `SOURCE.md`），`examples/nanjing_optics/` 演示官方字标、真实论文图、`defense` 档与语义加粗。
 - **清华紫答辩主题**：`assets/themes/tsinghua_purple/` 内置 `defense` 字号档与官方字标来源，并用 12 页 GM-APD 答辩 deck 做过 PPTX 与无障碍回归（见 Showcase）。
-- **北大红学术主题**：`assets/themes/pku_red/` 使用官方横式锁版与校徽、北大红 `#94070A`、米色纸张、柔化横向渐变卡片和 `defense` 字号档；官方素材来源、字体回退和署名边界见 [`references/pku-theme.md`](references/pku-theme.md) 与主题目录下的 `SOURCE.md`。仅表示汇报模板，不代表作者单位或官方背书。
+- **北大红学术主题**：`assets/themes/pku_red/` 使用官方横式锁版与校徽、北大红 `#94070A`、米色纸张和 `defense` 字号档；正文以同色系的深红、浅红、玫瑰粉与纸白分层，目录选中项、模块标题条、图卡标签、表格、公式面板、结论条和封面装饰保持纯色，只有重点示意图节点使用从 `#94070A` 向右提亮到 `#B15A5F` 的短渐变。官方素材来源、字体回退和署名边界见 [`references/pku-theme.md`](references/pku-theme.md) 与主题目录下的 `SOURCE.md`。仅表示汇报模板，不代表作者单位或官方背书。
 - **版式画廊**：`scripts/build_gallery.py` 生成 20+ 页 layout / diagram / chart 画廊，覆盖七种关系图、引文页和图文变体。
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。

@@ -70,7 +70,7 @@ These rules are shared by the PIL renderer and the native PPTX exporter. A fix t
 - **Closing punctuation stays attached.** Chinese `，。；：、）》」』` must be bound to the preceding semantic unit. A wrapped line may not begin with a closing mark; both `wrap_cjk_text()` and rich-text `wrap_styled()` enforce this.
 - **Figure-card chrome lives inside the card.** In `defense`, the blue label tab and the source badge sit on the card header line inside the card; the caption sits in a measured bottom band. They must not straddle the border into the metric row above or be covered by the image mount.
 - **Condition grids are not stacked micro-text.** In `defense`, a metrics side panel shows at most four label/value pairs in a 2×2 grid. Each pair gets a full band; label and value do not share a 58 px row, and separator rules are omitted when they would touch glyph descenders. More than four conditions belongs in the notes, not the slide.
-- **Gradient graphics are a theme contract, not a layout decoration.** `panel.header_style`, `panel.fill_style: "soft_gradient"`, the gradient color tokens, and `gradient_direction` must be honored by both the PIL renderer and the native PPTX exporter. Use horizontal fades only when the light end still meets text contrast; never paint gradients over paper figures or formula glyphs.
+- **Solid tonal hierarchy first; one short accent fade at most.** Institutional themes default to `panel.fill_style: "flat"`. Differentiate roles with coordinated tones from the same family (for example `blue_dark`, `blue`, `blue_mid`, `blue_pale`, `blue_wash`, and white) rather than repeating one fill everywhere. `panel.diagram_focus_style: "accent_fade"` may add a single horizontal fade to highlighted sequence nodes only; the left endpoint must be the element's solid color and the right endpoint a lighter coordinated tone. Navigation, module header bars, figure labels, tables, formula panels, takeaways, lead strips, cover chrome, divider numerals, and every other diagram surface stay flat. Never paint a gradient over a paper figure, formula glyph, or brand asset. `card_fade`, `soft_gradient`, and `all_gradient` remain legacy modes; do not use them for a restrained institutional theme.
 
 Before building the deck:
 
@@ -180,11 +180,11 @@ The standalone chapter divider is available as `layout: "section"` (measured spe
 - header without a title: emblem lockup left, motto right, hairline at `0.19h`
 - a blue band from `0.46h` to `0.855h`, ending at `0.968w` so the right edge keeps a 3% margin
 - Chinese title in white at 100 px, English label at 38 px, hairline with an end dot
-- **a large two-digit number straddling the band** — dark above on white, pale below inside the band
+- **a large two-digit number straddling the band** — one numeral crossing the paper/band boundary
 
 The straddle is the whole point. A number placed on top of the band, or beside it, loses the effect.
 
-PowerPoint cannot gradient text, so the PPTX path renders the same numeral to a transparent PNG (`assets/section_number_XX.png`) and places it as a picture; the PNG path builds it from a text mask with a vertical gradient. Keep the two geometries identical or the preview stops predicting the deliverable.
+Themes choose the numeral treatment with `panel.section_number_style`. `gradient` keeps the historical dark-to-pale vertical sweep; `flat` paints the glyph in `section_number_color`. The PKU theme uses `flat` with `blue_bright` so the numeral stays readable on both paper and the red band. PowerPoint cannot gradient text, so the PPTX path renders the numeral to a transparent PNG (`assets/section_number_XX.png`) and places it as a picture. Keep the PNG and PPTX geometry identical or the preview stops predicting the deliverable.
 
 ```bash
 python scripts/add_section_pages.py --deck deck.json                         # 读取 meta.navigation_mode；sidebar 自动跳过

@@ -94,12 +94,20 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
     "corner_marks": false,      // 面板四角的小折角（每块 4 个对象）
     "card_index": false,        // 卡片左上角的 01 / 02
     "card_highlight": false,    // 标题条顶部那条高光
-    "header_style": "gradient", // gradient = 渐变标题条；flat = 纯色
-    "fill_style": "soft_gradient",
-    "fill_gradient_colors": ["blue_wash", "blue_pale"],
-    "fill_gradient_to": "white",
-    "fill_gradient_fade": 0.86,
-    "gradient_direction": "horizontal"
+    "header_style": "flat",     // gradient = 渐变标题条；flat = 纯色
+    "header_tone": "deep",      // deep = 深色条配白字；mist = 浅色条配深色文字
+    "fill_style": "flat",       // 协调的深浅纯色优先，不做整页淡化
+    "takeaway_style": "solid",  // 结论条保持深红纯色
+    "diagram_focus_style": "accent_fade",
+    "diagram_focus_from": "blue",
+    "diagram_focus_to": "blue_mid",
+    "diagram_focus_text": "white",
+    "diagram_focus_body": "white",
+    "sidebar_active_from": "blue",
+    "sidebar_active_text": "white",
+    "sidebar_active_outline": "blue_dark",
+    "section_number_style": "flat",
+    "section_number_color": "blue_bright"
   },
   "layout": {
     "block_icons": "off",       // 圆形图标徽章
@@ -115,10 +123,18 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
 单页最低 21。作为参照，一份真人做的同题材答辩 deck 是 15.8 对象/页。
 
 **注意**：`lead_panel: false` 会让版面明显变松。这是审美选择，不是优化，用之前请先看渲染结果。
-`header_style: "flat"` 与 `"gradient"` 现在都由 PNG 和 PPTX 共用。渐变标题条可用
-`header_gradient_from` / `header_gradient_to` 指定颜色；浅色卡片用 `fill_style: "soft_gradient"`
-从 `fill_gradient_colors` 中的底色渐隐到 `fill_gradient_to`，`fill_gradient_fade` 控制淡化强度。
-`gradient_direction` 支持 `horizontal`（PPTX `ang=0`）和 `vertical`（PPTX `ang=90`）。
+机构学术主题默认使用 `fill_style: "flat"`，用同一色系的 `blue_dark`、`blue`、`blue_mid`、
+`blue_pale`、`blue_wash` 和白色建立层级，而不是把所有纯色块刷成同一个色号。目录、模块标题条、
+图卡、表格、公式面板、结论条、Lead、封面装饰和分隔页数字使用固定角色色。
+
+`diagram_focus_style: "accent_fade"` 只允许 `sequence` 示意图的重点节点使用一条水平短渐变：
+左端是元素自身的纯色 `diagram_focus_from`，右端是更浅的同色系 `diagram_focus_to`。色彩必须
+**从左到右变浅**，不能反向变深；重点节点文字用白色以保持全段可读。其他示意图节点和边框继续
+纯色。`gradient_direction: "horizontal"` 对应 PPTX `ang=0`；竖向渐变只保留给旧主题。
+
+`card_fade`、`soft_gradient` 和 `all_gradient` 仍作为兼容模式保留，但不用于北大学术模板：
+大面积淡化会压低整页对比度，让标题、证据和结论失去重点。不要用两个近白色端点伪装渐变；需要
+层级时优先换用相邻的纯色，而不是继续加大渐变面积。
 
 ## Minimum Theme Contract
 
@@ -130,7 +146,11 @@ The typeset path is a fallback. It records `typographic_fallback: true`; do not 
 - `type_profiles` is optional. If omitted, built-in scales cover `projection`, `lecture`, and `defense`. A theme may override a profile with `type_profiles.<name>.type_scale` to match its own layout density. `text.body_bold_min_px` and `text.body_bold_max_px` constrain semantic body bolding; do not use `body_bold` as a global bold-all switch.
 - `layout.sidebar_mode`: `always` | `section` | `off`. This is the low-level renderer policy, not the user-facing choice. Writers set `meta.navigation_mode` to `sidebar`, `dividers`, or `hybrid`; the renderer maps it to this field. `off` also uses `layout.content_no_sidebar` as the text box, which is how a theme buys back the 260 px the directory occupied.
 - `layout.panel_radius` and `layout.panel_shadow_alpha`: a designed academic theme is flat. Defaults are `8` px and `20`; `2` / `0` with `panel.header_style = "flat"` removes the dashboard feel without touching any layout code.
-- `panel.fill_style`, `panel.fill_gradient_colors`, `panel.fill_gradient_to`, and `panel.fill_gradient_fade`: optional soft-gradient cards. The renderer and native exporter use the same color endpoints; `gradient_direction` controls both. Keep the light endpoint dark enough for white header text or use a dark text color.
+- `panel.fill_style: "flat"` is the institutional default; use a coordinated solid tonal ladder to distinguish roles. `panel.diagram_focus_style: "accent_fade"` plus `diagram_focus_from`, `diagram_focus_to`, `diagram_focus_text`, and `diagram_focus_body` permits one horizontal, left-dark/right-light gradient on highlighted sequence nodes only. The renderer and native exporter must use the same endpoints. `card_fade`, `soft_gradient`, and `all_gradient` remain legacy broad-fade modes.
+- `panel.takeaway_style: "solid"` paints the conclusion strip with one deep color and white text. `pale` and `mist` remain compatibility variants, but no takeaway may use a broad fade in the institutional theme.
+- `panel.header_style: "flat"` plus `panel.header_tone: "deep"` and `header_text: "white"` is the institutional default: one solid primary band with white text. `header_tone: "mist"` remains a legacy low-saturation option for themes that intentionally use pale header bars with dark text.
+- `panel.sidebar_active_from`, `sidebar_active_text`, and `sidebar_active_outline`: active navigation tabs stay a solid dark fill with white text and a dark outline. Do not fade the directory; it must remain legible as a navigation anchor.
+- `panel.section_number_style` and `panel.section_number_color`: divider numerals may be `gradient` (legacy vertical sweep) or `flat` (one color). Flat numerals must contrast with both the paper above the band and the band itself; the PKU theme uses `blue_bright`.
 - `brand.lockup` or `brand.fallback_text`
 - `cover.style`: `centered` or `editorial`
 

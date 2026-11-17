@@ -295,8 +295,24 @@ class EditableDeckExporter:
         stops[1].color.rgb = RGBColor(*end)
         stops[1].position = 1.0
 
-    def panel_gradient_colors(self, fill_name: str) -> tuple[tuple[int, int, int], tuple[int, int, int]] | None:
+    def panel_gradient_colors(
+        self,
+        fill_name: str,
+        *,
+        enabled: bool = True,
+    ) -> tuple[tuple[int, int, int], tuple[int, int, int]] | None:
         style = str(self.panel_cfg.get("fill_style", "solid")).strip().lower()
+        if not enabled:
+            return None
+        if style == "card_fade":
+            fade_names = {
+                str(item) for item in (self.panel_cfg.get("card_gradient_colors") or ["white", "blue_wash"])
+            }
+            if fill_name not in fade_names:
+                return None
+            start = self.color(str(self.panel_cfg.get("card_gradient_from", "blue_bright")))
+            end = self.color(str(self.panel_cfg.get("card_gradient_to", "white")))
+            return start, end
         if style not in {"soft_gradient", "all_gradient"}:
             return None
         if fill_name == "white":
@@ -595,6 +611,9 @@ class EditableDeckExporter:
         line_width_px: float = 1,
         shadow: bool = False,
         name: str = "",
+        gradient: bool = True,
+        fill_to: str | None = None,
+        gradient_direction: str | None = None,
     ):
         left, top, width, height = box
         shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, px(left), px(top), px(width), px(height))
@@ -605,14 +624,26 @@ class EditableDeckExporter:
             shape.adjustments[0] = 0
         else:
             shape.adjustments[0] = min(0.5, float(radius) / max(1.0, min(width, height)))
-        gradient_colors = self.panel_gradient_colors(fill_name)
+        large_enough = (
+            width >= float(self.panel_cfg.get("card_gradient_min_width", 300))
+            and height >= float(self.panel_cfg.get("card_gradient_min_height", 80))
+        )
+        gradient_colors = (
+            (self.color(fill_name), self.color(fill_to))
+            if fill_to
+            else self.panel_gradient_colors(
+                fill_name,
+                enabled=gradient and large_enough,
+            )
+        )
         if gradient_colors:
             start, end = gradient_colors
             self.set_shape_gradient(
                 shape,
                 start,
                 end,
-                str(self.panel_cfg.get("gradient_direction", "horizontal")),
+                gradient_direction
+                or str(self.panel_cfg.get("gradient_direction", "horizontal")),
             )
             if not name:
                 shape.name = "soft_gradient_panel"
@@ -954,7 +985,16 @@ class EditableDeckExporter:
         if meta_bits:
             meta_text = " · ".join(meta_bits)
             caption = f"{caption}　{meta_text}".strip() if caption else meta_text
-        self.add_panel(slide, box, "white", "line", radius_px=12, line_width_px=1.2, shadow=True)
+        self.add_panel(
+            slide,
+            box,
+            "white",
+            "line",
+            radius_px=12,
+            line_width_px=1.2,
+            shadow=True,
+            gradient=False,
+        )
         if label:
             label_width = max(120.0, len(label) * 20.0 + 34.0)
             label_box = (left + 18, top - 15, min(width - 36, label_width), 34)
@@ -1447,7 +1487,15 @@ class EditableDeckExporter:
         left, top, width, height = box
         if not text or width < 80 or height < 28:
             return
-        self.add_panel(slide, box, "blue_wash", "line", radius_px=4, line_width_px=1)
+        self.add_panel(
+            slide,
+            box,
+            "blue_wash",
+            "line",
+            radius_px=4,
+            line_width_px=1,
+            gradient=False,
+        )
         label_width = min(max(96, len(strip_markup(label)) * 38 + 20), max(96, width // 3))
         self.add_panel(slide, (left + 1, top + 1, label_width, height - 2), "blue", None, radius_px=3, line_width_px=0)
         self.add_text(slide, (left + 1, top + 1, label_width, height - 2), label, 14, "white", bold=True, align="center", valign="middle")
@@ -1501,13 +1549,8 @@ class EditableDeckExporter:
         if self.layout.get("lead_panel", True):
             panel = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, px(left), px(top), px(right - left), px(height))
             panel.adjustments[0] = min(0.5, self.panel_radius / max(1, height))
-            panel.fill.gradient()
-            panel.fill.gradient_angle = 0
-            stops = panel.fill.gradient_stops
-            stops[0].color.rgb = RGBColor(*mix_color(self.color("blue_wash"), self.color("white"), 0.12))
-            stops[0].position = 0.0
-            stops[1].color.rgb = self.rgb("white")
-            stops[1].position = 1.0
+            panel.fill.solid()
+            panel.fill.fore_color.rgb = self.rgb(str(self.panel_cfg.get("lead_fill", "white")))
             panel.line.color.rgb = self.rgb("line")
             panel.line.width = pt(1)
             panel.shadow.inherit = False
@@ -1566,7 +1609,27 @@ class EditableDeckExporter:
         top = int(self.layout["takeaway_top"])
         height = int(self.layout["takeaway_height"])
         takeaway_style = str(self.panel_cfg.get("takeaway_style", "deep")).strip().lower()
-        if takeaway_style == "mist":
+        if takeaway_style == "pale":
+            self.add_panel(
+                slide,
+                (left, top, right - left, height),
+                str(self.panel_cfg.get("takeaway_fill", "blue_wash")),
+                "line",
+                radius_px=self.panel_radius,
+                line_width_px=1,
+                name="takeaway",
+                gradient=False,
+            )
+            self.add_rect(
+                slide,
+                (left + 2, top + 2, 8, height - 4),
+                str(self.panel_cfg.get("takeaway_accent", "blue")),
+                name="takeaway_accent",
+            )
+            self.add_chevrons(slide, left + 26, top + 21, 28, "blue_mid", count=2)
+            text_color = "ink"
+            accent_color = self.color("red")
+        elif takeaway_style == "mist":
             shape = self.add_panel(
                 slide,
                 (left, top, right - left, height),
@@ -1587,8 +1650,32 @@ class EditableDeckExporter:
             self.add_chevrons(slide, left + 26, top + 21, 28, "blue_mid", count=2)
             text_color = "ink"
             accent_color = self.color("red")
+        elif takeaway_style == "solid":
+            shape = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                px(left),
+                px(top),
+                px(right - left),
+                px(height),
+            )
+            shape.name = "takeaway"
+            shape.adjustments[0] = min(0.5, self.panel_radius / max(1, height))
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = self.rgb(str(self.panel_cfg.get("takeaway_fill", "blue")))
+            shape.line.fill.background()
+            shape.shadow.inherit = False
+            self.add_rect(
+                slide,
+                (left + 2, top + 1, right - left - 4, 2),
+                str(self.panel_cfg.get("takeaway_highlight", "blue_mid")),
+                name="takeaway_highlight",
+            )
+            self.add_chevrons(slide, left + 26, top + 21, 28, "white", count=2)
+            text_color = "white"
+            accent_color = mix_color(self.color("white"), self.color("red"), 0.58)
         else:
             shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, px(left), px(top), px(right - left), px(height))
+            shape.name = "takeaway"
             shape.adjustments[0] = min(0.5, self.panel_radius / max(1, height))
             shape.fill.gradient()
             shape.fill.gradient_angle = 0
@@ -1656,8 +1743,8 @@ class EditableDeckExporter:
             (slash_left + slash_width * 0.43, slash_top + slash_height),
         ]
         second = [(x + slash_width + 4, y) for x, y in first]
-        self.add_polygon(slide, first, "blue_dark", fill_to="blue_bright", gradient_direction="vertical")
-        self.add_polygon(slide, second, "blue", fill_to="blue_pale", gradient_direction="vertical")
+        self.add_polygon(slide, first, "blue_dark")
+        self.add_polygon(slide, second, "blue")
         eyebrow = str(s.get("eyebrow", "")).strip()
         chapter_x = float(self.layout["chapter_x"])
         title_left = self.header_title_left()
@@ -1767,12 +1854,20 @@ class EditableDeckExporter:
                     slide,
                     points,
                     str(self.panel_cfg.get("sidebar_active_from", "blue")),
+                    line_name=str(self.panel_cfg.get("sidebar_active_outline", "blue_dark")),
+                    line_width_px=1,
                     name="sidebar_active",
-                    fill_to=str(self.panel_cfg.get("sidebar_active_to", "blue_bright")),
-                    gradient_direction=str(self.panel_cfg.get("gradient_direction", "horizontal")),
                 )
             else:
-                self.add_panel(slide, (left, row_top, right - left - 8, row_height), "white", "line", radius_px=6, line_width_px=1.4)
+                self.add_panel(
+                    slide,
+                    (left, row_top, right - left - 8, row_height),
+                    "white",
+                    "line",
+                    radius_px=6,
+                    line_width_px=1.4,
+                    gradient=False,
+                )
                 self.add_rect(slide, (left, row_top + 14, 4, row_height - 28), "blue_pale")
             self.add_fit_text(
                 slide,
@@ -1891,7 +1986,7 @@ class EditableDeckExporter:
         meta = self.deck.get("meta", {})
         accent_x = float(cover.get("accent_x", 124))
         title_width = float(cover.get("title_width", 1092))
-        self.add_rect(slide, (0, 0, 12, self.height), "blue_dark", fill_to="blue_bright", gradient_direction="vertical", name="cover_accent")
+        self.add_rect(slide, (0, 0, 12, self.height), "blue_dark", name="cover_accent")
         brand_box = tuple(cover.get("brand_box", self.theme["brand"]["cover_box"]))
         self.add_brand(slide, (brand_box[0], brand_box[1], brand_box[2] - brand_box[0], brand_box[3] - brand_box[1]), align="left", name="cover_brand")
         panel_left = float(cover.get("panel_left", self.width * 0.615))
@@ -1907,7 +2002,7 @@ class EditableDeckExporter:
             )
         kicker = str(meta.get("report_type") or meta.get("subtitle") or "学术报告").strip()
         kicker_y = float(cover.get("kicker_y", 252))
-        self.add_rect(slide, (accent_x, kicker_y + 1, 7, 38), "blue", fill_to="blue_bright", gradient_direction="vertical", name="cover_kicker_accent")
+        self.add_rect(slide, (accent_x, kicker_y + 1, 7, 38), "blue", name="cover_kicker_accent")
         self.add_text(slide, (accent_x + 24, kicker_y - 2, title_width - 40, 44), kicker, self.type_size("cover_kicker", 27), "blue", bold=True, name="cover_kicker")
         title = str(s.get("title") or meta.get("title") or "").strip()
         title_lines = s.get("title_lines") or meta.get("title_lines")
@@ -1945,7 +2040,7 @@ class EditableDeckExporter:
             self.add_text(slide, (accent_x, subtitle_y, title_width, 96), subtitle, subtitle_size, "muted", line_ratio=1.2, name="cover_subtitle")
             subtitle_bottom = subtitle_y + subtitle_size * 1.2 * max(1, math.ceil(len(subtitle) / 32))
         rule_y = subtitle_bottom + float(cover.get("rule_gap", 34))
-        self.add_rect(slide, (accent_x, rule_y, title_width, 4), "blue", fill_to="blue_pale", gradient_direction="horizontal", name="cover_rule")
+        self.add_rect(slide, (accent_x, rule_y, title_width, 4), "blue", name="cover_rule")
         self.add_rect(slide, (accent_x, rule_y + 10, title_width, 1), "line")
         info_y = max(float(cover.get("info_y", 708)), rule_y + float(cover.get("info_gap", 34)))
         info_items = [
@@ -1999,13 +2094,14 @@ class EditableDeckExporter:
             self.add_panel(
                 slide,
                 (0, band_y, self.width, band_height),
-                "blue_pale",
+                "blue_wash",
                 "line",
                 radius_px=0,
                 line_width_px=1,
                 name="cover_bottom_band",
+                gradient=False,
             )
-            self.add_rect(slide, (0, band_y, 10, band_height), "blue", fill_to="blue_bright", gradient_direction="vertical", name="cover_band_accent")
+            self.add_rect(slide, (0, band_y, 10, band_height), "blue", name="cover_band_accent")
             self.add_text(slide, (accent_x, band_y + 17, self.width - accent_x * 2, band_height - 22), cover_line, 26, "blue_dark", valign="middle", line_ratio=1.0)
         self.add_rect(slide, (24, float(self.layout["footer_y"]), self.width - 48, 3), "blue")
 
@@ -2137,7 +2233,17 @@ class EditableDeckExporter:
                 self.add_line(slide, (left, row_top + row_height - 6), (left + width, row_top + row_height - 6), "line", 2)
                 continue
             self.add_ellipse(slide, (spine_x - 6, row_top + row_height / 2 - 6, 12, 12), "blue_mid", None)
-            self.add_panel(slide, (left, row_top, width, row_height), "white", "line", radius_px=9, line_width_px=1.6, shadow=True)
+            self.add_panel(
+                slide,
+                (left, row_top, width, row_height),
+                "white",
+                "line",
+                radius_px=9,
+                line_width_px=1.6,
+                shadow=True,
+                gradient=False,
+                name=f"outline_row_{index + 1}",
+            )
             number_width = 168
             points = [
                 (left + 2, row_top + 2),
@@ -2269,17 +2375,22 @@ class EditableDeckExporter:
         size = (max(1, int(glyph.width * scale)), max(1, int(glyph.height * scale)))
         mask = glyph.resize(size, Image.Resampling.LANCZOS)
 
-        top_rgb = self.color("blue_dark")
-        mid_rgb = self.color("blue_mid")
-        bottom_rgb = tuple(int(mid_rgb[i] * 0.45 + 255 * 0.55) for i in range(3))
-        gradient = Image.new("RGB", size)
-        gdraw = _ImageDraw.Draw(gradient)
-        for row in range(size[1]):
-            p = row / max(1, size[1] - 1)
-            gdraw.line((0, row, size[0], row),
-                       fill=tuple(int(top_rgb[c] * (1 - p) + bottom_rgb[c] * p) for c in range(3)))
+        number_style = str(self.panel_cfg.get("section_number_style", "gradient")).strip().lower()
+        if number_style == "flat":
+            flat_rgb = self.color(str(self.panel_cfg.get("section_number_color", "blue_bright")))
+            fill_layer = Image.new("RGB", size, flat_rgb)
+        else:
+            top_rgb = self.color("blue_dark")
+            mid_rgb = self.color("blue_mid")
+            bottom_rgb = tuple(int(mid_rgb[i] * 0.45 + 255 * 0.55) for i in range(3))
+            fill_layer = Image.new("RGB", size)
+            gdraw = _ImageDraw.Draw(fill_layer)
+            for row in range(size[1]):
+                p = row / max(1, size[1] - 1)
+                gdraw.line((0, row, size[0], row),
+                           fill=tuple(int(top_rgb[c] * (1 - p) + bottom_rgb[c] * p) for c in range(3)))
         layer = Image.new("RGBA", (box_w, box_h), (0, 0, 0, 0))
-        layer.paste(gradient, ((box_w - size[0]) // 2, (box_h - size[1]) // 2), mask)
+        layer.paste(fill_layer, ((box_w - size[0]) // 2, (box_h - size[1]) // 2), mask)
         layer.save(path, optimize=True)
 
     def draw_grid(self, slide, s: dict) -> None:
@@ -2375,7 +2486,15 @@ class EditableDeckExporter:
         formula_latex = str(block.get("formula_latex", "")).strip()
         if formula or formula_latex:
             formula_box = (text_left, content_top, text_width_available, 58)
-            self.add_panel(slide, formula_box, "blue_wash", "line", radius_px=5, line_width_px=1)
+            self.add_panel(
+                slide,
+                formula_box,
+                "blue_wash",
+                "line",
+                radius_px=5,
+                line_width_px=1,
+                gradient=False,
+            )
             self.add_formula(slide, formula_latex or formula, (text_left + 8, content_top + 4, text_width_available - 16, 50), 34)
             content_top += 68
         body = str(block.get("body", "")).strip()
@@ -2529,6 +2648,7 @@ class EditableDeckExporter:
             line_width_px=2 if line_name in {"blue_dark", "blue_mid", "red"} else 1,
             shadow=True,
             name=f"relation_node_{index}",
+            gradient=False,
         )
         accent_width = max(4.0, min(8.0, width * 0.018))
         if tone not in {"solid", "primary", "strong"}:
@@ -2724,6 +2844,7 @@ class EditableDeckExporter:
                 radius_px=4,
                 line_width_px=1,
                 name=f"relation_label_{label_index}",
+                gradient=False,
             )
             self.add_text(
                 slide,
@@ -2755,7 +2876,15 @@ class EditableDeckExporter:
         if width < 100 or height < 80:
             return
         if frame:
-            self.add_panel(slide, box, "blue_wash", "line", radius_px=6, line_width_px=1)
+            self.add_panel(
+                slide,
+                box,
+                "blue_wash",
+                "line",
+                radius_px=6,
+                line_width_px=1,
+                gradient=False,
+            )
         pad = max(10, min(18, int(width * 0.018)))
         inner_left, inner_top = left + pad, top + pad
         inner_width, inner_height = width - pad * 2, height - pad * 2
@@ -2763,7 +2892,15 @@ class EditableDeckExporter:
             label_size = max(22, min(32, int(height * 0.05)))
             label_height = max(30, int(label_size * 1.45))
             label_width = max(120.0, len(label) * 39.0 + 30.0)
-            self.add_panel(slide, (inner_left, inner_top, label_width, label_height), "blue_pale", "line", radius_px=3, line_width_px=1)
+            self.add_panel(
+                slide,
+                (inner_left, inner_top, label_width, label_height),
+                "blue_pale",
+                "line",
+                radius_px=3,
+                line_width_px=1,
+                gradient=False,
+            )
             self.add_text(
                 slide,
                 (inner_left + 12, inner_top + 3, label_width - 20, label_height - 6),
@@ -2797,6 +2934,12 @@ class EditableDeckExporter:
         elif kind == "sequence":
             items = items[:5]
             count = max(1, len(items))
+            focus_style = str(self.panel_cfg.get("diagram_focus_style", "flat")).strip().lower()
+            accent_focus_style = focus_style == "accent_fade"
+            focus_from = str(self.panel_cfg.get("diagram_focus_from", "blue"))
+            focus_to = str(self.panel_cfg.get("diagram_focus_to", "blue_dark"))
+            focus_text = str(self.panel_cfg.get("diagram_focus_text", "white"))
+            focus_body = str(self.panel_cfg.get("diagram_focus_body", "blue_pale"))
             gap = max(20, min(34, int(inner_width * 0.035)))
             node_width = max(64, (inner_width - gap * (count - 1)) // count)
             node_height = min(340, max(120, int(inner_height * 0.66)))
@@ -2806,14 +2949,18 @@ class EditableDeckExporter:
             for index, item in enumerate(items):
                 x = inner_left + index * (node_width + gap)
                 is_focus = index == highlight
+                accent_focus = is_focus and accent_focus_style
                 self.add_panel(
                     slide,
                     (x, node_top, node_width, node_height),
-                    "blue_pale" if is_focus else "white",
-                    "red" if is_focus else "line",
+                    focus_from if accent_focus else "blue_pale" if is_focus else "white",
+                    "blue_dark" if accent_focus else "red" if is_focus else "line",
                     radius_px=5,
                     line_width_px=2 if is_focus else 1,
                     name=f"diagram_sequence_node_{index + 1}",
+                    gradient=False,
+                    fill_to=focus_to if accent_focus else None,
+                    gradient_direction="horizontal",
                 )
                 index_box, index_size = self.diagram_index_box(x + 12, node_top + 10, f"{index + 1:02d}", 26)
                 self.add_text(
@@ -2821,7 +2968,7 @@ class EditableDeckExporter:
                     index_box,
                     f"{index + 1:02d}",
                     index_size,
-                    "blue_dark",
+                    focus_text if accent_focus else "blue_dark",
                     bold=True,
                     line_ratio=1.0,
                     name="diagram_index",
@@ -2837,7 +2984,7 @@ class EditableDeckExporter:
                     "title",
                     title_size,
                     24,
-                    "blue_dark",
+                    focus_text if accent_focus else "blue_dark",
                     bold=True,
                     align="center",
                     max_lines=1,
@@ -2858,7 +3005,7 @@ class EditableDeckExporter:
                         "body",
                         body_size,
                         20,
-                        "ink" if is_focus else "muted",
+                        focus_body if accent_focus else "ink" if is_focus else "muted",
                         align="center",
                         max_lines=3,
                         line_ratio=1.08,
@@ -2885,7 +3032,15 @@ class EditableDeckExporter:
             root_width = int(inner_width * 0.31)
             root_height = max(100, inner_height - 36)
             root_top = inner_top + (inner_height - root_height) / 2
-            self.add_panel(slide, (inner_left, root_top, root_width, root_height), "blue_pale", "red", radius_px=5, line_width_px=2)
+            self.add_panel(
+                slide,
+                (inner_left, root_top, root_width, root_height),
+                "blue_pale",
+                "red",
+                radius_px=5,
+                line_width_px=2,
+                gradient=False,
+            )
             root_title_top = root_top + root_height * 0.30
             root_title_bottom = root_top + root_height * 0.54
             self.add_fit_text(
@@ -2941,6 +3096,7 @@ class EditableDeckExporter:
                     "red" if is_focus else "line",
                     radius_px=5,
                     line_width_px=2 if is_focus else 1,
+                    gradient=False,
                 )
                 index_box, index_size = self.diagram_index_box(item_left + 14, y + 14, f"{index + 1:02d}", 30)
                 self.add_text(
@@ -3006,6 +3162,7 @@ class EditableDeckExporter:
                     "red" if is_focus else "line",
                     radius_px=4,
                     line_width_px=2 if is_focus else 1,
+                    gradient=False,
                 )
                 self.add_rect(slide, (inner_left + indent, y, 5, row_height), "red" if is_focus else "blue")
                 index_box, index_size = self.diagram_index_box(
@@ -3162,6 +3319,7 @@ class EditableDeckExporter:
                     "red" if is_focus else "line",
                     radius_px=4,
                     line_width_px=2 if is_focus else 1,
+                    gradient=False,
                 )
                 index_box, index_size = self.diagram_index_box(x + 9, y + 8, f"{index + 1:02d}", 13)
                 self.add_text(
@@ -3238,6 +3396,7 @@ class EditableDeckExporter:
                     "red" if is_focus else "line",
                     radius_px=5,
                     line_width_px=2 if is_focus else 1,
+                    gradient=False,
                 )
                 self.add_fit_text(
                     slide,
@@ -3458,8 +3617,16 @@ class EditableDeckExporter:
         right_left = left + left_width + gap
         panel_height = int(s.get("formula_panel_height", 236))
         formula_box = (left, body_top, left_width, panel_height)
-        self.add_panel(slide, formula_box, "blue_wash", "line", radius_px=self.panel_radius, line_width_px=1)
-        self.add_rect(slide, (left, body_top, 6, panel_height), "blue", fill_to="blue_pale", gradient_direction="vertical")
+        self.add_panel(
+            slide,
+            formula_box,
+            "blue_wash",
+            "line",
+            radius_px=self.panel_radius,
+            line_width_px=1,
+            gradient=False,
+        )
+        self.add_rect(slide, (left, body_top, 6, panel_height), "blue")
         label = str(s.get("formula_label", "核心关系"))
         label_size = clamp_defense_size_px(
             float(self.type_size("small", 18)),
@@ -3678,7 +3845,7 @@ class EditableDeckExporter:
         for index, step in enumerate(steps):
             x = left + index * (step_width + gap)
             center = x + step_width / 2
-            self.add_ellipse(slide, (center - 29, line_top - 29, 58, 58), "blue_pale", "blue_mid", 3, fill_to="white")
+            self.add_ellipse(slide, (center - 29, line_top - 29, 58, 58), "blue_pale", "blue_mid", 3)
             self.add_text(slide, (center - 24, line_top - 15, 48, 30), str(index + 1), 24, "blue_dark", bold=True, align="center", valign="middle", line_ratio=1.0)
             card = (x, card_top, step_width, card_height)
             self.add_panel(slide, card, "white", "line", radius_px=self.panel_radius, line_width_px=1, shadow=True)
@@ -3739,12 +3906,8 @@ class EditableDeckExporter:
             table.rows[index + 1].height = px(row_height)
         for column_index, column in enumerate(columns):
             cell = table.cell(0, column_index)
-            cell.fill.gradient()
-            stops = cell.fill.gradient_stops
-            stops[0].color.rgb = self.rgb("blue_pale")
-            stops[0].position = 0.0
-            stops[1].color.rgb = self.rgb("white")
-            stops[1].position = 1.0
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = self.rgb("blue_pale")
             cell.margin_left = px(10)
             cell.margin_right = px(10)
             cell.margin_top = px(4)
@@ -3757,17 +3920,8 @@ class EditableDeckExporter:
             fill_name = "blue_wash" if row_index % 2 == 1 or row_index in highlight_rows else "white"
             for column_index, value in enumerate(row[: len(columns)]):
                 cell = table.cell(row_index + 1, column_index)
-                cell.fill.gradient()
-                stops = cell.fill.gradient_stops
-                if fill_name == "white":
-                    start_color, end_color = self.color("white"), self.color("blue_wash")
-                else:
-                    start_color = self.color(fill_name)
-                    end_color = mix_color(start_color, self.color("white"), 0.55)
-                stops[0].color.rgb = RGBColor(*start_color)
-                stops[0].position = 0.0
-                stops[1].color.rgb = RGBColor(*end_color)
-                stops[1].position = 1.0
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = self.rgb(fill_name)
                 cell.margin_left = px(14)
                 cell.margin_right = px(14)
                 cell.margin_top = px(6)
@@ -3857,13 +4011,29 @@ class EditableDeckExporter:
             if bullets:
                 self.add_bullets(slide, bullets, (x + 18, cursor, card_width - 36, max(24, milestone_top - cursor - 8)), max_size=18, min_size=12, gap_px=5)
             if milestone:
-                self.add_panel(slide, (x + 14, milestone_top, card_width - 28, milestone_height), "blue_wash", "line", radius_px=4, line_width_px=1)
+                self.add_panel(
+                    slide,
+                    (x + 14, milestone_top, card_width - 28, milestone_height),
+                    "blue_wash",
+                    "line",
+                    radius_px=4,
+                    line_width_px=1,
+                    gradient=False,
+                )
                 self.add_panel(slide, (x + 14, milestone_top, 74, milestone_height), "blue", None, radius_px=4, line_width_px=0)
                 self.add_text(slide, (x + 20, milestone_top + 18, 64, 24), "里程碑", 14, "white", bold=True, line_ratio=1.0)
                 self.add_text(slide, (x + 96, milestone_top + 9, card_width - 112, milestone_height - 18), milestone, 16, "blue_dark", valign="middle", line_ratio=1.08)
         if timeline_note and card_bottom + 18 < bottom:
             note_top = card_bottom + 18
-            self.add_panel(slide, (left + 30, note_top, right - left - 60, note_height), "blue_wash", "line", radius_px=self.panel_radius, line_width_px=1)
+            self.add_panel(
+                slide,
+                (left + 30, note_top, right - left - 60, note_height),
+                "blue_wash",
+                "line",
+                radius_px=self.panel_radius,
+                line_width_px=1,
+                gradient=False,
+            )
             self.add_icon(slide, "alert", (left + 46, note_top + 9, 36, 38), "blue")
             self.add_text(slide, (left + 92, note_top + 7, right - left - 160, note_height - 14), timeline_note, 18, "blue_dark", valign="middle", line_ratio=1.05)
         self.add_takeaway(slide, s.get("takeaway", ""), str(s.get("id", "")))
@@ -4102,7 +4272,7 @@ class EditableDeckExporter:
             row_top = body_top + index * (row_height + gap)
             self.add_panel(slide, (left, row_top, right - left, row_height), "blue_wash" if index == 0 else "white", "line", radius_px=8, line_width_px=1.4, shadow=True)
             self.add_rect(slide, (left, row_top, 7, row_height), "red" if index == 0 else "blue")
-            self.add_text(slide, (left + 24, row_top + 20, 80, 44), f"{index + 1:02d}", 44, "blue_bright", bold=True, line_ratio=1.0)
+            self.add_text(slide, (left + 24, row_top + 20, 80, 44), f"{index + 1:02d}", 44, "blue_faint", bold=True, line_ratio=1.0)
             self.add_fit_text(slide, (left + 108, row_top + 16, right - left - 136, row_height - 28), str(point), "body", self.type_size("lead", 27), 17, "ink", max_lines=2, line_ratio=1.1)
         cards = []
         if s.get("boundary") or s.get("boundary_points"):
@@ -4269,6 +4439,7 @@ class EditableDeckExporter:
                 line_width_px=1.2,
                 shadow=True,
                 name="figure_card",
+                gradient=False,
             )
             label_text = str(s.get("image_label", "")).strip()
             caption_text = str(s.get("image_caption", "")).strip()
@@ -4292,6 +4463,8 @@ class EditableDeckExporter:
                     radius_px=5,
                     line_width_px=1,
                     shadow=True,
+                    gradient=False,
+                    name="figure_label_fill",
                 )
                 self.add_text(
                     slide,
@@ -4319,6 +4492,7 @@ class EditableDeckExporter:
                     None,
                     radius_px=4,
                     line_width_px=0,
+                    gradient=False,
                 )
                 self.add_text(
                     slide,
@@ -4355,6 +4529,7 @@ class EditableDeckExporter:
                     None,
                     radius_px=0,
                     line_width_px=0,
+                    gradient=False,
                 )
                 self.add_text(
                     slide,
@@ -4499,7 +4674,16 @@ class EditableDeckExporter:
                 name="flow_chart",
             )
         else:
-            self.add_panel(slide, figure_box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True)
+            self.add_panel(
+                slide,
+                figure_box,
+                "white",
+                "line",
+                radius_px=8,
+                line_width_px=1.2,
+                shadow=True,
+                gradient=False,
+            )
             if image_path and image_path.exists():
                 self.add_picture_fit(
                     slide,
@@ -4574,7 +4758,17 @@ class EditableDeckExporter:
         for index, metric in enumerate(metrics):
             x = left + index * (card_width + gap)
             box = (x, body_top, card_width, card_height)
-            self.add_panel(slide, box, "blue_wash" if index == 0 else "white", "line", radius_px=10, line_width_px=1.4, shadow=True)
+            self.add_panel(
+                slide,
+                box,
+                "blue_wash" if index == 0 else "white",
+                "line",
+                radius_px=10,
+                line_width_px=1.4,
+                shadow=True,
+                gradient=False,
+                name=f"metric_card_{index + 1}",
+            )
             self.add_rect(slide, (x + 2, body_top + 2, card_width - 4, 5), "blue" if index == 0 else "blue_mid")
             self.add_fit_text(
                 slide,
@@ -4633,7 +4827,16 @@ class EditableDeckExporter:
                 name="metrics_chart",
             )
         elif image_path and image_path.exists():
-            self.add_panel(slide, evidence_box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True)
+            self.add_panel(
+                slide,
+                evidence_box,
+                "white",
+                "line",
+                radius_px=8,
+                line_width_px=1.2,
+                shadow=True,
+                gradient=False,
+            )
             label = str(s.get("image_label", "测量结果"))
             caption = str(s.get("image_caption", ""))
             draw = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
@@ -4649,6 +4852,7 @@ class EditableDeckExporter:
                 "line",
                 radius_px=5,
                 line_width_px=1,
+                gradient=False,
             )
             self.add_text(
                 slide,
@@ -4732,6 +4936,7 @@ class EditableDeckExporter:
                     None,
                     radius_px=0,
                     line_width_px=0,
+                    gradient=False,
                 )
                 self.add_text(
                     slide,
@@ -4850,7 +5055,15 @@ class EditableDeckExporter:
                 side_box[2] - 30,
                 note_height - 12,
             )
-            self.add_panel(slide, note_box, "blue_wash", "line", radius_px=6, line_width_px=1)
+            self.add_panel(
+                slide,
+                note_box,
+                "blue_wash",
+                "line",
+                radius_px=6,
+                line_width_px=1,
+                gradient=False,
+            )
             self.add_rect(slide, (note_box[0], note_box[1], 5, note_box[3]), "red")
             self.add_text(
                 slide,
@@ -4895,7 +5108,17 @@ class EditableDeckExporter:
     def add_figure_card(self, slide, box: tuple[float, float, float, float], s: dict, name: str = "figure_card") -> None:
         left, top, width, height = box
         bottom = top + height
-        self.add_panel(slide, box, "white", "line", radius_px=8, line_width_px=1.2, shadow=True, name=name)
+        self.add_panel(
+            slide,
+            box,
+            "white",
+            "line",
+            radius_px=8,
+            line_width_px=1.2,
+            shadow=True,
+            name=name,
+            gradient=False,
+        )
         label_text = str(s.get("image_label", "")).strip()
         caption_text = str(s.get("image_caption", "")).strip()
         badge_text = str(s.get("image_badge", "")).strip()
@@ -4913,18 +5136,20 @@ class EditableDeckExporter:
             self.add_panel(
                 slide,
                 (left + 18, label_top, label_width, label_height),
-                "blue",
-                None,
+                str(self.panel_cfg.get("label_fill", "blue_pale")),
+                "line",
                 radius_px=5,
-                line_width_px=0,
+                line_width_px=1,
                 shadow=True,
+                gradient=False,
+                name="figure_label_fill",
             )
             self.add_text(
                 slide,
                 (left + 30, label_top + 3, label_width - 24, label_height - 6),
                 label_text,
                 chrome_size,
-                "white",
+                str(self.panel_cfg.get("label_text", "blue_dark")),
                 bold=True,
                 family=self.fonts["title"],
                 valign="middle",
@@ -4984,6 +5209,7 @@ class EditableDeckExporter:
                 None,
                 radius_px=0,
                 line_width_px=0,
+                gradient=False,
             )
             self.add_text(
                 slide,

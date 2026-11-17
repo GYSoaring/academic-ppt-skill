@@ -6,11 +6,14 @@
 
 | Token | Value | Use |
 |---|---|---|
-| 北大红 / Beida Red | `#94070A` (RGB 139, 0, 18) | primary rules, chapter labels, emphasis |
-| Dark red | `#6E0507` | header titles and dense text on paper |
-| Mid red | `#A91B20` | secondary marks and navigation |
-| Pale red wash | `#FAF2EF` | card fills and formula strips |
-| Paper | `#FBF9F7` | page ground |
+| 北大红 / Beida Red | `#94070A` | module bars, active navigation, conclusion strips, accent-gradient start |
+| Dark red | `#67070A` | outlines and dense red text |
+| Light red | `#B15A5F` | secondary marks and the lighter endpoint of the accent gradient; white text stays at 4.67:1 |
+| Decorative rose | `#DDB3AD` | divider numerals and decoration only; never body copy |
+| Pale rose | `#F3DDD7` | figure labels and the middle tier of pale cards |
+| Rose wash | `#FBF1ED` | quiet body cards and diagram frames |
+| Paper | `#FDFCFB` | page ground |
+| Line | `#E8D4CE` | hairlines and card borders |
 | Ink | `#1D1B1A` | body text |
 
 The official VI manual also specifies CMYK `C0 M100 Y100 K45` and Pantone `PMS DS 821C / DS 821U` for 北大红. The theme uses the sRGB web value `#94070A` so the PNG renderer, native PPTX, and ordinary projectors agree.
@@ -41,17 +44,27 @@ The fallback is recorded in `fonts` and `pptx_fonts`. If the official fonts are 
 - Canvas: 2048 × 1152 (16:9), `defense` type profile.
 - Cover: editorial composition, official horizontal lockup at upper left, faint official emblem on the right, no header band and no sidebar.
 - Content pages: fixed red header rule, chapter label and title sharing one baseline, five-item left sidebar, footer rule at `layout.footer_y = 1124`.
-- Cards: horizontal red-to-rose gradient header bars, thin warm-gray borders, and pale red card faces that fade toward paper white; no corner marks, icon badges, or raised glass effects.
+- Cards: solid deep-red header bars, thin warm borders, and body cards layered with coordinated white, rose-wash, and pale-rose fills; no broad card fade, corner marks, icon badges, or raised glass effects.
 - Figures: paper figures are mounted whole and unstretched. Keep `image_label`; use `image_badge` only when a second, different tag is needed, otherwise it duplicates the label.
 - Formula pages: one pale formula strip, a condition line, then a measured symbol list. The condition strip and footnote reserve their real glyph height.
 - Closing pages: the three numbered conclusions stay above two bottom cards; the closing line sits below the cards and above the footer. Do not shrink the cards to force extra bullets; cut or merge the copy instead.
 
-The soft gradient is part of the theme contract, not a one-off slide style. `panel.header_tone: "mist"`,
-`header_gradient_from: "blue_pale"`, `header_gradient_mid: "blue_wash"`, and
-`header_gradient_to: "white"` keep the dark module labels legible while making the right edge visibly
-lighter; the separate `header_accent` rule stays in 北大红. `panel.fill_style: "soft_gradient"` fades
-`blue_wash` and `blue_pale` card faces toward white. The PNG renderer and native PPTX exporter must use
-the same horizontal direction.
+Tonal hierarchy, not a broad fade, carries card structure. `panel.fill_style: "flat"` uses the
+coordinated solid ladder: `blue` `#94070A` for module bars, active navigation and conclusion strips;
+`blue_mid` `#B15A5F` for secondary marks; and `blue_pale` / `blue_wash` / white for progressively
+quieter body surfaces. `panel.takeaway_style: "solid"` keeps the conclusion strip flat deep red with
+white text. `header_style: "flat"`, `header_tone: "deep"`, and `header_text: "white"` keep module bars
+solid. `sidebar_active_from: "blue"`, `sidebar_active_text: "white"`, and
+`sidebar_active_outline: "blue_dark"` keep the directory tab dark. `section_number_style: "flat"`
+with `section_number_color: "blue_bright"` keeps divider numerals readable on paper and on the band.
+
+The only permitted gradient is `panel.diagram_focus_style: "accent_fade"` on the highlighted node of a
+`sequence` diagram: `diagram_focus_from: "blue"` at the left and `diagram_focus_to: "blue_mid"` at the
+right. It therefore starts from the exact solid red and becomes lighter toward the right; it never
+starts pale or gets darker. White focus text keeps the full sweep legible. Figure cards, labels,
+tables, formula panels, takeaways, lead strips, cover chrome, and every other diagram surface stay
+flat. Never place a fill gradient on a paper figure, formula glyph, or official brand asset. The PNG
+renderer and native PPTX exporter must share the same endpoints and direction.
 
 ## Usage
 

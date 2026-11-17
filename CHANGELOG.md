@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Restrained tonal hierarchy (2026-11-17)
+
+- Replaced the PKU theme's broad body-card fade with `panel.fill_style: "flat"` and a coordinated solid ladder: `blue` `#94070A`, `blue_mid` `#B15A5F`, `blue_pale` `#F3DDD7`, `blue_wash` `#FBF1ED`, and white. Roles stay distinct without lowering page contrast.
+- Set `panel.takeaway_style: "solid"` with a deep-red `#94070A` conclusion strip and white text in both PNG and native PPTX. The legacy `deep` fade remains available only for compatibility.
+- Restricted the only institutional gradient to `panel.diagram_focus_style: "accent_fade"` on the highlighted node of a `sequence` diagram. It now runs left-to-right from the exact solid red `#94070A` to the lighter coordinated `#B15A5F`, never from dark to darker; all other diagram chrome remains flat.
+- Added explicit regression coverage for the lightening gradient endpoints, solid takeaways, flat diagram peers, flat headers/navigation/tables/metrics/outline/figure chrome, and single-color divider numerals.
+
 ### Semantic relation maps and arrow vocabulary (2026-11-17)
 
 - Added the seventh `concept` diagram kind, `relations`: 2–8 nodes, 1–10 explicit directed edges, and optional `arrangement: free | row | two_row`.
