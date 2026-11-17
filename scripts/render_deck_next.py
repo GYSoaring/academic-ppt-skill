@@ -3600,7 +3600,7 @@ class DeckRenderer:
             )
             draw.rectangle((left, row_top, left + 7, row_top + row_height), fill=self.color("blue") if index else self.color("red"))
             number_font = self.fonts.get(TextStyle(bold=True), 44)
-            number_color = mix_color(self.color("blue_mid"), self.color("white"), 0.35)
+            number_color = self.color("blue_bright")
             draw.text((left + 24, row_top + 24), f"{index + 1:02d}", font=number_font, fill=number_color)
             fits, _ = draw_rich_block(
                 draw,

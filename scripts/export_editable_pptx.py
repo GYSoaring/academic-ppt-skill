@@ -1913,7 +1913,17 @@ class EditableDeckExporter:
         title_lines = s.get("title_lines") or meta.get("title_lines")
         if isinstance(title_lines, list) and title_lines:
             title = "\n".join(str(line) for line in title_lines)
-        title_size, _ = self.measure(title, "display", int(title_width), 270, min(66, self.type_size("cover_title", 86)), 44, max_lines=3, line_ratio=1.10)
+        title_max_size = float(cover.get("title_max_size", 66))
+        title_size, _ = self.measure(
+            title,
+            "display",
+            int(title_width),
+            270,
+            min(title_max_size, self.type_size("cover_title", 86)),
+            44,
+            max_lines=3,
+            line_ratio=1.10,
+        )
         title_top = float(cover.get("title_y", 304))
         self.set_slide_title(
             slide,
@@ -1943,7 +1953,7 @@ class EditableDeckExporter:
             ("指导教师", str(meta.get("advisor") or "—")),
             ("日期", str(meta.get("date") or "—")),
         ]
-        value_size = self.type_size("cover_info", 28)
+        value_size = int(cover.get("info_value_size", self.type_size("cover_info", 28)))
         value_font = self.renderer.fonts.get(TextStyle(), value_size)
         draw = ImageDraw.Draw(Image.new("RGB", (4, 4), (255, 255, 255)))
         info_right = accent_x + title_width
@@ -1961,17 +1971,27 @@ class EditableDeckExporter:
             max_lines=1,
             line_ratio=1.0,
         )
-        label_size = max(22, int(round(value_size * 0.62)))
+        label_size = max(38, int(round(value_size * 0.62)))
+        label_height = 46
+        value_gap = 46
+        department_gap = 112
         info_x = [accent_x, advisor_x, date_x]
         for index, (x, (label, value)) in enumerate(zip(info_x, info_items)):
-            self.add_text(slide, (x, info_y, 310, 30), label, label_size, "muted", line_ratio=1.0)
+            self.add_text(slide, (x, info_y, 310, label_height), label, label_size, "muted", line_ratio=1.0)
             size = advisor_size if index == 1 else value_size
             width = advisor_width if index == 1 else max(160, date_width + 60 if index == 2 else 330)
-            self.add_text(slide, (x, info_y + 30, width, 48), value, size, "ink", line_ratio=1.0)
+            self.add_text(slide, (x, info_y + value_gap, width, 54), value, size, "ink", line_ratio=1.0)
         department = str(meta.get("department") or meta.get("institution") or "").strip()
         if department:
             dept_size = max(22, int(round(value_size * 0.62)))
-            self.add_text(slide, (accent_x, info_y + 88, title_width, 30), department, dept_size, "muted", line_ratio=1.0)
+            self.add_text(
+                slide,
+                (accent_x, info_y + department_gap, title_width, 34),
+                department,
+                dept_size,
+                "muted",
+                line_ratio=1.0,
+            )
         cover_line = str(meta.get("cover_line") or "").strip()
         if cover_line:
             band_y = float(cover.get("bottom_band_y", 1002))
@@ -4082,7 +4102,7 @@ class EditableDeckExporter:
             row_top = body_top + index * (row_height + gap)
             self.add_panel(slide, (left, row_top, right - left, row_height), "blue_wash" if index == 0 else "white", "line", radius_px=8, line_width_px=1.4, shadow=True)
             self.add_rect(slide, (left, row_top, 7, row_height), "red" if index == 0 else "blue")
-            self.add_text(slide, (left + 24, row_top + 20, 80, 44), f"{index + 1:02d}", 44, "blue_pale", bold=True, line_ratio=1.0)
+            self.add_text(slide, (left + 24, row_top + 20, 80, 44), f"{index + 1:02d}", 44, "blue_bright", bold=True, line_ratio=1.0)
             self.add_fit_text(slide, (left + 108, row_top + 16, right - left - 136, row_height - 28), str(point), "body", self.type_size("lead", 27), 17, "ink", max_lines=2, line_ratio=1.1)
         cards = []
         if s.get("boundary") or s.get("boundary_points"):
