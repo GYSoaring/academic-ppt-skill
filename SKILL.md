@@ -25,6 +25,7 @@ Produce a self-contained output directory containing:
 - `pptx_preview/` and `pptx_preview/pptx_render_report.json`: real PowerPoint/LibreOffice render and preview comparison.
 - `agent_brief.md`: portable instructions for Doubao or another model that cannot run these scripts.
 - `pptx_readability.json` / `pptx_readability.md`: optional physical-font and density audit of an arbitrary PPTX.
+- `quality_gate.json` / `quality_gate.md`: final PASS/FAIL gate over fresh render, validation, design, PPTX, preview, speech, and Q&A evidence, with a page-by-page fix queue.
 
 ## Workflow
 
@@ -70,8 +71,43 @@ python scripts/resolve_emblem.py --name "学校名称" --latin "UNIVERSITY NAME"
 python scripts/suggest_figures.py --deck path/to/deck.json --figures path/to/figure_pack/figures.json --out path/to/figure_suggestions --query "vision language action robot"
 ```
 
-12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density.
+12. Inspect the contact sheet and the PowerPoint-rendered preview if PowerPoint is available. Regenerate only pages with overflow, missing assets, or low density. Before declaring the deck done, run the final quality gate below; a deck is not delivered while `quality_gate.md` says `FAIL`.
 
+## Iteration loop: gate the deck, do not vibe-check it
+
+A high-quality deck is the result of staged convergence, not one long generation. Read [references/iteration-playbook.md](references/iteration-playbook.md) before the first full render. Its short version:
+
+| Stage | Do | Gate |
+|---|---|---|
+| 0. Content contract | `deck.json`: claims, evidence, boundaries, navigation mode, type profile | The title chain is understandable without the speech. |
+| 1. Sample | 4–5 pages: cover, outline, densest content page, real-figure page, closing | `quality_gate.py --stage sample` |
+| 2. Full deck | Full PNG render, structure validation, design audit | `--stage deck` |
+| 3. Native | Editable PPTX, native validation, accessibility, readability audit | `--stage pptx` |
+| 4. Delivery | Real PowerPoint render, speech timing, Q&A, portable brief | `--stage final` |
+
+```bash
+python scripts/quality_gate.py \
+  --deck path/to/deck.json \
+  --theme path/to/theme.json \
+  --out path/to/output \
+  --profile defense \
+  --stage deck
+```
+
+The gate reads the existing reports, checks that they are newer than the deck/theme/images/generators, verifies page counts and navigation, classifies warnings, and writes two files:
+
+- `quality_gate.json`: machine-readable checks, issues, and counts.
+- `quality_gate.md`: a page-by-page fix queue plus the next repair action.
+
+Rules that are not optional:
+
+- **One pass, one defect class.** Do not fix overflow, alignment, and PPTX drift in the same pass.
+- **Iterate with `--pages`; deliver with a full render.** Partial renders are not delivery evidence.
+- **Two failed attempts on one page means change the strategy.** Split the page or cut content; never lower the type floor.
+- **Freeze theme and geometry after stage 2.** Any theme, layout, or renderer change invalidates every report.
+- **Stop after two consecutive PASS runs.** Do not chase a design score above 85 with decoration.
+
+For weaker models, the gate is the interface: follow its fix queue, open only the one reference named by the issue, choose an existing layout from [references/layout-catalog.md](references/layout-catalog.md), and do not edit the renderer unless PNG and PPTX are both wrong. This is the loop that brought the 12-page Tsinghua GM-APD showcase to 86/A with zero native-PPTX and zero accessibility errors.
 
 ## Brand and Type Hygiene
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Reproducible iteration gate (2026-11-17)
+
+- Added `scripts/quality_gate.py`, which aggregates render, validation, design, native-PPTX, accessibility, readability and real-render reports into one `quality_gate.json` / `quality_gate.md`.
+- The gate checks report freshness against deck, theme, referenced images and generator scripts; stale reports cannot masquerade as delivery evidence.
+- Added stage gates (`sample`, `deck`, `pptx`, `final`), navigation contract checks, page-count consistency, defense readability enforcement, and a page-by-page fix queue with the next repair action.
+- Added `references/iteration-playbook.md`: five stages, one-defect-per-pass protocol, symptom-to-fix table, freeze/stop rules, and a weak-model mode that forbids inventing layouts or lowering the type floor.
+- Documented the loop in `SKILL.md` and `README.md`; tests cover pass, overflow blocking, advisory `chars_per_line`, stale reports, `font_upgrade`, navigation conflicts and missing PPTX.
+
 ### Tsinghua defense showcase (2026-11-17)
 
 - Added a 12-page Tsinghua-purple defense showcase preview at `docs/tsinghua_gmapd_preview.jpg`, built from the GM-APD array-lidar paper with `meta.navigation_mode: sidebar`.

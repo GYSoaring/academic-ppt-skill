@@ -63,6 +63,7 @@
 - **视觉语言提炼**：固定页眉、左侧小目录、证据卡、流程、公式面板和单点红色强调来自 Image Gen 2.6 成图的版式语法，而不是整页图片复用。
 - **无障碍语义**：真实 slide title placeholder、图片语义 alt、decorative 标记、表格 header row、阅读顺序和核心文档属性。
 - **真实成品质检**：`render_pptx_preview.py` 通过 PowerPoint COM 或 LibreOffice 渲染 PPTX，并与 PIL 预览做差异比较，避免“预览能过、交付跑版”。
+- **可执行质量门禁**：`quality_gate.py` 汇总渲染、结构、设计、PPTX、无障碍、字号和实机预览报告，校验报告新鲜度与页数一致性，输出按页修复队列；`FAIL` 时不允许交付。
 - **真实缺图提示**：没有论文原图时显示明确提示或改用文字结构，不伪造直方图、目标框、噪声曲线来凑版面。
 - **答辩稿与备注**：按页生成 speaker notes 与连贯讲述稿，并检查时长和证据口径。
 - **主题可替换**：内置通用学术蓝与院校示例主题，学校名称、校标、颜色和字体全部配置化，不写死在渲染器里。
@@ -286,6 +287,28 @@ outputs/<project>/
 - 演讲者备注
 
 图片资产、纸张纹理、院校校标和背景母题仍以图片形式嵌入，这是视觉素材边界，不是整页截图。
+
+## Quality Gate
+
+质量不是靠“再生成一版”碰出来的。每个阶段都要有可复核的报告，并且报告必须比 deck、主题、图片和生成脚本新；旧报告不算证据。
+
+```bash
+python scripts/quality_gate.py \
+  --deck outputs/project/deck.json \
+  --theme assets/themes/tsinghua_purple/theme.json \
+  --out outputs/project \
+  --profile defense \
+  --stage final
+```
+
+`--stage` 按 `sample → deck → pptx → final` 逐步收紧：样板阶段只查渲染和联系表；全套阶段加结构校验与设计体检；PPTX 阶段加原生对象、无障碍和答辩字号；最终阶段加 PowerPoint 实机渲染、讲稿时长和 Q&A。
+
+输出：
+
+- `quality_gate.json`：机器可读的检查、问题与计数。
+- `quality_gate.md`：按页修复队列、下一步动作和停止条件。
+
+规则很简单：一轮只修一类问题；迭代时可以只重渲染问题页，但交付前必须全量渲染；同一页两次修不好就拆页或删内容，不再降字号；主题和几何在阶段 2 后冻结；连续两次 PASS 就停手。弱模型按修复队列执行、只读对应的一篇参考、不发明新版式；完整方法见 [`references/iteration-playbook.md`](references/iteration-playbook.md)。
 
 ## Testing
 
